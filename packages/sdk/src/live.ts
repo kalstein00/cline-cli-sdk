@@ -1,6 +1,7 @@
 import childProcess from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { randomUUID, createHash } from "node:crypto";
+import { deliveryState, type DurableResponse } from "./delivery.js";
 import {
   createReducer,
   SdkError,
@@ -74,6 +75,7 @@ export interface LiveClient {
   disconnect(): void;
   listManagedExecutions(): Promise<ManagedExecution[]>;
   attach(executionId: string): Promise<Snapshot>;
+  reconfirmDelivery(): Promise<Snapshot>;
   start(request: StartRequest): Promise<Snapshot>;
   resume(request: ResumeRequest): Promise<Snapshot>;
   refresh(): Promise<Snapshot>;
@@ -115,6 +117,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let phase: any = null;
   let pendingPhase: any = null;
   let phaseSupported = false;
+  let reservationSupported = false;
   const reducer = createReducer({
     mode: "replay",
     interactionIdentity(kind, toolId, prompt, choices) {
@@ -374,6 +377,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         reducer.setContext({ sessionId: result.sessionId });
       }
       phaseSupported = !!result.management?.phaseSupported;
+      reservationSupported = !!result.management?.responseReservation;
       phase = result.phase ?? phase;
       pendingPhase = null;
       for (const raw of result.screen ? [] : (result.observations ?? []))
@@ -458,6 +462,69 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         });
       }
       state = { ...reducer.snapshot(), mode: "live", connection: "connected" };
+      if (!activeRequest) {
+        const receipts = remoteRequests.filter(
+          (receipt): receipt is DurableResponse =>
+            receipt.binding?.executionId === managed!.executionId &&
+            receipt.binding?.sessionId === state.sessionId &&
+            typeof receipt.binding?.answerDigest === "string",
+        );
+        const receipt =
+          receipts
+            .filter(
+              (receipt) =>
+                !receipt.resolution &&
+                (receipt.state === "queued" || receipt.state === "written"),
+            )
+            .at(-1) ?? receipts.at(-1);
+        if (receipt) {
+          const resolved = deliveryState(
+            receipt,
+            state,
+            reducer.toolResult(receipt.binding.toolId),
+            processEvidence,
+          );
+          const next = {
+            requestId: receipt.requestId,
+            sessionId: receipt.binding.sessionId,
+            executionId: receipt.binding.executionId,
+            interactionId: receipt.binding.interactionId,
+            revision: state.revision,
+            state: resolved,
+          };
+          if (!receipt.resolution && resolved !== "delivery-unknown") {
+            await helper({
+              action: "settle-response",
+              root: managed!.remoteRoot,
+              executionId: managed!.executionId,
+              requestId: receipt.requestId,
+              resolution: resolved,
+            });
+            receipt.resolution = resolved as "delivered" | "not-submitted";
+          }
+          if (
+            !state.response ||
+            [
+              "requestId",
+              "sessionId",
+              "executionId",
+              "interactionId",
+              "state",
+            ].some(
+              (key) =>
+                state.response![key as keyof ResponseResult] !==
+                next[key as keyof ResponseResult],
+            )
+          ) {
+            reducer.setResponse(next);
+            state = {
+              ...reducer.snapshot(),
+              mode: "live",
+              connection: "connected",
+            };
+          }
+        }
+      }
       return snapshot();
     })()
       .catch((error) => {
@@ -851,6 +918,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       return promise;
     },
     refresh,
+    reconfirmDelivery: refresh,
     snapshot,
     subscribe(listener) {
       listeners.add(listener);
@@ -897,7 +965,44 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             "request-conflict",
             "This request ID is already bound to a different response.",
           );
+        if (
+          state.response?.requestId === request.requestId &&
+          ["delivered", "not-submitted"].includes(state.response.state)
+        )
+          return structuredClone(state.response);
         return existing.promise;
+      }
+      const durable = remoteRequests.find(
+        (receipt) => receipt.requestId === request.requestId && receipt.binding,
+      );
+      if (durable) {
+        const expected = durable.binding;
+        if (
+          expected.sessionId !== request.sessionId ||
+          expected.executionId !== request.executionId ||
+          expected.interactionId !== request.interactionId ||
+          expected.revision !== request.revision ||
+          expected.answerDigest !==
+            createHash("sha256").update(request.answer).digest("hex")
+        )
+          throw new SdkError(
+            "request-conflict",
+            "This durable request ID is already bound to another response.",
+          );
+        const resolved = deliveryState(
+          durable,
+          state,
+          reducer.toolResult(expected.toolId),
+          processEvidence,
+        );
+        return {
+          requestId: request.requestId,
+          sessionId: expected.sessionId,
+          executionId: expected.executionId,
+          interactionId: expected.interactionId,
+          revision: state.revision,
+          state: resolved,
+        };
       }
       if (activeRequest || state.response?.state === "delivery-unknown")
         throw new SdkError(
@@ -913,6 +1018,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       activeRequest = request.requestId;
       const promise = (async () => {
         let sent = false;
+        let writeAttempted = false;
         try {
           await refresh();
           validateResponse(request);
@@ -956,6 +1062,24 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             historyHash,
             processIdentity: processEvidence.identity,
           };
+          if (reservationSupported) {
+            const reserved = await helper({
+              ...envelope,
+              modalHash,
+              action: "reserve-response",
+            });
+            if (reserved.state === "rejected")
+              throw new SdkError(
+                "input-rejected",
+                reserved.reason ??
+                  "Response reservation was rejected before input.",
+              );
+            if (reserved.state !== "reserved")
+              throw new SdkError(
+                "response-already-reserved",
+                "Reconcile the earlier response request before writing.",
+              );
+          }
           let anyWritten = false;
           if (custom && terminalMode === "tui") {
             const deadline = Date.now() + (config.responseTimeoutMs ?? 30000);
@@ -976,6 +1100,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                   "input-uncertain",
                   "The current TUI destination is no longer confirmed.",
                 );
+              writeAttempted = true;
               const accepted = await helper({
                 ...envelope,
                 inputType,
@@ -1088,6 +1213,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                 createHash("sha256").update(request.answer).digest("hex"),
             );
           } else {
+            writeAttempted = true;
             const accepted = await helper({
               ...envelope,
               modalHash,
@@ -1174,7 +1300,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
               interactionId: request.interactionId,
               revision: state.revision,
               state:
-                error instanceof SdkError && error.code === "input-rejected"
+                (reservationSupported && !writeAttempted) ||
+                (error instanceof SdkError && error.code === "input-rejected")
                   ? "not-submitted"
                   : "delivery-unknown",
             });

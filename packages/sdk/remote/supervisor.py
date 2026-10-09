@@ -354,6 +354,41 @@ def handle(request):
                     id=f"{meta['executionId']}:phase:{epoch}:{fingerprint[:16]}")
             save(run / 'phase.json', phase)
         return dict(phase=phase)
+    if action == 'settle-response':
+        resolution = request.get('resolution')
+        if resolution not in ('delivered', 'not-submitted'):
+            raise ValueError('Invalid response resolution')
+        with request_ledger(run) as ledger:
+            record = ledger.get(request.get('requestId'))
+            if not record:
+                raise ValueError('Unknown response request')
+            if resolution == 'not-submitted' and record['state'] not in ('reserved', 'rejected'):
+                raise ValueError('A possibly written input cannot be marked unsubmitted')
+            if resolution == 'delivered' and record['state'] not in ('queued', 'written'):
+                raise ValueError('An unsubmitted input cannot be marked delivered')
+            if resolution == 'not-submitted' and record['state'] == 'reserved':
+                # Cancel under the same lock used by late enqueue attempts.
+                record.update(state='rejected', reason='reservation-cancelled')
+            record.update(resolution=resolution, resolvedAt=now())
+        return dict(settled=True)
+    if action == 'reserve-response':
+        request_id = request.get('requestId', '')
+        if not request_id or len(request_id) > 128 or not all(c.isalnum() or c in '._:-' for c in request_id):
+            raise ValueError('Invalid response request identity')
+        binding = {key: request.get(key) for key in ('sessionId', 'executionId', 'interactionId', 'revision', 'toolId', 'kind', 'answerDigest')}
+        with request_ledger(run) as ledger:
+            prior = ledger.get(request_id)
+            if prior:
+                if prior['binding'] != binding:
+                    raise ValueError('Request identity conflict')
+                return dict(requestId=request_id, state=prior['state'], reason=prior.get('reason'))
+            if len(ledger) >= 256:
+                raise ValueError('Response request limit reached')
+            buffer = json.loads((run / 'buffer.json').read_text())
+            reason = input_binding(run, meta, request, buffer['cursor'])
+            record = dict(binding=binding, state='rejected' if reason else 'reserved', reason=reason, createdAt=now())
+            ledger[request_id] = record
+            return dict(requestId=request_id, state=record['state'], reason=reason)
     if action == 'respond':
         request_id = request.get('requestId', '')
         if not request_id or len(request_id) > 128 or not all(c.isalnum() or c in '._:-' for c in request_id):
@@ -389,20 +424,24 @@ def handle(request):
             if prior:
                 if prior['binding'] != binding:
                     raise ValueError('Request identity conflict')
-                if step_index is None:
+                if step_index is None and prior['state'] != 'reserved':
                     return dict(requestId=request_id, state=prior['state'], reason=prior.get('reason'))
-                previous = prior.get('steps', {}).get(str(step_index))
+                if prior.get('resolution'):
+                    return dict(requestId=request_id, state=prior['state'], reason='request-already-resolved')
+                previous = prior.get('steps', {}).get(str(step_index)) if step_index is not None else None
                 if previous:
                     if previous['digest'] != hashlib.sha256(payload).hexdigest() or previous['inputType'] != input_type:
                         raise ValueError('Response step identity conflict')
                     return dict(requestId=request_id, state=previous['state'], reason=previous.get('reason'))
                 steps = prior.get('steps', {})
-                if step_index != len(steps) or not steps or steps[str(step_index - 1)]['state'] != 'written' or steps[str(step_index - 1)]['inputType'] in ('tui-submit', 'composer-submit'):
+                if step_index is not None and not (step_index == 0 and not steps and prior['state'] == 'reserved') and (step_index != len(steps) or not steps or steps[str(step_index - 1)]['state'] != 'written' or steps[str(step_index - 1)]['inputType'] in ('tui-submit', 'composer-submit')):
                     raise ValueError('Response continuation is not confirmed')
             if not prior and len(ledger) >= 256:
                 raise ValueError('Response request limit reached')
             phase = ('sessionId', 'executionId', 'toolId', 'kind')
-            if not prior and any(value['state'] in ('queued', 'written') and all(value['binding'].get(key) == binding.get(key) for key in phase) for value in ledger.values()):
+            if any(key != request_id and value['state'] in ('queued', 'written') and all(value['binding'].get(field) == binding.get(field) for field in phase) for key,value in ledger.items()):
+                if prior and prior['state'] == 'reserved':
+                    prior.update(state='rejected', reason='interaction-already-submitted')
                 return dict(requestId=request_id, state='rejected', reason='interaction-already-submitted')
             buffer = json.loads((run / 'buffer.json').read_text())
             reason = input_binding(run, meta, request, buffer['cursor'])
@@ -411,9 +450,10 @@ def handle(request):
                 parent = prior or dict(binding=binding, state='queued', createdAt=now(), steps={})
                 ledger[request_id] = parent
                 record = dict(state='queued', digest=hashlib.sha256(payload).hexdigest(), inputType=input_type, createdAt=now())
-                parent['steps'][str(step_index)] = record
+                parent.setdefault('steps', {})[str(step_index)] = record
+                parent['state'] = 'queued'
             else:
-                record = dict(binding=binding, state='queued', createdAt=now())
+                record = dict(binding=binding, state='queued', createdAt=prior.get('createdAt') if prior else now())
                 ledger[request_id] = record
             if reason:
                 record.update(state='rejected', reason=reason)
@@ -481,6 +521,8 @@ def handle(request):
             requests = json.loads((run / 'requests.json').read_text())
         except FileNotFoundError:
             requests = {}
+        if not isinstance(requests, dict) or any(not isinstance(value, dict) or value.get('state') not in ('reserved', 'queued', 'written', 'rejected') or not isinstance(value.get('binding'), dict) or value.get('resolution') not in (None, 'delivered', 'not-submitted') for value in requests.values()):
+            raise ValueError('Response control metadata is incomplete; inputs remain blocked')
         try:
             stop_result = json.loads((run / 'stop-result.json').read_text())
         except FileNotFoundError:
@@ -506,8 +548,8 @@ def handle(request):
                                  children=[value for value in ownership.get('owned', []) if value != expected], trackingError=ownership.get('trackingError'),
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
-                    requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
-                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), bootId=meta['bootId'], phaseSupported=True))
+                    requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
+                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), bootId=meta['bootId'], phaseSupported=True, responseReservation=True))
     raise ValueError('Unsupported supervisor action')
 
 if len(sys.argv) >= 3 and sys.argv[1] == '--serve':
