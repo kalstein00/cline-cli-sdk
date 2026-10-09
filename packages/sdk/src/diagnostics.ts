@@ -61,6 +61,14 @@ export function compareDiagnostic(
   events: SdkEvent[],
   snapshot: Snapshot,
 ) {
+  if (bundle.metadata.export?.replayImpact?.comparison === "unavailable")
+    return {
+      matches: false,
+      eventDifferences: null,
+      snapshotMatches: null,
+      available: false,
+      reason: bundle.metadata.export.replayImpact.reason,
+    };
   let eventDifferences = 0;
   for (
     let i = 0;
@@ -379,16 +387,31 @@ export async function readDiagnostic(path: string): Promise<DiagnosticBundle> {
   metadata.status.bytes =
     Buffer.byteLength(content) + (await stat(manifestPath)).size;
   let truncated = !!metadata.status.truncated || !metadata.stoppedAt;
-  for (const line of content.split("\n")) {
-    if (!line) continue;
+  const lines = content.split("\n").filter(Boolean);
+  for (const [index, line] of lines.entries()) {
     let entry;
     try {
       entry = JSON.parse(line);
     } catch {
+      if (index !== lines.length - 1)
+        throw new SdkError(
+          "diagnostic-hash-mismatch",
+          "Malformed content occurs before the recording tail.",
+        );
       truncated = true;
       break;
     }
-    if (entry.sha256 !== sha(JSON.stringify(entry.observation)))
+    if (
+      entry.sha256 !== sha(JSON.stringify(entry.observation)) ||
+      (entry.integritySha256 &&
+        entry.integritySha256 !==
+          sha(
+            JSON.stringify({
+              observation: entry.observation,
+              comparison: entry.comparison,
+            }),
+          ))
+    )
       throw new SdkError(
         "diagnostic-hash-mismatch",
         "A raw observation changed after collection.",
@@ -396,6 +419,22 @@ export async function readDiagnostic(path: string): Promise<DiagnosticBundle> {
     observations.push(entry.observation);
     events.push(...entry.comparison.events);
     lastSnapshot = entry.comparison.snapshot;
+  }
+  if (
+    metadata.export?.journalSha256 &&
+    metadata.export.journalSha256 !== sha(content)
+  ) {
+    if (
+      (truncated ||
+        Buffer.byteLength(content) < metadata.export.journalBytes) &&
+      observations.length < metadata.export.observations
+    )
+      truncated = true;
+    else
+      throw new SdkError(
+        "diagnostic-hash-mismatch",
+        "Exported recording or comparison content changed.",
+      );
   }
   return {
     recording: {

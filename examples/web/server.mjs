@@ -4,6 +4,10 @@ import {
   createClient,
   readDiagnostic,
   compareDiagnostic,
+  reviewDiagnostic,
+  inspectDiagnostic,
+  previewDiagnosticExport,
+  exportDiagnostic,
 } from "@cline-cli-sdk/sdk";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -83,6 +87,10 @@ const server = createServer(async (request, response) => {
         "/api/diagnostics/start",
         "/api/diagnostics/stop",
         "/api/diagnostics/replay",
+        "/api/diagnostics/review",
+        "/api/diagnostics/content",
+        "/api/diagnostics/preview-export",
+        "/api/diagnostics/export",
         "/api/reconfirm",
       ].includes(url.pathname)
     ) {
@@ -105,6 +113,28 @@ const server = createServer(async (request, response) => {
         }
       }
       const input = JSON.parse(body);
+      if (url.pathname === "/api/diagnostics/review") {
+        json(response, 200, { review: await reviewDiagnostic(input.path) });
+        return;
+      }
+      if (url.pathname === "/api/diagnostics/content") {
+        json(response, 200, {
+          page: await inspectDiagnostic(input.path, input),
+        });
+        return;
+      }
+      if (url.pathname === "/api/diagnostics/preview-export") {
+        json(response, 200, {
+          preview: await previewDiagnosticExport(input.path, input),
+        });
+        return;
+      }
+      if (url.pathname === "/api/diagnostics/export") {
+        json(response, 200, {
+          exported: await exportDiagnostic(input.path, input),
+        });
+        return;
+      }
       if (
         !client.capabilities().live &&
         [
@@ -174,6 +204,21 @@ const server = createServer(async (request, response) => {
       }
       if (url.pathname === "/api/diagnostics/replay") {
         lastDiagnostics = (await client.stopDiagnostics?.()) ?? lastDiagnostics;
+        const review = await reviewDiagnostic(input.path);
+        if (review.replay.state === "blocked") {
+          diagnosticComparison = {
+            matches: false,
+            available: false,
+            reason: review.replay.reason,
+            integrity: review.integrity.state,
+          };
+          client.close();
+          client = createClient({ mode: "replay" });
+          watch();
+          throw Object.assign(new Error(review.replay.reason), {
+            code: "diagnostic-hash-mismatch",
+          });
+        }
         const bundle = await readDiagnostic(input.path);
         lastDiagnostics = { ...bundle.metadata.status, path: input.path };
         client.close();
@@ -189,6 +234,8 @@ const server = createServer(async (request, response) => {
           ...compareDiagnostic(bundle, events, client.snapshot()),
           truncated: bundle.recording.provenance.truncated,
           observations: bundle.recording.observations.length,
+          replayImpact: bundle.metadata.export?.replayImpact ?? null,
+          integrity: review.integrity.state,
         };
         json(response, 200, {
           snapshot: client.snapshot(),
