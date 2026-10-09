@@ -78,3 +78,9 @@ Windows → SSH 별칭 `wsl` → Ubuntu-24.04를 사용했다. SDK preflight 결
 WSL SSH 별칭의 ProxyCommand는 WSL 배포판을 실행하므로 client-loss 시험 동안 배포판이 종료되지 않게 별도의 테스트 소유 keepalive가 필요하다. 이번 실측은 전용 `wsl.exe ... sleep 3600` 프로세스가 배포판을 유지하는 조건에서 수행했으며 작업 완료 후 해당 keepalive와 테스트 인증 사본만 정리했다. WSL 자체 종료·실행 중 질문 왕복·자식 명령 중단·재개·회사망 결과는 이 티켓의 성공으로 세지 않는다.
 
 현재 선택·승인 응답은 [interactions.md](interactions.md), 자유 응답과 TUI 입력은 [text.md](text.md)를 따른다. 위 수용 기록은 #3 단계의 근거다.
+
+## Nullable 응답 프레임 회귀
+
+일반 TUI 선택은 inputType을 생략한다. helper가 FIFO 프레임에 이를 JSON null로 기록하므로 소비 supervisor는 null도 일반 modal witness로 검사해야 한다. composer- 문자열에만 composer witness를 선택한다. null에서 startswith를 호출해 supervisor가 종료되던 문제는 문자열 여부 검사로 수정했다. 입력의 세션·프로세스·history·modal binding과 원장/중복 정책은 그대로 적용한다.
+
+Linux에서 `python3 tests/remote-input-boundary.py`를 실행한다(Python 3.9+, tmux, pidfd 필요). 시험은 임시 전용 tmux socket, 통제 Python CLI, 실제 helper stdin→FIFO→PTY 소비를 사용하며 모델·인증·회사 CLI를 호출하지 않는다. 누락/null/일반 choice와 composer-text 4경우의 written receipt와 CLI/supervisor 생존을 검증한다. 전용 socket은 finally에서 정리한다. Windows→WSL Ubuntu 24.04에서 2 tests/4 cases가 통과했고 Node 공개 SDK 66/66도 통과했다. 회사 CLI 호환성 결과가 아니다.

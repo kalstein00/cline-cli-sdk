@@ -91,7 +91,8 @@ def input_binding(run, meta, request, cursor):
     if request.get('executionId') != meta['executionId'] or not expected or request.get('processIdentity') != expected or identity(expected['pid']) != expected:
         return 'process-identity-changed'
     if meta.get('terminalMode') == 'tui':
-        witness = composer_witness(meta) if request.get('inputType', '').startswith('composer-') else modal_witness(meta)
+        input_type = request.get('inputType')
+        witness = composer_witness(meta) if isinstance(input_type, str) and input_type.startswith('composer-') else modal_witness(meta)
         if not witness or not request.get('modalHash') or request['modalHash'] != witness['sha256']:
             return 'terminal-modal-changed'
     elif request.get('expectedCursor') != cursor:
