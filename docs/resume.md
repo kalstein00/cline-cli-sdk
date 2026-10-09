@@ -59,3 +59,11 @@ Node 예제는 정상 readline 완료와 TUI 질문 대기 중 명시적 중단�
 두 resume 모두 복원 composer→echo→별도 Enter→새 stored user message로 delivered를 확인했다. 이전 메시지 수 2→3 및 1→2로 후속 user message 추가를 확인했다. TUI가 idle로 남는 상태를 자연 completed로 위장하지 않았다. 두 후속 TUI 실행은 SDK stop confirmed로 정리했고 대화는 보존했다.
 
 `fixtures/resume`에는 실제 기존 composer restore/echo와 이번 정상·중단 재개 원시 PTY/최종 history를 넣었다. 최종 history는 trace 뒤에 실제 읽은 것으로, 중간 history를 만들어 넣지 않았다. provenance의 source hash·선택/잘림을 보존했다. 공개 replay에서 이전 메시지·후속 user text·숫자/한글 결과를 확인한다. 별도 OpenSSH 경계 fault injection은 CLI/자식/중단 불명, 중복 resume, write 뒤 echo 누락, 오래된 응답을 검증한다. fixture/fault 시험을 회사 환경 재시험으로 주장하지 않는다.
+
+2026-10-09 실제 Chrome 소비 화면에서도 SID `1791548975104_h9tkp`를 유지했다. readline 정상 완료 실행 `run-b41c0b72-68c6-4b9b-98ec-bf51aca589a4`에서 `run-a711a727-bdb0-491f-8c8b-47690d8912b6`로 재개해 숫자 선행 19바이트 응답을 전달했다. 이 실행을 SDK stop confirmed·childrenVerified로 종료한 뒤 `run-ecd055b1-70c8-4b8e-986e-179437338792`로 다시 재개해 한글·emoji 34바이트 응답을 전달했다. 이전 숫자 응답과 두 후속 user message가 같은 대화에 남았으며 두 `RESUME_RESULT`를 화면과 독립 원격 history 읽기로 확인했다.
+
+[정상 완료 대화의 재개와 명시적 중단 화면](evidence/ticket-9-stopped.jpg), [중단 대화의 재개와 한글 결과 화면](evidence/ticket-9-resumed-answers.jpg)을 보존했다. 두 후속 user message ID는 `e94d7400-ba8b-42e1-b617-802d589d308e`, `01cdf248-83f5-4040-b8b7-f0dc25acedde`였다. 숫자 응답 SHA256은 `e437cb3fd057de37680d6d12650c2d9fffd420ade2e879a5fe875ebeccb1bedf`, 한글 응답은 `601f0ede11f000d994c98d5c9928a3961e391f24d27b44b404848793b368a163`로 실제 tool_result의 UTF-8 원문과 일치했다. 최종 idle TUI도 SDK stop confirmed·childrenVerified로 정리했다. 시험용 provider 사본·해당 서버·소유 keepalive만 제거했으며 원본 provider와 원격 대화·control trace는 보존했다.
+
+#11 진단 통합 후 resume는 schema 2 `execution-action` requested/input/receipt/fault와 새 실행 `initialize`를 같은 reducer 경로로 전달한다. 원시 composer pane·각 입력 바이트·단계·원격 message ID/digest 영수증을 기록하며, normalized resume snapshot을 재생 입력으로 사용하지 않는다. 공개 API fault 시험의 실제 restore/echo/history fixture로 수집한 진단을 SSH 없이 재생해 delivered 상태와 이벤트·최종 상태 0차이를 검증한다. 이 통합 검증은 fixture 기반이며 앞선 실제 Windows/WSL/브라우저 증거와 구분한다.
+
+기존 #11 실제 기록도 새 SDK에서 읽고 재생할 수 있다. 다만 그 기록의 이전 비교 sidecar는 wrapper를 포함한 user text를 기준으로 만들어져 현재 해석과 user 메시지 이벤트 한 곳이 다르며, 새 composer/resume 필드도 추가되었다. 이 차이를 원시 recording 손상이나 완전 일치로 주장하지 않는다.
