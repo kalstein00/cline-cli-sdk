@@ -3,6 +3,7 @@ import { createLiveClient, type LiveClient, type LiveOptions } from "./live.js";
 export { SdkError } from "./reducer.js";
 export type {CliFeatures, FeatureCapability, DeclaredFeatures} from "./capabilities.js";
 export type {JsonOutputState} from "./json-output.js";
+export type {ResultFormat,ResultRequest,StructuredResult} from "./structured-result.js";
 export { readDiagnostic, compareDiagnostic } from "./diagnostics.js";
 export {
   reviewDiagnostic,

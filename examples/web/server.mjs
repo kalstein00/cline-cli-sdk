@@ -283,6 +283,7 @@ const server = createServer(async (request, response) => {
           prompt: input.prompt,
           terminalMode: input.outputMode === "json" ? "readline" : input.terminalMode || "tui",
           outputMode: input.outputMode || "terminal",
+          resultFormat: input.resultFormat,
           dataDir: input.dataDir || undefined,
           retryLimit:
             input.retryLimit === undefined

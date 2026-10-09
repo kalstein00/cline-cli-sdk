@@ -177,6 +177,8 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
         <label>출력 모드<select id="outputMode"><option value="terminal">터미널 관측</option><option value="json" disabled>JSON 관측 · 어댑터 지원 확인 필요</option></select></label>
         <pre id="features">기능 지원 근거를 확인하려면 연결하세요.</pre>
         <pre id="jsonOutput" hidden></pre>
+        <label><input id="jsonResult" type="checkbox" />최종 답변을 SDK JSON 결과로 받기</label>
+        <pre id="structuredResult" hidden></pre>
         <label
           >입력 모드<select id="terminalMode">
             <option value="tui">TUI · 자유 응답</option>
@@ -386,6 +388,8 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
         s = current;
       if (capabilities) capability = capabilities;
       element("jsonOutput").hidden = !s.jsonOutput;
+      element("structuredResult").hidden = !s.result;
+      element("structuredResult").textContent = JSON.stringify(s.result ?? {},null,2);
       element("jsonOutput").textContent = JSON.stringify(s.jsonOutput ?? {},null,2);
       element("features").textContent = JSON.stringify(capability.features ?? {}, null, 2);
       element("outputMode").querySelector('[value="json"]').disabled = !capability.outputModes?.json;
@@ -927,6 +931,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
       );
       if (element("retryLimit").value)
         body.retryLimit = Number(element("retryLimit").value);
+      if(element("jsonResult").checked) body.resultFormat={type:"json",requestId:crypto.randomUUID()};
       invoke("start", body);
     };
     element("outputMode").onchange = () => {

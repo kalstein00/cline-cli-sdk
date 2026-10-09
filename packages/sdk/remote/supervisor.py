@@ -301,7 +301,7 @@ def handle(request):
                 executions.append(dict(executionId=candidate.name, remoteRoot=str(root), sessionId=sid,
                     alive=bool(same_boot and expected and actual == expected),
                     identityConfirmed=bool(same_boot and expected and (actual is None or actual == expected)),
-                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), cliHash=meta.get('cliHash')))
+                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), cliHash=meta.get('cliHash'), resultRequest=meta.get('resultRequest')))
             except (OSError, ValueError, KeyError, TypeError):
                 continue
         return dict(executions=executions)
@@ -352,7 +352,7 @@ def handle(request):
                 raise ValueError('Retry limit must be an integer from 1 to 10')
             argv[-1:-1] = ['--retries', str(request['retryLimit'])]
         meta = dict(schemaVersion=1, owner='cline-cli-sdk', executionId=run_id, sessionId=resume['sessionId'] if resume else None, resume=resume, cwd=str(cwd), dataDir=str(data), priorSessions=prior,
-                    cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, outputMode=output_mode, terminal=dict(rows=40, cols=120),
+                    cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, outputMode=output_mode, resultRequest=request.get('resultRequest'), terminal=dict(rows=40, cols=120),
                     bootId=boot_id(), tmuxSocket=socket, tmuxSession=run_id, identity=None, exitCode=None)
         # Prompt is launch-only: don't retain it in minimal control metadata after startup.
         save(run / 'meta.json', meta)
@@ -360,7 +360,7 @@ def handle(request):
         result = subprocess.run(['tmux', '-S', socket, 'new-session', '-d', '-s', run_id, '-x', '120', '-y', '40', command], capture_output=True, text=True)
         if result.returncode:
             raise ValueError('Unable to start task-owned tmux session: ' + result.stderr.strip())
-        return dict(executionId=run_id, remoteRoot=str(root), sessionId=meta['sessionId'], terminalMode=mode, outputMode=output_mode)
+        return dict(executionId=run_id, remoteRoot=str(root), sessionId=meta['sessionId'], terminalMode=mode, outputMode=output_mode, resultRequest=meta.get('resultRequest'))
     run = root / request['executionId']
     if run.parent != root or not request['executionId'].startswith('run-'):
         raise ValueError('Invalid execution path')

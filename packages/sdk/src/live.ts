@@ -4,6 +4,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
 import { inputChunks } from "./input-chunks.js";
 import {cliFeatures, type CliFeatures, type DeclaredFeatures} from "./capabilities.js";
+import {prepareResult,type ResultFormat,type ResultRequest} from "./structured-result.js";
 import {
   createDiagnosticCollector,
   type DiagnosticOptions,
@@ -57,6 +58,7 @@ export interface PreflightReport {
   };
 }
 export interface StartRequest {
+  resultFormat?:ResultFormat;
   outputMode?: "terminal" | "json";
   /** readline keeps its numeric-prefix limitation; TUI supports verified custom input. */
   terminalMode?: "readline" | "tui";
@@ -66,11 +68,13 @@ export interface StartRequest {
   retryLimit?: number;
 }
 export interface ResumeRequest {
+  resultFormat?:ResultFormat;
   executionId: string;
   requestId: string;
   prompt: string;
 }
 export interface ManagedExecution {
+  resultRequest?:ResultRequest;
   outputMode?: "terminal" | "json";
   terminalMode?: "readline" | "tui";
   executionId: string;
@@ -883,6 +887,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           sessionId: found.sessionId,
           executionId,
           cliHash: found.cliHash ?? report.cliHash,
+          resultRequest:found.resultRequest ?? undefined,
         });
       }
       fullSynchronization = true;
@@ -926,6 +931,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "An absolute remote directory and bounded text prompt are required.",
         );
       const executionId = "run-" + randomUUID();
+      const resultRequest=prepareResult(request.resultFormat);
       terminalMode = request.terminalMode ?? "readline";
       outputMode = request.outputMode ?? "terminal";
       // Reserve identity before the first await. An uncertain launch is never retried.
@@ -943,6 +949,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           cliPath: report.cliPath,
           cliHash: report.cliHash,
           ...request,
+          resultRequest,
+          prompt:resultRequest ? request.prompt+"\n\nReturn your final answer as one JSON value without Markdown fences." : request.prompt,
         });
       } catch (error) {
         reducer.binding({
@@ -982,6 +990,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         sessionId: null,
         executionId: managed!.executionId,
         cliHash: report.cliHash,
+        resultRequest,
       });
       state = { ...reducer.snapshot(), mode: "live" };
       return snapshot();

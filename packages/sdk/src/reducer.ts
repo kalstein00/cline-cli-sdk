@@ -3,6 +3,7 @@ import unicode11 from "@xterm/addon-unicode11";
 import { createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
 import {jsonOutputParser, type JsonOutputState} from "./json-output.js";
+import {prepareResult,structuredResult,type ResultRequest,type StructuredResult} from "./structured-result.js";
 export type MessageContent = {type:"text";text:string} | {type:"thinking";thinking:string} | {type:"redacted_thinking"};
 export interface Message {
   id: string;
@@ -10,6 +11,8 @@ export interface Message {
   text: string;
   /** Ordered exposed content. Optional for existing consumer message literals. */
   content?: MessageContent[];
+  hasToolCalls?:boolean;
+  isToolResult?:boolean;
 }
 export interface HistoryObservation {
   kind: "history";
@@ -150,6 +153,7 @@ export interface ResponseFaultObservation {
   beforeWrite?: boolean;
 }
 export interface InitializeObservation {
+  resultRequest?:ResultRequest;
   kind: "initialize";
   seq: number;
   observedAt: string;
@@ -196,6 +200,7 @@ export interface ConnectionObservation {
   reason?: string;
 }
 export interface Recording {
+  resultRequest?:ResultRequest;
   schemaVersion: 1 | 2;
   cli: { name: string; version: string; profile: string };
   terminal: { rows: number; cols: number };
@@ -246,6 +251,7 @@ export interface ResponseResult {
   revision: number;
 }
 export interface Snapshot {
+  result?:StructuredResult;
   jsonOutput?:JsonOutputState;
   mode: "replay" | "live";
   sessionId: string | null;
@@ -274,6 +280,7 @@ export interface SdkEvent {
     | "message.upsert"
     | "interaction.changed"
     | "state.changed"
+    | "result.changed"
     | "response.changed";
   sessionId: string | null;
   executionId: string | null;
@@ -512,6 +519,7 @@ export function createReducer(options: {
     })();
   let pendingTools: { id: string; name: string; input: any }[] = [];
   let jsonParser=jsonOutputParser();
+  let resultRequest:ResultRequest|undefined;
   let results = new Map<string, { digest: string; rejected: boolean }>();
   let responseBinding: ResponseInputObservation["binding"] | null = null;
   let resumeDigest: string | null = null;
@@ -543,6 +551,7 @@ export function createReducer(options: {
           ? (state.response?.interactionId ?? null)
           : (state.interaction?.id ?? null),
       requestId:
+        type === "result.changed" ? (state.result?.requestId ?? null) :
         type === "response.changed"
           ? (state.response?.requestId ?? null)
           : type === "state.changed"
@@ -555,6 +564,13 @@ export function createReducer(options: {
     });
     observationEvents.push(event);
     for (const listener of listeners) listener(structuredClone(event));
+  };
+  const updateResult = (obs:Observation) => {
+    if(!resultRequest) return;
+    const result=structuredResult(resultRequest,state);
+    if(JSON.stringify(result)!==JSON.stringify(state.result)) {
+      state.result=result;emit("result.changed",obs,result);
+    }
   };
   const interpretScreen = (obs: Observation) => {
     if (!state.historySync.current) return;
@@ -1057,6 +1073,7 @@ export function createReducer(options: {
     resumeDigest = null;
     latestProcess = null;
     jsonParser=jsonOutputParser();
+    resultRequest=prepareResult(obs.resultRequest,obs.resultRequest?.baselineMessageIds);
     observationEvents = [];
     Object.assign(state, {
       sessionId: obs.sessionId,
@@ -1064,6 +1081,7 @@ export function createReducer(options: {
       execution: "unknown",
       messages: [],
       jsonOutput:obs.cli.profile==="cline-3.0.69-json"?jsonParser.state():undefined,
+      result:undefined,
       interaction: null,
       response: null,
       stop: null,
@@ -1076,6 +1094,7 @@ export function createReducer(options: {
       sessionId: obs.sessionId,
       executionId: obs.executionId,
     });
+    updateResult(obs);
     options.observe?.(obs, observationEvents, snapshot());
     return snapshot();
   };
@@ -1225,6 +1244,7 @@ export function createReducer(options: {
     },
     async openReplay(input) {
       validateRecording(input);
+      const preparedResult=prepareResult(input.resultRequest,input.resultRequest?.baselineMessageIds);
       recording = structuredClone(input);
       strictBindings = input.interpretation === "live";
       rawPhase = null;
@@ -1234,6 +1254,7 @@ export function createReducer(options: {
       resumeDigest = null;
       latestProcess = null;
       jsonParser=jsonOutputParser();
+      resultRequest=preparedResult;
       terminal?.dispose();
       terminal = new xterm.Terminal({
         ...input.terminal,
@@ -1254,6 +1275,7 @@ export function createReducer(options: {
         execution: "unknown",
         messages: [],
         jsonOutput:input.cli.profile==="cline-3.0.69-json"?jsonParser.state():undefined,
+        result:undefined,
         interaction: null,
         response: null,
         stop: null,
@@ -1268,6 +1290,7 @@ export function createReducer(options: {
           truncated: input.provenance.truncated,
         },
       };
+      if(resultRequest) state.result=structuredResult(resultRequest,state);
       return snapshot();
     },
     async nextObservation() {
@@ -1388,6 +1411,8 @@ export function createReducer(options: {
                 return {
                   id: raw.id,
                   role: raw.role,
+                  ...(raw.content.some(part=>part.type === "tool_use")?{hasToolCalls:true}:{}),
+                  ...(raw.content.some(part=>part.type === "tool_result")?{isToolResult:true}:{}),
                   content: raw.content.filter(part=>["text","thinking","redacted_thinking"].includes(part.type)).map((part):MessageContent=>
                     part.type === "thinking" ? {type:"thinking",thinking:part.thinking!} : part.type === "redacted_thinking" ? {type:"redacted_thinking"} : {type:"text",text:part.text}),
                   text: raw.content
@@ -1400,6 +1425,7 @@ export function createReducer(options: {
             );
         } catch {
           historyFailure(obs);
+          updateResult(obs);
           options.observe?.(obs, observationEvents, snapshot());
           throw new SdkError(
             "invalid-history",
@@ -1415,8 +1441,8 @@ export function createReducer(options: {
         for (const message of messages) {
           if (!message.text && !message.content?.length) continue;
           const old = state.messages.find((m) => m.id === message.id);
-          if (!old || old.text !== message.text || old.role !== message.role || JSON.stringify(old.content) !== JSON.stringify(message.content)) {
-            if (old) Object.assign(old, message);
+          if (!old || JSON.stringify(old) !== JSON.stringify(message)) {
+            if (old) state.messages[state.messages.indexOf(old)]={...message};
             else state.messages.push({ ...message });
             emit("message.upsert", obs, message);
           }
@@ -1489,6 +1515,7 @@ export function createReducer(options: {
             process: obs,
           });
       }
+      updateResult(obs);
       options.observe?.(obs, observationEvents, snapshot());
       return snapshot();
     },
