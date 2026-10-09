@@ -4,7 +4,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
 import { inputChunks } from "./input-chunks.js";
 import {cliFeatures, type CliFeatures, type DeclaredFeatures} from "./capabilities.js";
-import {prepareResult,type ResultFormat,type ResultRequest} from "./structured-result.js";
+import {prepareResult,resultPrompt,type ResultFormat,type ResultRequest} from "./structured-result.js";
 import {
   createDiagnosticCollector,
   type DiagnosticOptions,
@@ -68,7 +68,6 @@ export interface StartRequest {
   retryLimit?: number;
 }
 export interface ResumeRequest {
-  resultFormat?:ResultFormat;
   executionId: string;
   requestId: string;
   prompt: string;
@@ -101,6 +100,7 @@ export interface LiveClient {
   snapshot(): Snapshot;
   subscribe(listener: (event: SdkEvent) => void): () => void;
   capabilities(): {
+    structuredResults:{json:true;schemaValidation:true;nativeSchema:false};
     features: CliFeatures;
     outputModes: {terminal: boolean; json: boolean};
     replay: false;
@@ -950,7 +950,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           cliHash: report.cliHash,
           ...request,
           resultRequest,
-          prompt:resultRequest ? request.prompt+"\n\nReturn your final answer as one JSON value without Markdown fences." : request.prompt,
+          prompt:resultPrompt(request.prompt,resultRequest),
         });
       } catch (error) {
         reducer.binding({
@@ -1116,6 +1116,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     },
     capabilities() {
       return {
+        structuredResults:{json:true,schemaValidation:true,nativeSchema:false},
         features:structuredClone(report?.features ?? cliFeatures(false,undefined,config.declaredFeatures)),
         outputModes:{terminal:!!report?.ready,json:!!report?.ready},
         replay: false,

@@ -13,15 +13,17 @@ export function remote(t, responses) {
   t.mock.method(childProcess,'spawn',()=>{
     const process = new EventEmitter();
     process.stdout = new PassThrough(); process.stderr = new PassThrough(); process.stdin = new PassThrough();
-    process.kill=()=>{};
+    process.kill=()=>queueMicrotask(()=>process.emit('close',130,null));
     let input='';
     process.stdin.on('data',data=>input+=data);
     process.stdin.on('finish',()=>{
-      const response=responses.shift();
-      if(response===undefined) throw new Error('Unexpected remote operation');
-      const value=typeof response==='function'?response(JSON.parse(input)):response;
-      process.stdout.end(JSON.stringify(value));
-      queueMicrotask(()=>process.emit('close',0,null));
+      try {
+        const response=responses.shift();
+        if(response===undefined) throw new Error('Unexpected remote operation');
+        const value=typeof response==='function'?response(JSON.parse(input)):response;
+        process.stdout.end(JSON.stringify(value));
+        queueMicrotask(()=>process.emit('close',0,null));
+      } catch(error) {queueMicrotask(()=>process.emit('error',error));}
     });
     return process;
   });

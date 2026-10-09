@@ -178,6 +178,8 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
         <pre id="features">기능 지원 근거를 확인하려면 연결하세요.</pre>
         <pre id="jsonOutput" hidden></pre>
         <label><input id="jsonResult" type="checkbox" />최종 답변을 SDK JSON 결과로 받기</label>
+        <label>JSON Schema (선택, draft 2020-12)<textarea id="outputSchema" placeholder='{"type":"object"}'></textarea></label>
+        <label>검증 방식<select id="schemaValidation"><option value="sdk">SDK 결과 검증</option><option value="native">네이티브 생성 강제 · 현재 CLI 미지원</option></select></label>
         <pre id="structuredResult" hidden></pre>
         <label
           >입력 모드<select id="terminalMode">
@@ -931,7 +933,13 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
       );
       if (element("retryLimit").value)
         body.retryLimit = Number(element("retryLimit").value);
-      if(element("jsonResult").checked) body.resultFormat={type:"json",requestId:crypto.randomUUID()};
+      if(element("jsonResult").checked) {
+        body.resultFormat={type:"json",requestId:crypto.randomUUID(),validation:element("schemaValidation").value};
+        if(element("outputSchema").value.trim()) {
+          try {body.resultFormat.schema=JSON.parse(element("outputSchema").value);}
+          catch {element("error").textContent="JSON Schema 입력이 올바른 JSON이 아닙니다.";return;}
+        }
+      }
       invoke("start", body);
     };
     element("outputMode").onchange = () => {

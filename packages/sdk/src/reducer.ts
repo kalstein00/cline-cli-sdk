@@ -317,6 +317,7 @@ export interface Client {
   respond(request: ResponseRequest): Promise<never>;
   stop(request: StopRequest): Promise<never>;
   capabilities(): {
+    structuredResults:{json:true;schemaValidation:true;nativeSchema:false};
     replay: true;
     live: false;
     responses: false;
@@ -1614,6 +1615,7 @@ export function createReducer(options: {
     },
     capabilities() {
       return {
+        structuredResults:{json:true,schemaValidation:true,nativeSchema:false},
         replay: true,
         live: false,
         responses: false,

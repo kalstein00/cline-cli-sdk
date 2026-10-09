@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@xterm/addon-unicode11": "0.8.0",
-    "@xterm/headless": "^5.5.0"
+    "@xterm/headless": "^5.5.0",
+    "ajv": "8.20.0"
   }
 }
