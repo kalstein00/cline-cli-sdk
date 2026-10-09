@@ -95,6 +95,7 @@ def session_files(meta):
     return None, None, None
 
 def serve(run):
+    from ownership import Ownership, read_json
     meta = json.loads((run / 'meta.json').read_text())
     fifo = run / 'input.fifo'
     os.mkfifo(fifo, 0o600)
@@ -113,6 +114,7 @@ def serve(run):
         save(run / 'buffer.json', dict(cursor=seq, first=ring[0]['seq'], observations=list(ring)))
     meta['supervisorIdentity'] = identity(os.getpid())
     try:
+        Ownership.subreaper()
         pid, master = pty.fork()
     except OSError:
         meta.update(exitCode=127, endedAt=now(), startupFailed=True)
@@ -128,10 +130,18 @@ def serve(run):
     meta['startedAt'] = now()
     meta.pop('argv', None)
     save(run / 'meta.json', meta)
+    owner = Ownership(run, meta['supervisorIdentity'], meta['identity'])
     status = None
     input_buffer = b''
     try:
         while True:
+            try:
+                owner.scan()
+            except (OSError, ValueError) as exc:
+                owner.error = str(exc)
+            stop = read_json(run / 'stop-request.json')
+            if stop and not read_json(run / 'stop-result.json'):
+                owner.stop(stop)
             readable, _, _ = select.select([master, fifo_fd], [], [], .1)
             # Drain already-ready output before checking a queued response's cursor.
             if master in readable:
@@ -179,6 +189,12 @@ def serve(run):
             save(run / 'meta.json', meta)
         os.close(master)
         os.close(fifo_fd)
+        # Keep ownership authority while an orphan command is still alive.
+        while owner.scan():
+            stop = read_json(run / 'stop-request.json')
+            if stop and not read_json(run / 'stop-result.json'):
+                owner.stop(stop)
+            time.sleep(.1)
 
 def handle(request):
     os.umask(0o077)
@@ -207,6 +223,9 @@ def handle(request):
         helper = root / 'supervisor.py'
         helper.write_bytes(base64.b64decode(request['sourceBase64']))
         os.chmod(helper, 0o600)
+        ownership = root / 'ownership.py'
+        ownership.write_bytes(base64.b64decode(request['ownershipSourceBase64']))
+        os.chmod(ownership, 0o600)
         socket = str(root / 'tmux.sock')
         argv = [executable, '--data-dir', str(data), '--cwd', str(cwd), '--auto-approve', 'false', request['prompt']]
         if request.get('retryLimit') is not None:
@@ -229,6 +248,15 @@ def handle(request):
     meta = json.loads((run / 'meta.json').read_text())
     if meta['executionId'] != request['executionId']:
         raise ValueError('Execution identity mismatch')
+    if action == 'stop':
+        if not isinstance(request.get('requestId'), str) or not 1 <= len(request['requestId']) <= 128 or not all(c.isalnum() or c in '._:-' for c in request['requestId']):
+            raise ValueError('Invalid stop request identity')
+        sys.path.insert(0, str(root))
+        from ownership import queue_stop
+        with open(run / 'stop.lock', 'a') as lock:
+            os.chmod(run / 'stop.lock', 0o600)
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            return queue_stop(run, meta, request)
     if action == 'respond':
         request_id = request.get('requestId', '')
         if not request_id or len(request_id) > 128 or not all(c.isalnum() or c in '._:-' for c in request_id):
@@ -298,10 +326,27 @@ def handle(request):
             requests = json.loads((run / 'requests.json').read_text())
         except FileNotFoundError:
             requests = {}
+        try:
+            stop_result = json.loads((run / 'stop-result.json').read_text())
+        except FileNotFoundError:
+            stop_result = None
+        try:
+            ownership = json.loads((run / 'ownership.json').read_text())
+        except FileNotFoundError:
+            ownership = {}
+        if not stop_result:
+            try:
+                pending_stop = json.loads((run / 'stop-request.json').read_text())
+                stop_result = dict(executionId=pending_stop['executionId'],requestId=pending_stop['requestId'],state='stopping',childrenVerified=False,trackedCount=ownership.get('trackedCount',0),remaining=ownership.get('owned',[]),reason=None,observedAt=pending_stop.get('observedAt') or now())
+            except FileNotFoundError:
+                pass
         return dict(executionId=meta['executionId'], sessionId=sid, observations=observations, cursor=buffer['cursor'],
                     gap=cursor < buffer['first'] - 1, history=history, historyError=history_error,
                     process=dict(kind='process', identity=expected, alive=alive, identityConfirmed=confirmed,
                                  exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else None,
+                                 stop=stop_result,
+                                 children=[value for value in ownership.get('owned', []) if value != expected], trackingError=ownership.get('trackingError'),
+                                 childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
                     requests=[dict(requestId=key, state=value['state'], reason=value.get('reason')) for key,value in requests.items()],
                     management=dict(remoteRoot=str(root), terminal=meta['terminal'], bootId=meta['bootId']))

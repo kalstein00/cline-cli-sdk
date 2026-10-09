@@ -58,6 +58,7 @@ const server = createServer(async (request, response) => {
         "/api/start",
         "/api/refresh",
         "/api/respond",
+        "/api/stop",
       ].includes(url.pathname)
     ) {
       const origin = request.headers.origin;
@@ -127,6 +128,16 @@ const server = createServer(async (request, response) => {
       }
       if (url.pathname === "/api/respond") {
         const result = await client.respond(input);
+        json(response, 200, {
+          result,
+          snapshot: client.snapshot(),
+          capabilities: client.capabilities(),
+          preflight,
+        });
+        return;
+      }
+      if (url.pathname === "/api/stop") {
+        const result = await client.stop(input);
         json(response, 200, {
           result,
           snapshot: client.snapshot(),

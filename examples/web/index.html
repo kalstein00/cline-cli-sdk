@@ -186,6 +186,8 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     </section>
     <section>
       <h2>상호작용</h2>
+      <button id="stop" disabled>작업 중단</button>
+      <p id="stopState">중단 요청 없음</p>
       <div id="interaction" class="empty">대기 중인 질문이 없습니다.</div>
     </section>
     <section>
@@ -227,8 +229,18 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     let events = [];
     let current = null;
     let busy = false;
+    let polling = false;
+    const mutations = new Set();
     let capability = {};
     let interactionViewKey;
+    const stopDisabled = (s) =>
+      mutations.has("stop") ||
+      (busy && !mutations.has("respond")) ||
+      s.mode !== "live" ||
+      s.connection !== "connected" ||
+      !s.executionId ||
+      !!s.stop ||
+      ["completed", "stopped", "failed"].includes(s.execution);
     const responseDisabled = (s) =>
       busy ||
       s.mode !== "live" ||
@@ -237,6 +249,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       s.interaction?.state !== "awaiting-response" ||
       !s.interaction?.responseKinds?.length ||
       !s.interaction?.toolId ||
+      !!s.stop ||
       s.response?.state === "delivery-unknown";
     function render({ snapshot: s, preflight, capabilities }) {
       if (capabilities) capability = capabilities;
@@ -248,6 +261,10 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         s.connection !== "connected" ||
         !!s.executionId;
       element("refresh").disabled = busy || s.mode !== "live" || !s.executionId;
+      element("stop").disabled = stopDisabled(s);
+      element("stopState").textContent = s.stop
+        ? `${s.stop.state} · ${s.stop.trackedCount}개 프로세스 관측 · 자식 종료 ${s.stop.childrenVerified ? "확인" : "미확인"}${s.stop.reason ? " · " + s.stop.reason : ""}`
+        : "중단 요청 없음 · 대화 기록을 보존합니다";
       if (preflight)
         element("preflight").textContent = JSON.stringify(preflight, null, 2);
       for (const [id, value] of Object.entries({
@@ -355,11 +372,21 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         .join("\n");
     };
     async function invoke(action, body = {}) {
-      busy = true;
-      element("error").textContent = "";
-      document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      const background = action === "refresh";
+      if (background && (polling || busy)) return;
+      if (background) polling = true;
+      else {
+        mutations.add(action);
+        busy = true;
+        element("error").textContent = "";
+        document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        element("stop").disabled = stopDisabled(current);
+      }
       if (action === "respond")
         element("responseState").textContent = "submitting";
+      if (action === "stop")
+        element("stopState").textContent =
+          "중단 요청 중 · CLI와 자식 명령의 종료를 확인합니다";
       try {
         const response = await fetch("/api/" + action, {
           method: "POST",
@@ -367,23 +394,30 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           body: JSON.stringify(body),
         });
         const result = await response.json();
+        if (!background) {
+          mutations.delete(action);
+          busy = mutations.size > 0;
+        }
         if (!response.ok) {
-          busy = false;
           if (result.snapshot) render(result);
           throw new Error(result.message ?? result.error);
         }
-        busy = false;
         render(result);
         if (action === "start") element("setup").open = false;
         return result;
       } catch (error) {
         element("error").textContent = error.message;
       } finally {
-        busy = false;
-        element("connect").disabled = false;
-        document
-          .querySelectorAll("[data-fixture]")
-          .forEach((button) => (button.disabled = false));
+        if (background) polling = false;
+        else {
+          mutations.delete(action);
+          busy = mutations.size > 0;
+          element("connect").disabled = busy;
+          element("stop").disabled = stopDisabled(current);
+          document
+            .querySelectorAll("[data-fixture]")
+            .forEach((button) => (button.disabled = busy));
+        }
       }
     }
     element("connect").onclick = () =>
@@ -405,6 +439,11 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       invoke("start", body);
     };
     element("refresh").onclick = () => invoke("refresh");
+    element("stop").onclick = () =>
+      invoke("stop", {
+        executionId: current.executionId,
+        requestId: crypto.randomUUID(),
+      });
     setInterval(() => {
       if (
         !busy &&

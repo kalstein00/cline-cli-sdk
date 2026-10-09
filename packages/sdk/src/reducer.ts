@@ -29,6 +29,25 @@ export interface ProcessObservation {
   exitCode: number | null;
   manifestStatus: string | null;
   requestedStop?: boolean;
+  stop?: StopResult | null;
+  children?: { pid: number; startTime: string; bootId: string }[];
+  trackingError?: string | null;
+  childrenVerified?: boolean;
+}
+export interface StopRequest {
+  executionId: string;
+  requestId: string;
+}
+export interface StopResult {
+  executionId: string;
+  requestId: string;
+  state: "stopping" | "confirmed" | "unknown";
+  childrenVerified: boolean;
+  trackedCount: number;
+  remaining: { pid: number; startTime: string; bootId: string }[];
+  targets?: { pid: number; startTime: string; bootId: string }[];
+  reason: string | null;
+  observedAt: string;
 }
 export type Observation =
   | HistoryObservation
@@ -99,6 +118,8 @@ export interface Snapshot {
   messages: Message[];
   interaction: Interaction | null;
   response: ResponseResult | null;
+  stop: StopResult | null;
+  executionEvidence: ProcessObservation | null;
   replay: {
     position: number;
     total: number;
@@ -145,6 +166,7 @@ export interface Client {
   snapshot(): Snapshot;
   subscribe(listener: (event: SdkEvent) => void): () => void;
   respond(request: ResponseRequest): Promise<never>;
+  stop(request: StopRequest): Promise<never>;
   capabilities(): {
     replay: true;
     live: false;
@@ -165,6 +187,7 @@ interface Reducer extends Client {
         | "mode"
         | "execution"
         | "interaction"
+        | "stop"
       >
     >,
   ): Snapshot;
@@ -223,6 +246,8 @@ export function createReducer(options: { mode: "replay" }): Reducer {
     messages: [],
     interaction: null,
     response: null,
+    stop: null,
+    executionEvidence: null,
     replay: { position: 0, total: 0, complete: false, truncated: false },
   };
   let recording: Recording | null = null;
@@ -247,7 +272,9 @@ export function createReducer(options: { mode: "replay" }): Reducer {
           requestId:
             type === "response.changed"
               ? (state.response?.requestId ?? null)
-              : null,
+              : type === "state.changed"
+                ? (state.stop?.requestId ?? null)
+                : null,
           revision: state.revision,
           observationSeq: obs.seq,
           observedAt: obs.observedAt,
@@ -472,6 +499,8 @@ export function createReducer(options: { mode: "replay" }): Reducer {
         messages: [],
         interaction: null,
         response: null,
+        stop: null,
+        executionEvidence: null,
         replay: {
           position: 0,
           total: input.observations.length,
@@ -594,7 +623,19 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       }
       if (obs.kind === "process") {
         const previous = state.execution;
-        if (!obs.identityConfirmed) state.execution = "unknown";
+        const previousStop = JSON.stringify(state.stop);
+        state.executionEvidence = structuredClone(obs);
+        if (obs.stop) state.stop = structuredClone(obs.stop);
+        if (state.stop)
+          state.execution =
+            state.stop.state === "confirmed" &&
+            state.stop.childrenVerified &&
+            state.stop.remaining.length === 0 &&
+            obs.identityConfirmed &&
+            !obs.alive
+              ? "stopped"
+              : "unknown";
+        else if (!obs.identityConfirmed) state.execution = "unknown";
         else if (obs.alive)
           state.execution =
             state.interaction && state.interaction.state !== "unsupported"
@@ -604,7 +645,11 @@ export function createReducer(options: { mode: "replay" }): Reducer {
                 : "running";
         else if (obs.exitCode === null) state.execution = "unknown";
         else if (obs.manifestStatus === "cancelled" || obs.requestedStop)
-          state.execution = "stopped";
+          state.execution =
+            obs.childrenVerified === true && !obs.children?.length
+              ? "stopped"
+              : "unknown";
+        else if (obs.children?.length) state.execution = "unknown";
         else if (obs.exitCode !== 0 || obs.manifestStatus === "failed")
           state.execution = "failed";
         else if (
@@ -614,7 +659,10 @@ export function createReducer(options: { mode: "replay" }): Reducer {
           state.execution = "completed";
         else state.execution = "unknown";
         if (!obs.alive && obs.exitCode !== null) state.interaction = null;
-        if (previous !== state.execution)
+        if (
+          previous !== state.execution ||
+          previousStop !== JSON.stringify(state.stop)
+        )
           emit("state.changed", obs, {
             execution: state.execution,
             process: obs,
@@ -694,6 +742,12 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       throw new SdkError(
         "replay-read-only",
         "Replay never sends remote input.",
+      );
+    },
+    async stop() {
+      throw new SdkError(
+        "replay-read-only",
+        "Replay never controls remote execution.",
       );
     },
     capabilities() {

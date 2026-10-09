@@ -8,6 +8,8 @@ import {
   type SdkEvent,
   type ResponseRequest,
   type ResponseResult,
+  type StopRequest,
+  type StopResult,
 } from "./reducer.js";
 
 export interface ConnectionOptions {
@@ -29,6 +31,7 @@ export interface PreflightReport {
   platform: string;
   python: boolean;
   pty: boolean;
+  processOwnership?: boolean;
   tmux: string | null;
   cliPath: string | null;
   cliVersion: string | null;
@@ -68,6 +71,7 @@ export interface LiveClient {
     companyCompatibility: "unverified";
   };
   respond(request: ResponseRequest): Promise<ResponseResult>;
+  stop(request: StopRequest): Promise<StopResult>;
   close(): void;
 }
 const quote = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
@@ -105,6 +109,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let processEvidence: any = null;
   let remoteRequests: any[] = [];
   let activeRequest: string | null = null;
+  let stopPromise: Promise<StopResult> | null = null;
+  let stopRequestId: string | null = null;
   const requests = new Map<
     string,
     { binding: string; promise: Promise<ResponseResult> }
@@ -235,6 +241,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     if (found.platform !== "Linux") problems.push("linux-required");
     if (!found.pty) problems.push("pty-unavailable");
     if (!found.tmux) problems.push("tmux-unavailable");
+    if (found.processOwnership === false) problems.push("pidfd-unavailable");
     if (!found.cliPath)
       problems.push(
         found.discovery === "login-shell-failed"
@@ -266,9 +273,16 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     const source = await readFile(
       new URL("../remote/supervisor.py", import.meta.url),
     );
+    const ownership = await readFile(
+      new URL("../remote/ownership.py", import.meta.url),
+    );
     return execute(
       `import base64,io,json,sys;request=json.load(sys.stdin);sys.stdin=io.StringIO(json.dumps(request));exec(base64.b64decode(request['sourceBase64']))`,
-      { sourceBase64: source.toString("base64"), ...(input as object) },
+      {
+        sourceBase64: source.toString("base64"),
+        ownershipSourceBase64: ownership.toString("base64"),
+        ...(input as object),
+      },
     );
   };
   const refresh = () => {
@@ -325,6 +339,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         });
       observationGap ||= !!result.gap;
       if (
+        !reducer.snapshot().stop &&
         observationGap &&
         reducer.snapshot().interaction?.id !==
           `${managed.executionId}:observation-gap`
@@ -360,6 +375,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     return refreshing;
   };
   const validateResponse = (request: ResponseRequest) => {
+    if (state.stop)
+      throw new SdkError(
+        "stop-in-progress",
+        "This execution has a stop request; response input is blocked.",
+      );
     if (closed || state.connection !== "connected")
       throw new SdkError("not-connected", "A live connection is required.");
     if (
@@ -715,6 +735,81 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       requests.set(request.requestId, { binding, promise });
       return promise;
     },
+    stop(request) {
+      if (!managed || request.executionId !== managed.executionId)
+        throw new SdkError(
+          "wrong-stop-target",
+          "Stop must target this client's managed execution.",
+        );
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(request.requestId))
+        throw new SdkError(
+          "invalid-stop-request",
+          "A bounded stop request identity is required.",
+        );
+      if (stopPromise) {
+        if (stopRequestId !== request.requestId)
+          throw new SdkError(
+            "stop-already-requested",
+            "A stop request is already selected for this execution.",
+          );
+        return stopPromise;
+      }
+      if (state.connection !== "connected")
+        throw new SdkError("not-connected", "Connect before stopping.");
+      if (["completed", "stopped", "failed"].includes(state.execution))
+        throw new SdkError(
+          "execution-not-running",
+          "This execution is already terminal; stop does not start another run.",
+        );
+      stopRequestId = request.requestId;
+      reducer.setContext({
+        execution: "unknown",
+        stop: {
+          ...request,
+          state: "stopping",
+          childrenVerified: false,
+          trackedCount: 0,
+          remaining: [],
+          reason: null,
+          observedAt: new Date().toISOString(),
+        },
+      });
+      stopPromise = (async () => {
+        try {
+          const result: StopResult = await helper({
+            action: "stop",
+            root: managed!.remoteRoot,
+            ...request,
+          });
+          if (
+            result.executionId !== request.executionId ||
+            result.requestId !== request.requestId
+          )
+            throw new SdkError(
+              "stop-identity-mismatch",
+              "The stop receipt does not match this request.",
+            );
+          reducer.setContext({ stop: result, execution: "unknown" });
+          await refresh();
+          return structuredClone(result);
+        } catch (error) {
+          reducer.setContext({
+            execution: "unknown",
+            stop: {
+              ...request,
+              state: "unknown",
+              childrenVerified: false,
+              trackedCount: 0,
+              remaining: [],
+              reason: error instanceof SdkError ? error.code : "stop-failed",
+              observedAt: new Date().toISOString(),
+            },
+          });
+          throw error;
+        }
+      })();
+      return stopPromise;
+    },
     close() {
       closed = true;
       for (const process of processes) process.kill();
@@ -726,7 +821,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   };
 }
 const PREFLIGHT = String.raw`
-import os,sys,json,platform,shutil,subprocess,hashlib,pty
+import os,sys,json,platform,shutil,subprocess,hashlib,pty,signal
 if sys.version_info<(3,9):
     print(json.dumps(dict(error='python-version-unsupported',message='Python 3.9 or newer is required.')))
     sys.exit(0)
@@ -756,5 +851,10 @@ try:
     a,b=pty.openpty();os.close(a);os.close(b);working_pty=True
 except OSError: pass
 tmux=shutil.which('tmux')
-print(json.dumps(dict(platform=platform.system(),pythonVersion=platform.python_version(),pty=working_pty,tmux=subprocess.check_output([tmux,'-V'],text=True).strip() if tmux else None,cliPath=path,cliVersion=version,cliHash=digest,discovery=discovery,bootId=open('/proc/sys/kernel/random/boot_id').read().strip() if platform.system()=='Linux' else '')))
+working_ownership=False
+try:
+    if hasattr(signal,'pidfd_send_signal'):
+        fd=os.pidfd_open(os.getpid());os.close(fd);working_ownership=True
+except (AttributeError,OSError): pass
+print(json.dumps(dict(platform=platform.system(),pythonVersion=platform.python_version(),pty=working_pty,processOwnership=working_ownership,tmux=subprocess.check_output([tmux,'-V'],text=True).strip() if tmux else None,cliPath=path,cliVersion=version,cliHash=digest,discovery=discovery,bootId=open('/proc/sys/kernel/random/boot_id').read().strip() if platform.system()=='Linux' else '')))
 `;
