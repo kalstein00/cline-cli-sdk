@@ -1,0 +1,99 @@
+{
+  "sessionId": "fixture-stop-session",
+  "executionId": "fixture-owned-stop",
+  "cli": {
+    "profile": "cline-3.0.69-readline",
+    "name": "cline",
+    "version": "3.0.69"
+  },
+  "observations": [
+    {
+      "kind": "process",
+      "identity": {
+        "pid": 113617,
+        "startTime": "446244",
+        "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+      },
+      "alive": true,
+      "identityConfirmed": true,
+      "exitCode": null,
+      "manifestStatus": "running",
+      "stop": null,
+      "children": [
+        {
+          "pid": 114422,
+          "startTime": "448207",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        },
+        {
+          "pid": 114423,
+          "startTime": "448211",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ],
+      "trackingError": null,
+      "childrenVerified": false,
+      "requestedStop": false,
+      "seq": 1,
+      "observedAt": "2026-10-09T11:47:53.575Z"
+    },
+    {
+      "kind": "process",
+      "identity": {
+        "pid": 113617,
+        "startTime": "446244",
+        "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+      },
+      "alive": false,
+      "identityConfirmed": true,
+      "exitCode": -9,
+      "manifestStatus": "running",
+      "stop": {
+        "executionId": "fixture-owned-stop",
+        "requestId": "fixture-stop-request",
+        "state": "confirmed",
+        "childrenVerified": true,
+        "trackedCount": 3,
+        "remaining": [],
+        "reason": null,
+        "observedAt": "2026-10-09T20:48:03.24263+09:00",
+        "targets": [
+          {
+            "pid": 113617,
+            "startTime": "446244",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          {
+            "pid": 114422,
+            "startTime": "448207",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          {
+            "pid": 114423,
+            "startTime": "448211",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          }
+        ]
+      },
+      "children": [],
+      "trackingError": null,
+      "childrenVerified": true,
+      "requestedStop": false,
+      "seq": 2,
+      "observedAt": "2026-10-09T11:48:03.888Z"
+    }
+  ],
+  "schemaVersion": 1,
+  "provenance": {
+    "source": "sanitized-observation",
+    "complete": false,
+    "truncated": true,
+    "transformations": ["session execution request IDs replaced"],
+    "review": "Actual Windows browser public SDK to WSL controlled Python plus sleep child stop after proc race fix. Selected raw process observations only; CLI history and PTY omitted.",
+    "sourceSha256": "a0db4b66db8a5225dba38b45119bec4bd04fa2f722b6e4b79db2b5ae361b25cb"
+  },
+  "terminal": {
+    "cols": 120,
+    "rows": 40
+  }
+}
