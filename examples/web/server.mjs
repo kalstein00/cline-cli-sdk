@@ -4,6 +4,7 @@ import { createClient } from "@cline-cli-sdk/sdk";
 
 let client = createClient({ mode: "replay" });
 let preflight = null;
+let managedExecutions = [];
 const streams = new Set();
 const watch = () =>
   client.subscribe((event) => {
@@ -36,6 +37,7 @@ const server = createServer(async (request, response) => {
         snapshot: client.snapshot(),
         capabilities: client.capabilities(),
         preflight,
+        managedExecutions,
       });
       return;
     }
@@ -58,6 +60,9 @@ const server = createServer(async (request, response) => {
         "/api/start",
         "/api/refresh",
         "/api/respond",
+        "/api/disconnect",
+        "/api/managed",
+        "/api/attach",
       ].includes(url.pathname)
     ) {
       const origin = request.headers.origin;
@@ -92,10 +97,44 @@ const server = createServer(async (request, response) => {
         });
         watch();
         preflight = await client.connect();
+        managedExecutions = preflight.ready
+          ? await client.listManagedExecutions()
+          : [];
         json(response, 200, {
           snapshot: client.snapshot(),
           capabilities: client.capabilities(),
           preflight,
+          managedExecutions,
+        });
+        return;
+      }
+      if (url.pathname === "/api/disconnect") {
+        client.disconnect();
+        json(response, 200, {
+          snapshot: client.snapshot(),
+          capabilities: client.capabilities(),
+          preflight,
+          managedExecutions,
+        });
+        return;
+      }
+      if (url.pathname === "/api/managed") {
+        managedExecutions = await client.listManagedExecutions();
+        json(response, 200, {
+          snapshot: client.snapshot(),
+          capabilities: client.capabilities(),
+          preflight,
+          managedExecutions,
+        });
+        return;
+      }
+      if (url.pathname === "/api/attach") {
+        const snapshot = await client.attach(input.executionId);
+        json(response, 200, {
+          snapshot,
+          capabilities: client.capabilities(),
+          preflight,
+          managedExecutions,
         });
         return;
       }
