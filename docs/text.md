@@ -63,8 +63,10 @@ Node 예제는 통제된 run_commands 승인 후 네 질문에 순차로 응답�
 
 이 과정의 실패도 보존했다. 기본 Unicode6이 emoji를 1셀로 읽어 공백이 늘어난 echo, wrapped continuation의 첫 문자 누락은 제출 Enter 이전에 timeout/불명으로 남았다. 원격 질문이 그대로 남았고 자동 재전송하지 않았다. 실제 원시 구간으로 `tui-korean-echo.json`, `tui-wrapped-echo.json`을 만들고 수정했다. 초기 광고 dialog의 입력 가로채기는 차단했고 process env로 후속 실행에서 제거했다.
 
-33개 자동 시험의 주 접점은 SDK 공개 API다. `fixtures/text`의 원시 PTY/history는 기존 숫자 선행 성공·readline 오해와 새 Korean/wrapped 실측을 비식별화했다. Unicode 내부 바이트 분할·echo 누락·추가 modal은 fault injection으로 구분하며 실제 회사망 장애라고 주장하지 않는다. 브라우저 수용 증거는 검증 후 이 문서에 추가한다.
+병합 후 38개 자동 시험이 통과했으며 주 접점은 SDK 공개 API다. `fixtures/text`의 원시 PTY/history는 기존 숫자 선행 성공·readline 오해와 새 Korean/wrapped 실측을 비식별화했다. Unicode 내부 바이트 분할·echo 누락·추가 modal은 fault injection으로 구분하며 실제 회사망 장애라고 주장하지 않는다.
 
 readline 공개 API도 run-e467ddbe-dfb5-47b8-92ee-aff5a7d3328d / session 1791545834339_16j3i에서 CUSTOM-42 delivered, TEXT_ALL_RECEIVED, 실제 completed를 확인했다.
 
-Windows Chrome 브라우저에서 run-87b3f2b0 / session 1791546006240_h90vg의 승인과 네 자유 응답을 실제 DOM 입력·클릭으로 수행했다. 각 delivered 뒤 다음 질문으로 이어졌고 마지막 729바이트 응답은 revision 36 delivered와 TEXT_ALL_RECEIVED로 확인됐다. 같은 session의 네 tool_use→tool_result를 읽기 전용으로 독립 대조해 9/19/34/729바이트 원문과 일치했다. [최종 화면](evidence/ticket-5-all-received.jpg). TUI CLI의 idle 상태를 종료 completed로 표시하지 않았다.
+Windows Chrome 브라우저에서 run-87b3f2b0-3c9b-42a7-bf96-9c47494595b3 / session 1791546006240_h90vg의 승인과 네 자유 응답을 실제 DOM 입력·클릭으로 수행했다. 각 delivered 뒤 다음 질문으로 이어졌고 마지막 729바이트 응답은 revision 36 delivered와 TEXT_ALL_RECEIVED로 확인됐다. 같은 session의 네 tool_use→tool_result를 읽기 전용으로 독립 대조해 9/19/34/729바이트 원문과 일치했다. [최종 화면](evidence/ticket-5-all-received.jpg). TUI CLI의 idle 상태를 종료 completed로 표시하지 않았다.
+
+수용 뒤에는 해당 실행의 PID/starttime/boot ID를 대조해 시험 소유 CLI만 정리했다. 격리 provider 사본·로컬 예제 서버·시험 소유 WSL keepalive를 제거했고 원래 provider와 다른 실행은 유지했다. history와 실패 흔적은 보존했다. 이 정리는 SDK의 stop 기능 수용을 대신하지 않는다.
