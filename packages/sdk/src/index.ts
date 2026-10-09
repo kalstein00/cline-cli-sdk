@@ -13,6 +13,8 @@ export type {
   SdkEvent,
   ExecutionState,
   ConnectionState,
+  StopRequest,
+  StopResult,
 } from "./reducer.js";
 export type {
   LiveClient,

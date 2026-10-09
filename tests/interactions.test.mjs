@@ -138,6 +138,9 @@ test("witnessed process exit after accepted stop-recovery is stopped even when o
     exitCode: 0,
     manifestStatus: "completed",
     requestedStop: true,
+    // Injected whole-tree verification; original recording measured CLI exit only.
+    childrenVerified: true,
+    children: [],
   });
   const client = createClient({ mode: "replay" });
   await client.openReplay(record);

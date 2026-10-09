@@ -212,6 +212,8 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     </section>
     <section>
       <h2>상호작용</h2>
+      <button id="stop" disabled>작업 중단</button>
+      <p id="stopState">중단 요청 없음</p>
       <div id="interaction" class="empty">대기 중인 질문이 없습니다.</div>
     </section>
     <section>
@@ -254,8 +256,17 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     let current = null;
     let busy = false;
     let polling = false;
+    const mutations = new Set();
     let capability = {};
     let interactionViewKey;
+    const stopDisabled = (s) =>
+      mutations.has("stop") ||
+      (busy && !mutations.has("respond")) ||
+      s.mode !== "live" ||
+      s.connection !== "connected" ||
+      !s.executionId ||
+      !!s.stop ||
+      ["completed", "stopped", "failed"].includes(s.execution);
     const savedSettings = ["host", "cliPath", "remoteRoot", "cwd", "dataDir"];
     try {
       const stored = JSON.parse(
@@ -274,6 +285,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       s.interaction?.state !== "awaiting-response" ||
       !s.interaction?.responseKinds?.length ||
       !s.interaction?.toolId ||
+      !!s.stop ||
       s.response?.state === "delivery-unknown";
     function render({
       snapshot: s,
@@ -289,6 +301,10 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         s.mode !== "live" ||
         s.connection !== "connected" ||
         !!s.executionId;
+      element("stop").disabled = stopDisabled(s);
+      element("stopState").textContent = s.stop
+        ? `${s.stop.state} · ${s.stop.trackedCount}개 프로세스 관측 · 자식 종료 ${s.stop.childrenVerified ? "확인" : "미확인"}${s.stop.reason ? " · " + s.stop.reason : ""}`
+        : "중단 요청 없음 · 대화 기록을 보존합니다";
       element("refresh").disabled =
         busy ||
         s.mode !== "live" ||
@@ -470,12 +486,17 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       if (background && (polling || busy)) return;
       if (background) polling = true;
       else {
+        mutations.add(action);
         busy = true;
         element("error").textContent = "";
         document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        element("stop").disabled = stopDisabled(current);
       }
       if (action === "respond")
         element("responseState").textContent = "submitting";
+      if (action === "stop")
+        element("stopState").textContent =
+          "중단 요청 중 · CLI와 자식 명령의 종료를 확인합니다";
       try {
         const response = await fetch("/api/" + action, {
           method: "POST",
@@ -483,12 +504,14 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           body: JSON.stringify(body),
         });
         const result = await response.json();
+        if (!background) {
+          mutations.delete(action);
+          busy = mutations.size > 0;
+        }
         if (!response.ok) {
-          if (!background) busy = false;
           if (result.snapshot) render(result);
           throw new Error(result.message ?? result.error);
         }
-        if (!background) busy = false;
         render(result);
         if (action === "start" || action === "attach")
           element("setup").open = false;
@@ -498,11 +521,13 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       } finally {
         if (background) polling = false;
         else {
-          busy = false;
-          element("connect").disabled = false;
+          mutations.delete(action);
+          busy = mutations.size > 0;
+          element("connect").disabled = busy;
+          element("stop").disabled = stopDisabled(current);
           document
             .querySelectorAll("[data-fixture]")
-            .forEach((button) => (button.disabled = false));
+            .forEach((button) => (button.disabled = busy));
         }
       }
     }
@@ -537,6 +562,11 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       invoke("start", body);
     };
     element("refresh").onclick = () => invoke("refresh");
+    element("stop").onclick = () =>
+      invoke("stop", {
+        executionId: current.executionId,
+        requestId: crypto.randomUUID(),
+      });
     element("disconnect").onclick = () => invoke("disconnect");
     element("managedRefresh").onclick = () => invoke("managed");
     element("attach").onclick = () =>
