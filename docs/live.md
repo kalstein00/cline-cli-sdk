@@ -76,3 +76,5 @@ Windows → SSH 별칭 `wsl` → Ubuntu-24.04를 사용했다. SDK preflight 결
 - `npm test` 17/17은 공개 API에서 replay와 live 외부 OpenSSH boundary 대체를 검사한다. 새 live fixture를 같은 raw reducer에 공급해 메시지·완료를 검증하고, 실제 존재하지 않는 OpenSSH 실행 파일로 오류·stdin 정리 경로도 확인했다. 실제 WSL/브라우저 결과와 자동 fixture 결과를 서로 대체하지 않는다.
 
 WSL SSH 별칭의 ProxyCommand는 WSL 배포판을 실행하므로 client-loss 시험 동안 배포판이 종료되지 않게 별도의 테스트 소유 keepalive가 필요하다. 이번 실측은 전용 `wsl.exe ... sleep 3600` 프로세스가 배포판을 유지하는 조건에서 수행했으며 작업 완료 후 해당 keepalive와 테스트 인증 사본만 정리했다. WSL 자체 종료·실행 중 질문 왕복·자식 명령 중단·재개·회사망 결과는 이 티켓의 성공으로 세지 않는다.
+
+현재 선택·승인 응답은 [interactions.md](interactions.md), 자유 응답과 TUI 입력은 [text.md](text.md)를 따른다. 위 수용 기록은 #3 단계의 근거다.

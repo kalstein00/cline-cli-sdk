@@ -1,4 +1,5 @@
 import xterm from "@xterm/headless";
+import unicode11 from "@xterm/addon-unicode11";
 import { createHash } from "node:crypto";
 export interface Message {
   id: string;
@@ -80,6 +81,8 @@ export interface Interaction {
   toolName?: string;
   toolInput?: unknown;
   responseKinds?: ("choice" | "approval" | "text")[];
+  /** Observed input destination, never a terminal-input escape hatch. */
+  input?: { mode: "tui"; selected: number | null; text: string | null };
 }
 export interface ResponseResult {
   requestId: string;
@@ -258,6 +261,203 @@ export function createReducer(options: { mode: "replay" }): Reducer {
   const interpretScreen = (obs: Observation) => {
     const lines = [];
     const buffer = terminal!.buffer.active;
+    if (
+      recording!.cli.profile === "cline-3.0.69-tui" &&
+      recording!.cli.name === "cline" &&
+      recording!.cli.version === "3.0.69"
+    ) {
+      const visible = Array.from(
+        { length: recording!.terminal.rows },
+        (_, row) =>
+          buffer
+            .getLine(buffer.baseY + row)
+            ?.translateToString(true)
+            .trimEnd() ?? "",
+      );
+      const permission = visible
+        .map((line) => line.trim())
+        .lastIndexOf("Cline needs permission");
+      const popup = visible.some((line) =>
+        line.includes("Press Enter to open, any other key to close"),
+      );
+      if (permission >= 0 && !popup) {
+        const body = visible.slice(permission + 1);
+        const nonempty = body.map((line) => line.trim()).filter(Boolean);
+        const matches = pendingTools.filter(
+          (tool) =>
+            tool.name === "run_commands" &&
+            nonempty[0] === "Approve tool call?" &&
+            nonempty[1] === tool.name &&
+            Array.isArray(tool.input?.commands) &&
+            tool.input.commands.length > 0 &&
+            tool.input.commands.every(
+              (command: unknown) => typeof command === "string",
+            ) &&
+            JSON.stringify(nonempty.filter((line) => line.startsWith("$ "))) ===
+              JSON.stringify(
+                tool.input.commands.map((command: string) => `$ ${command}`),
+              ) &&
+            body.some(
+              (line) =>
+                line.includes("[y] Approve") && line.includes("[n] Deny"),
+            ),
+        );
+        if (matches.length === 1) {
+          const tool = matches[0];
+          if (
+            state.interaction?.kind === "approval" &&
+            state.interaction.toolId === tool.id
+          )
+            return;
+          state.interaction = {
+            id: `${state.executionId}:interaction:${++interactionSerial}`,
+            revision: state.revision + 1,
+            kind: "approval",
+            state: "awaiting-response",
+            prompt: `Approve ${tool.name}?`,
+            choices: ["Approve", "Deny"],
+            toolId: tool.id,
+            toolName: tool.name,
+            toolInput: structuredClone(tool.input),
+            responseKinds: ["approval"],
+          };
+          state.execution = "awaiting-input";
+          emit("interaction.changed", obs, state.interaction);
+          return;
+        }
+      }
+      if (popup || permission >= 0) {
+        const prompt = popup
+          ? "An additional TUI dialog owns input."
+          : "Current TUI approval is not uniquely linked to complete visible tool arguments.";
+        if (
+          state.interaction?.kind === "unsupported" &&
+          state.interaction.prompt === prompt
+        )
+          return;
+        state.interaction = {
+          id: `${state.executionId}:interaction:${++interactionSerial}`,
+          revision: state.revision + 1,
+          kind: "unsupported",
+          state: "unsupported",
+          prompt,
+          choices: [],
+        };
+        state.execution = "unknown";
+        emit("interaction.changed", obs, state.interaction);
+        return;
+      }
+      const title = visible
+        .map((line) => line.trim())
+        .lastIndexOf("Cline is asking a question");
+      if (title >= 0) {
+        const body = visible.slice(title + 1);
+        const rows = body
+          .map((line, index) => ({ text: line.trim(), index }))
+          .filter((row) => row.text);
+        const matches = pendingTools.filter(
+          (tool) =>
+            tool.name === "ask_question" &&
+            typeof tool.input?.question === "string" &&
+            Array.isArray(tool.input?.options) &&
+            rows[0]?.text === tool.input.question &&
+            tool.input.options.every(
+              (option: unknown, index: number) =>
+                typeof option === "string" &&
+                (rows[index + 1]?.text === option ||
+                  rows[index + 1]?.text === `> ${option}`),
+            ),
+        );
+        const tool = matches.length === 1 ? matches[0] : undefined;
+        if (
+          tool &&
+          tool.input.options.length <= 9 &&
+          new Set(tool.input.options).size === tool.input.options.length
+        ) {
+          const choices: string[] = tool.input.options;
+          const last = rows[choices.length].index;
+          const custom = body.slice(last + 1);
+          const customRow = custom.findIndex((line) => /^\s*> /.test(line));
+          const selected =
+            customRow >= 0
+              ? choices.length
+              : choices.findIndex(
+                  (option, index) => rows[index + 1]?.text === `> ${option}`,
+                );
+          let text: string | null = null;
+          if (customRow >= 0) {
+            const prefix = custom[customRow].match(/^\s*> /)![0];
+            const first = custom[customRow].slice(prefix.length);
+            if (
+              first === "Type a response..." ||
+              first === "Type a response first..."
+            )
+              text = "";
+            else {
+              const parts = [first];
+              for (const line of custom.slice(customRow + 1)) {
+                if (!line.trim()) break;
+                parts.push(line.slice(prefix.length));
+                if (line.trimEnd().endsWith("|")) break;
+              }
+              const joined = parts.join("");
+              if (joined.endsWith("|")) text = joined.slice(0, -1);
+            }
+          }
+          const input = {
+            mode: "tui" as const,
+            selected: selected < 0 ? null : selected,
+            text,
+          };
+          if (
+            state.interaction?.kind === "question" &&
+            state.interaction.toolId === tool.id
+          ) {
+            state.interaction.input = input;
+            return;
+          }
+          state.interaction = {
+            id: `${state.executionId}:interaction:${++interactionSerial}`,
+            revision: state.revision + 1,
+            kind: "question",
+            state: "awaiting-response",
+            prompt: tool.input.question,
+            choices,
+            toolId: tool.id,
+            toolName: tool.name,
+            responseKinds: ["choice", "text"],
+            input,
+          };
+          state.execution = "awaiting-input";
+          emit("interaction.changed", obs, state.interaction);
+          return;
+        }
+        const prompt =
+          "Current TUI question is not uniquely linked to history.";
+        if (
+          state.interaction?.kind === "unsupported" &&
+          state.interaction.prompt === prompt
+        )
+          return;
+        state.interaction = {
+          id: `${state.executionId}:interaction:${++interactionSerial}`,
+          revision: state.revision + 1,
+          kind: "unsupported",
+          state: "unsupported",
+          prompt,
+          choices: [],
+        };
+        state.execution = "unknown";
+        emit("interaction.changed", obs, state.interaction);
+        return;
+      }
+      if (state.interaction) {
+        state.interaction = null;
+        state.execution = "unknown";
+        emit("interaction.changed", obs, null);
+      }
+      return;
+    }
     const cursorRow = buffer.baseY + buffer.cursorY;
     for (let row = 0; row <= cursorRow; row++)
       lines.push(buffer.getLine(row)?.translateToString(true) ?? "");
@@ -441,7 +641,9 @@ export function createReducer(options: { mode: "replay" }): Reducer {
         (tool || rejectedId) &&
         choices.length <= 9 &&
         new Set(choices).size === choices.length
-          ? ["choice"]
+          ? recovery
+            ? ["choice"]
+            : ["choice", "text"]
           : [],
       ...(tool ? { toolId: tool.id, toolName: tool.name } : {}),
       ...(recovery ? { kind: "recovery" as const, toolId: rejectedId } : {}),
@@ -459,6 +661,8 @@ export function createReducer(options: { mode: "replay" }): Reducer {
         allowProposedApi: true,
         scrollback: 1000,
       });
+      terminal.loadAddon(new unicode11.Unicode11Addon());
+      terminal.unicode.activeVersion = "11";
       interactionSerial = 0;
       pendingTools = [];
       results = new Map();

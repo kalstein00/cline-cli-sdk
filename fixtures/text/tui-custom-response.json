@@ -1,0 +1,695 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-tui"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "session-cb97e74bcc76",
+  "executionId": "execution-d54374d312c1",
+  "observations": [
+    {
+      "kind": "pty",
+      "seq": 95,
+      "elapsedNs": "7685448157",
+      "observedAt": "2026-10-09T00:00:07.685Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzk7MkgbWzM4OzI7MTI4OzEyODsxMjhtG1s0OW3ioIsbWzBtG1s5OzRIG1szODsyOzEyMTsxODQ7MjU1bRtbNDltG1sxbWFza19xdWVzdGlvbigbWzBtG1s5OzE3SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ5bUVudGVyIGlkZW50aWZpZXIbWzBtG1s5OzMzSBtbMzg7MjsxMjE7MTg0OzI1NW0bWzQ5bRtbMW0pG1swbRtbMjg7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMjk7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAbWzBtG1syOTsySBtbMzg7MjsxMjE7MTg0OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtQ2xpbmUgaXMgYXNraW5nIGEgcXVlc3Rpb24bWzBtG1syOTsyOEgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMzA7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMzE7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAbWzBtG1szMTsySBtbMzg7MjsyMzc7MjQxOzI0Mm0bWzQ4OzI7Mjk7MzI7MzNtRW50ZXIgaWRlbnRpZmllchtbMG0bWzMxOzE4SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzBtG1szMTsxMTlIG1szODsyOzE1NDsxNTg7MTYzbRtbNDg7MjszNzszNzszOW3ilogbWzBtG1szMTsxMjBIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gG1szMjsxSBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMG0bWzMyOzExOUgbWzM4OzI7MTU0OzE1ODsxNjNtG1s0ODsyOzM3OzM3OzM5beKWiBtbMG0bWzMyOzEyMEgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAbWzMzOzFIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gG1swbRtbMzM7MkgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzEyMTsxODQ7MjU1bSAbWzBtG1szMzszSBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtPhtbMG0bWzMzOzRIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsxMjE7MTg0OzI1NW0gG1swbRtbMzM7NUgbWzM4OzI7MDswOzBtG1s0ODsyOzEyMTsxODQ7MjU1bVJFRBtbMG0bWzMzOzhIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsxMjE7MTg0OzI1NW0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzBtG1szMzsxMTlIG1szODsyOzE1NDsxNTg7MTYzbRtbNDg7MjszNzszNzszOW3iloAbWzBtG1szMzsxMjBIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gG1szNDsxSBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtICAbWzBtG1szNDszSBtbMzg7MjsxMjg7MTI4OzEyOG0bWzQ4OzI7Mjk7MzI7MzNtIBtbMG0bWzM0OzRIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gG1swbRtbMzQ7NUgbWzM4OzI7MjM3OzI0MTsyNDJtG1s0ODsyOzI5OzMyOzMzbUJMVUUbWzBtG1szNDs5SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzBtG1szNDsxMTlIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjszNzszNzszOW0gG1swbRtbMzQ7MTIwSBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtIBtbMzU7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzBtG1szNTsxMTlIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjszNzszNzszOW0gG1swbRtbMzU7MTIwSBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtIBtbMzY7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMzc7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0OW0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzM4OzMxSBtbMzg7MjsxMjg7MTI4OzEyOG0bWzQ5bTg2G1swbRtbMG0bWzM2OzNIG1s/MjVoG1s/MjAyNmw=",
+      "sha256": "40f51439532ae89290704613dd92672966d7511d981c7fc6d997901237e88ebe",
+      "sourcePayloadSha256": "40f51439532ae89290704613dd92672966d7511d981c7fc6d997901237e88ebe"
+    },
+    {
+      "kind": "history",
+      "seq": 96,
+      "elapsedNs": "7686875011",
+      "observedAt": "2026-10-09T00:00:07.686Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLWNiOTdlNzRiY2M3NiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjI5OjUyLjM4MVoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLTA5NTVkNzIzNGY3YyIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzEwMjkwMCwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiT0JTRVJWQVRJT05fUkVBRFkifV19LHsiaWQiOiJtZXNzYWdlLTY3MjA4MTJkNWQ5NSIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzODE5MjM3NywiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLTFhMjFmYmZmYjZlYiIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkVudGVyIGlkZW50aWZpZXIiLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX19XX1dfQ==",
+      "sha256": "ff2361421cf351868574231c3ed794ff432f298420864fd70888dae4e02b3b8f",
+      "sourcePayloadSha256": "baa89ab3fe1f9ee585fb8067eb91859f20fe822d54cb76f134b0e484c8be18fe"
+    },
+    {
+      "kind": "pty",
+      "seq": 97,
+      "elapsedNs": "7701881634",
+      "observedAt": "2026-10-09T00:00:07.701Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzMxOzExOUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAbWzBtG1szMjsxMTlIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gG1swbRtbMzM7MTE5SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtIBtbMG0bWzM0OzExOUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAbWzBtG1szNTszSBtbMzg7MjsxMjg7MTI4OzEyOG0bWzQ4OzI7Mjk7MzI7MzNtIBtbMG0bWzM1OzVIG1szODsyOzEzMTsxMzc7MTQwbRtbNDg7MjsyOTszMjszM21UeXBlIGEgcmVzcG9uc2UuLi4bWzBtG1szNTsxMTlIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gG1swbRtbMG0bWz8yMDI2bA==",
+      "sha256": "935668db9d20fa2a133790fde023bd6583883e0804ebb652110a2c218d420279",
+      "sourcePayloadSha256": "935668db9d20fa2a133790fde023bd6583883e0804ebb652110a2c218d420279"
+    },
+    {
+      "kind": "pty",
+      "seq": 98,
+      "elapsedNs": "7718386902",
+      "observedAt": "2026-10-09T00:00:07.718Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzMzOzExOUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzEyMTsxODQ7MjU1bSAbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "351090e8fdde1415bbd14645729b010fc5b79058631dcc18122c39405282176e",
+      "sourcePayloadSha256": "351090e8fdde1415bbd14645729b010fc5b79058631dcc18122c39405282176e"
+    },
+    {
+      "kind": "pty",
+      "seq": 457,
+      "elapsedNs": "36619934243",
+      "observedAt": "2026-10-09T00:00:36.619Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzMzOzJIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gG1swbRtbMzM7M0gbWzM4OzI7MTI4OzEyODsxMjhtG1s0ODsyOzI5OzMyOzMzbSAbWzBtG1szMzs0SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtIBtbMG0bWzMzOzVIG1szODsyOzIzNzsyNDE7MjQybRtbNDg7MjsyOTszMjszM21SRUQbWzBtG1szMzs4SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMG0bWzM0OzJIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsxMjE7MTg0OzI1NW0gG1swbRtbMzQ7M0gbWzM4OzI7MDswOzBtG1s0ODsyOzEyMTsxODQ7MjU1bT4bWzBtG1szNDs0SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7MTIxOzE4NDsyNTVtIBtbMG0bWzM0OzVIG1szODsyOzA7MDswbRtbNDg7MjsxMjE7MTg0OzI1NW1CTFVFG1swbRtbMzQ7OUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzEyMTsxODQ7MjU1bSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMG0bWzBtG1s/MjAyNmw=",
+      "sha256": "e79185c4535ece6deadd5eef1322110a94d2521e2a999183d604ea97978e2bb6",
+      "sourcePayloadSha256": "e79185c4535ece6deadd5eef1322110a94d2521e2a999183d604ea97978e2bb6"
+    },
+    {
+      "kind": "pty",
+      "seq": 460,
+      "elapsedNs": "36759264657",
+      "observedAt": "2026-10-09T00:00:36.759Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM0OzJIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gG1swbRtbMzQ7M0gbWzM4OzI7MTI4OzEyODsxMjhtG1s0ODsyOzI5OzMyOzMzbSAbWzBtG1szNDs0SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtIBtbMG0bWzM0OzVIG1szODsyOzIzNzsyNDE7MjQybRtbNDg7MjsyOTszMjszM21CTFVFG1swbRtbMzQ7OUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzI5OzMyOzMzbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMG0bWzM1OzJIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsxMjE7MTg0OzI1NW0gG1swbRtbMzU7M0gbWzM4OzI7MDswOzBtG1s0ODsyOzEyMTsxODQ7MjU1bT4bWzBtG1szNTs0SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7MTIxOzE4NDsyNTVtIBtbMG0bWzM1OzVIG1szODsyOzA7MDswbRtbNDg7MjsxMjE7MTg0OzI1NW1UeXBlIGEgcmVzcG9uc2UuLi4bWzBtG1szNTsyM0gbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzEyMTsxODQ7MjU1bSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "a38e0a078dd843f432f3205ed756e3545f1a4caf55556f6e5ec697fe819cd828",
+      "sourcePayloadSha256": "a38e0a078dd843f432f3205ed756e3545f1a4caf55556f6e5ec697fe819cd828"
+    },
+    {
+      "kind": "pty",
+      "seq": 464,
+      "elapsedNs": "36909808557",
+      "observedAt": "2026-10-09T00:00:36.909Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzIwSBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtIGZpcnN0Li4uG1swbRtbMG0bWz8yMDI2bA==",
+      "sha256": "b7a9cf93b612e38f40b34aa33afd5290a398dde7188c49f260515b7a8303f65d",
+      "sourcePayloadSha256": "b7a9cf93b612e38f40b34aa33afd5290a398dde7188c49f260515b7a8303f65d"
+    },
+    {
+      "kind": "pty",
+      "seq": 1368,
+      "elapsedNs": "109722426219",
+      "observedAt": "2026-10-09T00:01:49.722Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzVIG1szODsyOzA7MDswbRtbNDg7MjsxMjE7MTg0OzI1NW0yfBtbMG0bWzM1OzdIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsxMjE7MTg0OzI1NW0gICAgICAgICAgICAgICAgICAgICAgG1swbRtbMG0bWz8yMDI2bA==",
+      "sha256": "e73fc0ea34bbdcb0c70678f5715a6437c4c9fcf43adbda8292f77eccf72f799b",
+      "sourcePayloadSha256": "e73fc0ea34bbdcb0c70678f5715a6437c4c9fcf43adbda8292f77eccf72f799b"
+    },
+    {
+      "kind": "pty",
+      "seq": 1371,
+      "elapsedNs": "109797100150",
+      "observedAt": "2026-10-09T00:01:49.797Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzZIG1szODsyOzA7MDswbRtbNDg7MjsxMjE7MTg0OzI1NW0gfBtbMG0bWzBtG1s/MjAyNmw=",
+      "sha256": "368407df58d0e585f50cd0abf9defbb6e19469006d941fa35e28109878264158",
+      "sourcePayloadSha256": "368407df58d0e585f50cd0abf9defbb6e19469006d941fa35e28109878264158"
+    },
+    {
+      "kind": "pty",
+      "seq": 1373,
+      "elapsedNs": "109842504106",
+      "observedAt": "2026-10-09T00:01:49.842Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzdIG1szODsyOzA7MDswbRtbNDg7MjsxMjE7MTg0OzI1NW1jfBtbMG0bWzBtG1s/MjAyNmw=",
+      "sha256": "ec2c21d826b7b566275a177a385e9769f98a64e876053f5941199d15628cbdff",
+      "sourcePayloadSha256": "ec2c21d826b7b566275a177a385e9769f98a64e876053f5941199d15628cbdff"
+    },
+    {
+      "kind": "pty",
+      "seq": 1376,
+      "elapsedNs": "109903054010",
+      "observedAt": "2026-10-09T00:01:49.903Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzhIG1szODsyOzA7MDswbRtbNDg7MjsxMjE7MTg0OzI1NW11fBtbMG0bWzBtG1s/MjAyNmw=",
+      "sha256": "c2788f0e4912c1d4b3b3582b94ed30877aaee3d98e6c90305bc80dabdb636c2b",
+      "sourcePayloadSha256": "c2788f0e4912c1d4b3b3582b94ed30877aaee3d98e6c90305bc80dabdb636c2b"
+    },
+    {
+      "kind": "pty",
+      "seq": 1379,
+      "elapsedNs": "109963110042",
+      "observedAt": "2026-10-09T00:01:49.963Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzlIG1szODsyOzA7MDswbRtbNDg7MjsxMjE7MTg0OzI1NW1zfBtbMG0bWzBtG1s/MjAyNmw=",
+      "sha256": "678473193ab3c3143b671a47e0ac032179d0f24590dff006cb160d3fd0fabf0f",
+      "sourcePayloadSha256": "678473193ab3c3143b671a47e0ac032179d0f24590dff006cb160d3fd0fabf0f"
+    },
+    {
+      "kind": "pty",
+      "seq": 1382,
+      "elapsedNs": "110037735834",
+      "observedAt": "2026-10-09T00:01:50.037Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzEwSBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtdHwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "ccbd01a0796201e1a1e57f8d1b0b2b235d3e5526605aa7adb4965d1e63d788c1",
+      "sourcePayloadSha256": "ccbd01a0796201e1a1e57f8d1b0b2b235d3e5526605aa7adb4965d1e63d788c1"
+    },
+    {
+      "kind": "pty",
+      "seq": 1384,
+      "elapsedNs": "110083361823",
+      "observedAt": "2026-10-09T00:01:50.083Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzExSBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtb3wbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "113f82d31b38be8656964dd5d51e59f361549925bde10b33000dd94f0605d63b",
+      "sourcePayloadSha256": "113f82d31b38be8656964dd5d51e59f361549925bde10b33000dd94f0605d63b"
+    },
+    {
+      "kind": "pty",
+      "seq": 1387,
+      "elapsedNs": "110144234684",
+      "observedAt": "2026-10-09T00:01:50.144Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzEySBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtbXwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "2b7f6af822d14e38efe25bd334d5b04b612712184552c710b6dad0b08b2eb0f6",
+      "sourcePayloadSha256": "2b7f6af822d14e38efe25bd334d5b04b612712184552c710b6dad0b08b2eb0f6"
+    },
+    {
+      "kind": "pty",
+      "seq": 1390,
+      "elapsedNs": "110205725499",
+      "observedAt": "2026-10-09T00:01:50.205Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzEzSBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtIHwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "b0eef9076638dca49e51688af52c1d58f85a8310360288d505a304d721cc6eee",
+      "sourcePayloadSha256": "b0eef9076638dca49e51688af52c1d58f85a8310360288d505a304d721cc6eee"
+    },
+    {
+      "kind": "pty",
+      "seq": 1393,
+      "elapsedNs": "110285558605",
+      "observedAt": "2026-10-09T00:01:50.285Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzE0SBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtaXwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "4c9998f4581b2ccf53af13a3f72f49fe87bb9af68f3ed896637e25f1576d348e",
+      "sourcePayloadSha256": "4c9998f4581b2ccf53af13a3f72f49fe87bb9af68f3ed896637e25f1576d348e"
+    },
+    {
+      "kind": "pty",
+      "seq": 1395,
+      "elapsedNs": "110326052348",
+      "observedAt": "2026-10-09T00:01:50.326Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzE1SBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtZHwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "2998752b87a7562bdabddf9ae7dcc9324f22a6bda9a03ee1366e8d0b9733ceec",
+      "sourcePayloadSha256": "2998752b87a7562bdabddf9ae7dcc9324f22a6bda9a03ee1366e8d0b9733ceec"
+    },
+    {
+      "kind": "pty",
+      "seq": 1398,
+      "elapsedNs": "110390686705",
+      "observedAt": "2026-10-09T00:01:50.390Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzE2SBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtZXwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "b975327bba032a2316d24a177c82840b7ce6eab8d1be09bceb4adb8dc6801ab0",
+      "sourcePayloadSha256": "b975327bba032a2316d24a177c82840b7ce6eab8d1be09bceb4adb8dc6801ab0"
+    },
+    {
+      "kind": "pty",
+      "seq": 1401,
+      "elapsedNs": "110448319697",
+      "observedAt": "2026-10-09T00:01:50.448Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzE3SBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtbnwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "0b8c12836517a9be089d48f7176452047efd2a7d27c3dc3f5a4748fce004a935",
+      "sourcePayloadSha256": "0b8c12836517a9be089d48f7176452047efd2a7d27c3dc3f5a4748fce004a935"
+    },
+    {
+      "kind": "pty",
+      "seq": 1404,
+      "elapsedNs": "110523066542",
+      "observedAt": "2026-10-09T00:01:50.523Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzE4SBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtdHwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "567d8f3de243585f4f68d816d08b9bb6acf9cb773a2ce0de433b450c750f1e98",
+      "sourcePayloadSha256": "567d8f3de243585f4f68d816d08b9bb6acf9cb773a2ce0de433b450c750f1e98"
+    },
+    {
+      "kind": "pty",
+      "seq": 1406,
+      "elapsedNs": "110568549461",
+      "observedAt": "2026-10-09T00:01:50.568Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzE5SBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtaXwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "30e5ca4dddeccdcd019e393a8c0ade8b77b796b4d25d07b9592439fadff180b9",
+      "sourcePayloadSha256": "30e5ca4dddeccdcd019e393a8c0ade8b77b796b4d25d07b9592439fadff180b9"
+    },
+    {
+      "kind": "pty",
+      "seq": 1409,
+      "elapsedNs": "110629836944",
+      "observedAt": "2026-10-09T00:01:50.629Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzIwSBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtZnwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "f715ae6aacb8fbeaa8d5315a1ec9e7b1351ce38092ce13960941e21121a863ba",
+      "sourcePayloadSha256": "f715ae6aacb8fbeaa8d5315a1ec9e7b1351ce38092ce13960941e21121a863ba"
+    },
+    {
+      "kind": "pty",
+      "seq": 1412,
+      "elapsedNs": "110692004187",
+      "observedAt": "2026-10-09T00:01:50.692Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzIxSBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtaXwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "2538d1215defdfcc5ec54181792d2169215924544cfddc2f78532ff0d510ce41",
+      "sourcePayloadSha256": "2538d1215defdfcc5ec54181792d2169215924544cfddc2f78532ff0d510ce41"
+    },
+    {
+      "kind": "pty",
+      "seq": 1415,
+      "elapsedNs": "110765261805",
+      "observedAt": "2026-10-09T00:01:50.765Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzIySBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtZXwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "b13d67a0587938d11968286b6541eed512177fae6e3e52c682e16029a6cc33a7",
+      "sourcePayloadSha256": "b13d67a0587938d11968286b6541eed512177fae6e3e52c682e16029a6cc33a7"
+    },
+    {
+      "kind": "pty",
+      "seq": 1417,
+      "elapsedNs": "110811310490",
+      "observedAt": "2026-10-09T00:01:50.811Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzM1OzIzSBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtcnwbWzBtG1swbRtbPzIwMjZs",
+      "sha256": "9280115a00bb2afee40d4f4ea5d602dfa12010056c009ac47347715fc69ca36c",
+      "sourcePayloadSha256": "9280115a00bb2afee40d4f4ea5d602dfa12010056c009ac47347715fc69ca36c"
+    },
+    {
+      "kind": "pty",
+      "seq": 1424,
+      "elapsedNs": "111224238435",
+      "observedAt": "2026-10-09T00:01:51.224Z",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzk7MkgbWzM4OzI7MTIxOzE4NDsyNTVtG1s0OW0qG1swbRtbMTA7NEgbWzM4OzI7MTI4OzEyODsxMjhtG1s0OW3ijr8gMiBjdXN0b20gaWRlbnRpZmllchtbMG0bWzEyOzJIG1szODsyOzEyMTsxODQ7MjU1bRtbNDlt4qCLG1swbRtbMTI7NEgbWzM4OzI7MTI4OzEyODsxMjhtG1s0OW1UaGlua2luZy4uLiAoZXNjIHRvIGNhbmNlbCkbWzBtG1syODsxSBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ5bSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMjk7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0OW0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzMwOzFIG1szODsyOzI1NTsyNTU7MjU1bRtbNDltICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgG1szMTsxSBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ5bSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMzI7MUgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0OW0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzMzOzFIG1szODsyOzI1NTsyNTU7MjU1bRtbNDltICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgG1szNDsxSBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ5bSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMzU7MUgbWzM4OzI7OTk7OTk7OTltG1s0OW3ilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAbWzM2OzFIG1szODsyOzEyMTsxODQ7MjU1bRtbNDltG1sxbeKdrxtbMG0bWzM2OzJIG1szODsyOzI1NTsyNTU7MjU1bRtbNDltIBtbMG0bWzM2OzNIG1szODsyOzEzMTsxMzc7MTQwbRtbNDltQXNrIGFueXRoaW5nLi4uG1swbRtbMzY7MThIG1szODsyOzI1NTsyNTU7MjU1bRtbNDltICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBtbMzc7MUgbWzM4OzI7OTk7OTk7OTltG1s0OW3ilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAbWzBtG10xMjsjNzliOGZmBxtbMSBxG1szNjszSBtbPzI1aBtbPzIwMjZs",
+      "sha256": "ac8eeaaa3091b2b45503b9bdc716d7ca76a7f68442891fd32ff51f15ddfeec52",
+      "sourcePayloadSha256": "ac8eeaaa3091b2b45503b9bdc716d7ca76a7f68442891fd32ff51f15ddfeec52"
+    },
+    {
+      "kind": "history",
+      "seq": 1425,
+      "elapsedNs": "111225096830",
+      "observedAt": "2026-10-09T00:01:51.225Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLWNiOTdlNzRiY2M3NiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjMxOjM1LjkwMloiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLTA5NTVkNzIzNGY3YyIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzEwMjkwMCwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiT0JTRVJWQVRJT05fUkVBRFkifV19LHsiaWQiOiJtZXNzYWdlLTY3MjA4MTJkNWQ5NSIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzODE5MjM3NywiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLTFhMjFmYmZmYjZlYiIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkVudGVyIGlkZW50aWZpZXIiLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX19XX0seyJpZCI6Im1lc3NhZ2UtNDZiM2M3NzVjYTc5Iiwicm9sZSI6InVzZXIiLCJ0cyI6MTc5MTUzODI5NTg5NiwiY29udGVudCI6W3sidHlwZSI6InRvb2xfcmVzdWx0IiwidG9vbF91c2VfaWQiOiJ0b29sLTFhMjFmYmZmYjZlYiIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJjb250ZW50IjoiMiBjdXN0b20gaWRlbnRpZmllciJ9XX1dfQ==",
+      "sha256": "b81800f3f63fd370bb24d57509886dd28200cee4edbe536448595da1e4b7ebd5",
+      "sourcePayloadSha256": "6f2c32769370b1255771a5acd3bc66f2f19e12ab8ffc44c89f302229a96b74fa"
+    },
+    {
+      "kind": "history",
+      "seq": 1478,
+      "elapsedNs": "115263921628",
+      "observedAt": "2026-10-09T00:01:55.263Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLWNiOTdlNzRiY2M3NiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjMxOjM5Ljk3MFoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLTA5NTVkNzIzNGY3YyIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzEwMjkwMCwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiT0JTRVJWQVRJT05fUkVBRFkifV19LHsiaWQiOiJtZXNzYWdlLTY3MjA4MTJkNWQ5NSIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzODE5MjM3NywiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLTFhMjFmYmZmYjZlYiIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkVudGVyIGlkZW50aWZpZXIiLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX19XX0seyJpZCI6Im1lc3NhZ2UtNDZiM2M3NzVjYTc5Iiwicm9sZSI6InVzZXIiLCJ0cyI6MTc5MTUzODI5NTg5NiwiY29udGVudCI6W3sidHlwZSI6InRvb2xfcmVzdWx0IiwidG9vbF91c2VfaWQiOiJ0b29sLTFhMjFmYmZmYjZlYiIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJjb250ZW50IjoiMiBjdXN0b20gaWRlbnRpZmllciJ9XX0seyJpZCI6Im1lc3NhZ2UtMzVmNDdlYmZmNTIwIiwicm9sZSI6ImFzc2lzdGFudCIsInRzIjoxNzkxNTM4Mjk5OTU2LCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJUVUlfSURFTlRJRklFUjoyIGN1c3RvbSBpZGVudGlmaWVyIn1dfV19",
+      "sha256": "22fe379773c47f78996abd48aa22fdc94041127cff862f7e4fb50e57e901c57a",
+      "sourcePayloadSha256": "5ff7ad7fd18a65e111c60fef881f33e78dba5ef6d68ee32984e0a28a59547c21"
+    }
+  ],
+  "provenance": {
+    "source": "20261009/logs/tui-question-live/frames.ndjson",
+    "sourceSha256": "b78d71cc3ccd1b2f3a1c09f5e493e970be04135b3efd14977d1d00dfc4dd5ff3",
+    "review": "Selected controlled test observations; decoded histories allowlisted; no credentials, provider data, system prompt, user text context, thinking, metrics, or personal paths retained.",
+    "transformations": [
+      "selected observations, original sequence and nanosecond relative timing retained",
+      "PTY output bytes and original packet boundaries unchanged",
+      "history envelopes decoded then allowlisted and reencoded; payload hash recomputed",
+      "session/message/tool IDs replaced by consistent SHA-derived pseudonyms; tool_result linkage retained",
+      "manifest PIDs replaced with pseudonymous numeric values; cannot be used as live process ownership",
+      "wall clock normalized to 2026-10-09T00:00:00Z plus source elapsed time",
+      "history user text blocks removed; user tool_result blocks retained"
+    ],
+    "complete": false,
+    "truncated": true
+  },
+  "evidence": {
+    "classification": "sanitized-observation",
+    "inputWitnesses": [
+      {
+        "seq": 456,
+        "elapsedNs": "36606097172",
+        "observedAt": "2026-10-09T00:00:36.606Z",
+        "dataBase64": "G1tC",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 459,
+        "elapsedNs": "36756575621",
+        "observedAt": "2026-10-09T00:00:36.756Z",
+        "dataBase64": "G1tC",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 463,
+        "elapsedNs": "36907191972",
+        "observedAt": "2026-10-09T00:00:36.907Z",
+        "dataBase64": "DQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 682,
+        "elapsedNs": "54497725769",
+        "observedAt": "2026-10-09T00:00:54.497Z",
+        "dataBase64": "G1syMDB+MiBjdXN0b20gaWRlbnRpZmllchtbMjAxfg==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 687,
+        "elapsedNs": "54798257185",
+        "observedAt": "2026-10-09T00:00:54.798Z",
+        "dataBase64": "DQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1367,
+        "elapsedNs": "109719102732",
+        "observedAt": "2026-10-09T00:01:49.719Z",
+        "dataBase64": "Mg==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1369,
+        "elapsedNs": "109779320062",
+        "observedAt": "2026-10-09T00:01:49.779Z",
+        "dataBase64": "IA==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1372,
+        "elapsedNs": "109839693974",
+        "observedAt": "2026-10-09T00:01:49.839Z",
+        "dataBase64": "Yw==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1375,
+        "elapsedNs": "109900444975",
+        "observedAt": "2026-10-09T00:01:49.900Z",
+        "dataBase64": "dQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1378,
+        "elapsedNs": "109960574060",
+        "observedAt": "2026-10-09T00:01:49.960Z",
+        "dataBase64": "cw==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1380,
+        "elapsedNs": "110021232003",
+        "observedAt": "2026-10-09T00:01:50.021Z",
+        "dataBase64": "dA==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1383,
+        "elapsedNs": "110081591885",
+        "observedAt": "2026-10-09T00:01:50.081Z",
+        "dataBase64": "bw==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1386,
+        "elapsedNs": "110142080780",
+        "observedAt": "2026-10-09T00:01:50.142Z",
+        "dataBase64": "bQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1389,
+        "elapsedNs": "110203140181",
+        "observedAt": "2026-10-09T00:01:50.203Z",
+        "dataBase64": "IA==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1391,
+        "elapsedNs": "110263739810",
+        "observedAt": "2026-10-09T00:01:50.263Z",
+        "dataBase64": "aQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1394,
+        "elapsedNs": "110324305731",
+        "observedAt": "2026-10-09T00:01:50.324Z",
+        "dataBase64": "ZA==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1397,
+        "elapsedNs": "110385415027",
+        "observedAt": "2026-10-09T00:01:50.385Z",
+        "dataBase64": "ZQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1400,
+        "elapsedNs": "110445772286",
+        "observedAt": "2026-10-09T00:01:50.445Z",
+        "dataBase64": "bg==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1402,
+        "elapsedNs": "110506321362",
+        "observedAt": "2026-10-09T00:01:50.506Z",
+        "dataBase64": "dA==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1405,
+        "elapsedNs": "110566814893",
+        "observedAt": "2026-10-09T00:01:50.566Z",
+        "dataBase64": "aQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1408,
+        "elapsedNs": "110627513601",
+        "observedAt": "2026-10-09T00:01:50.627Z",
+        "dataBase64": "Zg==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1411,
+        "elapsedNs": "110687880781",
+        "observedAt": "2026-10-09T00:01:50.687Z",
+        "dataBase64": "aQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1413,
+        "elapsedNs": "110748509827",
+        "observedAt": "2026-10-09T00:01:50.748Z",
+        "dataBase64": "ZQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1416,
+        "elapsedNs": "110809021004",
+        "observedAt": "2026-10-09T00:01:50.809Z",
+        "dataBase64": "cg==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 1423,
+        "elapsedNs": "111175398735",
+        "observedAt": "2026-10-09T00:01:51.175Z",
+        "dataBase64": "DQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      }
+    ],
+    "manifestObservations": [
+      {
+        "seq": 3,
+        "elapsedNs": "154090137",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-cb97e74bcc76",
+          "pid": 3929195,
+          "status": "completed",
+          "interactive": false,
+          "started_at": "2026-10-09T09:11:40.382Z",
+          "ended_at": "2026-10-09T09:11:42.938Z",
+          "exit_code": 0
+        }
+      },
+      {
+        "seq": 33,
+        "elapsedNs": "2687420466",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-cb97e74bcc76",
+          "pid": 3929195,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:11:40.382Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 1477,
+        "elapsedNs": "115263713310",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-cb97e74bcc76",
+          "pid": 3929195,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:11:40.382Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 1479,
+        "elapsedNs": "115416147290",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-cb97e74bcc76",
+          "pid": 3929195,
+          "status": "idle",
+          "interactive": false,
+          "started_at": "2026-10-09T09:11:40.382Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 1485,
+        "elapsedNs": "133095502324",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-cb97e74bcc76",
+          "pid": 3929195,
+          "status": "completed",
+          "interactive": false,
+          "started_at": "2026-10-09T09:11:40.382Z",
+          "ended_at": "2026-10-09T09:31:57.804Z",
+          "exit_code": 0
+        }
+      }
+    ],
+    "exitWitnesses": [
+      {
+        "seq": 1487,
+        "kind": "exit",
+        "elapsedNs": "133316039732",
+        "exitCode": 0,
+        "timedOut": false
+      }
+    ],
+    "notes": [
+      "Real modal baseline seq95 with its packet continuation seq97/98 supplies absolute cursor writes for rows28-37, without unrelated user transcript above. Selection arrows seq456/459, empty custom Enter seq463, bracketed paste seq682 ignored, separate Enter seq687 still not a result. Individual character inputs seq1367-1416 produce raw cursor rewrite echoes; separate Enter seq1423 yields matching tool_result 2 custom identifier.",
+      "Spinner-only refreshes omitted; modal screen equality independently checked against complete original raw stream at listed checkpoints. No synthetic ANSI snapshot or expected normalized events were substituted.",
+      "No Korean or long-input observation exists here; those require separate actual live acceptance and explicitly marked synthetic regression inputs."
+    ],
+    "modalScreenVerification": [
+      {
+        "seq": 95,
+        "modalRowsEqual": true,
+        "modalRows": [
+          "                                                                                                                        ",
+          " Cline is asking a question                                                                                             ",
+          "                                                                                                                        ",
+          " Enter identifier                                                                                                     █ ",
+          "                                                                                                                      █ ",
+          "  > RED                                                                                                               ▀ ",
+          "    BLUE                                                                                                                ",
+          "                                                                                                                        ",
+          "                                                                                                                        ",
+          "                                                                                                                        "
+        ]
+      },
+      {
+        "seq": 457,
+        "modalRowsEqual": true,
+        "modalRows": [
+          "                                                                                                                        ",
+          " Cline is asking a question                                                                                             ",
+          "                                                                                                                        ",
+          " Enter identifier                                                                                                       ",
+          "                                                                                                                        ",
+          "    RED                                                                                                                 ",
+          "  > BLUE                                                                                                                ",
+          "    Type a response...                                                                                                  ",
+          "                                                                                                                        ",
+          "                                                                                                                        "
+        ]
+      },
+      {
+        "seq": 460,
+        "modalRowsEqual": true,
+        "modalRows": [
+          "                                                                                                                        ",
+          " Cline is asking a question                                                                                             ",
+          "                                                                                                                        ",
+          " Enter identifier                                                                                                       ",
+          "                                                                                                                        ",
+          "    RED                                                                                                                 ",
+          "    BLUE                                                                                                                ",
+          "  > Type a response...                                                                                                  ",
+          "                                                                                                                        ",
+          "                                                                                                                        "
+        ]
+      },
+      {
+        "seq": 464,
+        "modalRowsEqual": true,
+        "modalRows": [
+          "                                                                                                                        ",
+          " Cline is asking a question                                                                                             ",
+          "                                                                                                                        ",
+          " Enter identifier                                                                                                       ",
+          "                                                                                                                        ",
+          "    RED                                                                                                                 ",
+          "    BLUE                                                                                                                ",
+          "  > Type a response first...                                                                                            ",
+          "                                                                                                                        ",
+          "                                                                                                                        "
+        ]
+      },
+      {
+        "seq": 1368,
+        "modalRowsEqual": true,
+        "modalRows": [
+          "                                                                                                                        ",
+          " Cline is asking a question                                                                                             ",
+          "                                                                                                                        ",
+          " Enter identifier                                                                                                       ",
+          "                                                                                                                        ",
+          "    RED                                                                                                                 ",
+          "    BLUE                                                                                                                ",
+          "  > 2|                                                                                                                  ",
+          "                                                                                                                        ",
+          "                                                                                                                        "
+        ]
+      },
+      {
+        "seq": 1417,
+        "modalRowsEqual": true,
+        "modalRows": [
+          "                                                                                                                        ",
+          " Cline is asking a question                                                                                             ",
+          "                                                                                                                        ",
+          " Enter identifier                                                                                                       ",
+          "                                                                                                                        ",
+          "    RED                                                                                                                 ",
+          "    BLUE                                                                                                                ",
+          "  > 2 custom identifier|                                                                                                ",
+          "                                                                                                                        ",
+          "                                                                                                                        "
+        ]
+      },
+      {
+        "seq": 1424,
+        "modalRowsEqual": true,
+        "modalRows": [
+          "                                                                                                                        ",
+          "                                                                                                                        ",
+          "                                                                                                                        ",
+          "                                                                                                                        ",
+          "                                                                                                                        ",
+          "                                                                                                                        ",
+          "                                                                                                                        ",
+          "────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────",
+          "❯ Ask anything...                                                                                                       ",
+          "────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────"
+        ]
+      }
+    ]
+  }
+}
