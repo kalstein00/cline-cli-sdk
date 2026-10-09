@@ -143,36 +143,50 @@
     </nav>
     <p id="error" role="alert"></p>
     <section>
-      <h2>연결과 환경 점검</h2>
-      <label>SSH 호스트 또는 별칭<input id="host" value="wsl" /></label>
-      <label
-        >고정 CLI 절대 경로<input id="cliPath" placeholder="/path/to/cline"
-      /></label>
-      <label
-        >관리 디렉터리 (선택)<input
-          id="remoteRoot"
-          placeholder="~/.local/state/cline-cli-sdk"
-      /></label>
-      <label
-        >SSH 키 파일 경로 (선택, 기본 SSH agent)<input id="identityFile"
-      /></label>
-      <button id="connect">연결·환경 점검</button>
-      <pre id="preflight">아직 점검하지 않았습니다.</pre>
-      <label
-        >원격 작업 디렉터리<input id="cwd" placeholder="/remote/workspace"
-      /></label>
-      <label
-        >격리 CLI 데이터 디렉터리 (선택)<input
-          id="dataDir"
-          placeholder="인증을 별도로 준비한 데이터 경로"
-      /></label>
-      <label
-        >요청<textarea id="prompt">
+      <details id="setup" open>
+        <summary>연결·작업 설정</summary>
+        <h2>연결과 환경 점검</h2>
+        <label>SSH 호스트 또는 별칭<input id="host" value="wsl" /></label>
+        <label
+          >고정 CLI 절대 경로<input id="cliPath" placeholder="/path/to/cline"
+        /></label>
+        <label
+          >관리 디렉터리 (선택)<input
+            id="remoteRoot"
+            placeholder="~/.local/state/cline-cli-sdk"
+        /></label>
+        <label
+          >SSH 키 파일 경로 (선택, 기본 SSH agent)<input id="identityFile"
+        /></label>
+        <button id="connect">연결·환경 점검</button>
+        <pre id="preflight">아직 점검하지 않았습니다.</pre>
+        <label
+          >원격 작업 디렉터리<input id="cwd" placeholder="/remote/workspace"
+        /></label>
+        <label
+          >격리 CLI 데이터 디렉터리 (선택)<input
+            id="dataDir"
+            placeholder="인증을 별도로 준비한 데이터 경로"
+        /></label>
+        <label
+          >요청<textarea id="prompt">
 Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
-        >
-      </label>
-      <button id="start" disabled>작업 시작</button>
-      <button id="refresh" disabled>현재 상태 확인</button>
+          >
+        </label>
+        <button id="start" disabled>작업 시작</button>
+        <button id="refresh" disabled>현재 상태 확인</button>
+        <label
+          >재시도 한도 (선택, 1–10)<input
+            id="retryLimit"
+            type="number"
+            min="1"
+            max="10"
+        /></label>
+      </details>
+    </section>
+    <section>
+      <h2>상호작용</h2>
+      <div id="interaction" class="empty">대기 중인 질문이 없습니다.</div>
     </section>
     <section>
       <h2>현재 상태</h2>
@@ -187,6 +201,8 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         <dd id="run">—</dd>
         <dt>Revision</dt>
         <dd id="revision">0</dd>
+        <dt>응답 전달</dt>
+        <dd id="responseState">—</dd>
         <dt>기록</dt>
         <dd id="position">—</dd>
         <dt>회사 호환성</dt>
@@ -196,10 +212,6 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     <section>
       <h2>메시지</h2>
       <div id="messages" class="empty">재생 기록을 선택하세요.</div>
-    </section>
-    <section>
-      <h2>상호작용</h2>
-      <div id="interaction" class="empty">대기 중인 질문이 없습니다.</div>
     </section>
     <section>
       <h2>SDK 이벤트</h2>
@@ -215,10 +227,26 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     let events = [];
     let current = null;
     let busy = false;
-    function render({ snapshot: s, preflight }) {
+    let capability = {};
+    let interactionViewKey;
+    const responseDisabled = (s) =>
+      busy ||
+      s.mode !== "live" ||
+      !capability.responses ||
+      s.connection !== "connected" ||
+      s.interaction?.state !== "awaiting-response" ||
+      !s.interaction?.responseKinds?.length ||
+      !s.interaction?.toolId ||
+      s.response?.state === "delivery-unknown";
+    function render({ snapshot: s, preflight, capabilities }) {
+      if (capabilities) capability = capabilities;
       current = s;
       element("start").disabled =
-        busy || !preflight?.ready || s.mode !== "live" || !!s.executionId;
+        busy ||
+        !preflight?.ready ||
+        s.mode !== "live" ||
+        s.connection !== "connected" ||
+        !!s.executionId;
       element("refresh").disabled = busy || s.mode !== "live" || !s.executionId;
       if (preflight)
         element("preflight").textContent = JSON.stringify(preflight, null, 2);
@@ -228,6 +256,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         session: s.sessionId ?? "—",
         run: s.executionId ?? "—",
         revision: s.revision,
+        responseState: s.response?.state ?? "—",
         position:
           s.mode === "live"
             ? "원격 CLI 기록 · 로컬 영구 복제 없음"
@@ -248,11 +277,29 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         messages.append(p);
       }
       const interaction = element("interaction");
+      const viewKey = JSON.stringify([
+        s.executionId,
+        s.interaction,
+        s.response?.state,
+        s.mode,
+        s.connection,
+        capability.responses,
+      ]);
+      if (interactionViewKey === viewKey) {
+        interaction
+          .querySelectorAll("button")
+          .forEach((button) => (button.disabled = responseDisabled(s)));
+        return;
+      }
+      interactionViewKey = viewKey;
       interaction.replaceChildren();
       interaction.className = "";
       if (!s.interaction) {
         interaction.className = "empty";
-        interaction.textContent = "대기 중인 질문이 없습니다.";
+        interaction.textContent =
+          s.response?.state === "delivery-unknown"
+            ? "응답 전달 여부 불명입니다. 자동으로 다시 제출하지 않습니다."
+            : "대기 중인 질문이 없습니다.";
         return;
       }
       const p = document.createElement("p");
@@ -262,12 +309,30 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       const identity = document.createElement("small");
       identity.textContent = `${s.interaction.state} · ${s.interaction.id} · revision ${s.interaction.revision}`;
       interaction.append(identity);
+      if (s.interaction.toolInput !== undefined) {
+        const requested = document.createElement("pre");
+        requested.textContent = JSON.stringify(
+          s.interaction.toolInput,
+          null,
+          2,
+        );
+        interaction.append(requested);
+      }
       const choices = document.createElement("div");
       choices.className = "choices";
       for (const choice of s.interaction.choices) {
         const button = document.createElement("button");
         button.textContent = choice;
-        button.disabled = true;
+        button.disabled = responseDisabled(s);
+        button.onclick = () =>
+          invoke("respond", {
+            sessionId: current.sessionId,
+            executionId: current.executionId,
+            interactionId: current.interaction.id,
+            revision: current.revision,
+            requestId: crypto.randomUUID(),
+            answer: choice,
+          });
         choices.append(button);
       }
       interaction.append(choices);
@@ -275,7 +340,11 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       note.textContent =
         s.mode === "replay"
           ? "재생 모드는 응답을 전송하지 않습니다."
-          : "이 단계에서는 질문과 승인 응답을 아직 제공하지 않습니다.";
+          : s.response?.state === "delivery-unknown"
+            ? "응답 전달 여부 불명입니다. 재제출을 차단했습니다."
+            : s.interaction.state === "submitting"
+              ? "응답을 제출하고 CLI 수신 근거를 확인합니다."
+              : "표시된 선택지와 승인/거절만 전송할 수 있습니다. 자유 응답은 아직 지원하지 않습니다.";
       interaction.append(note);
     }
     new EventSource("/api/events").onmessage = (event) => {
@@ -288,9 +357,9 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     async function invoke(action, body = {}) {
       busy = true;
       element("error").textContent = "";
-      document
-        .querySelectorAll("#connect,#start,#refresh")
-        .forEach((b) => (b.disabled = true));
+      document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      if (action === "respond")
+        element("responseState").textContent = "submitting";
       try {
         const response = await fetch("/api/" + action, {
           method: "POST",
@@ -298,15 +367,23 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           body: JSON.stringify(body),
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message ?? result.error);
+        if (!response.ok) {
+          busy = false;
+          if (result.snapshot) render(result);
+          throw new Error(result.message ?? result.error);
+        }
         busy = false;
         render(result);
+        if (action === "start") element("setup").open = false;
         return result;
       } catch (error) {
         element("error").textContent = error.message;
       } finally {
         busy = false;
         element("connect").disabled = false;
+        document
+          .querySelectorAll("[data-fixture]")
+          .forEach((button) => (button.disabled = false));
       }
     }
     element("connect").onclick = () =>
@@ -319,13 +396,14 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           ]),
         ),
       );
-    element("start").onclick = () =>
-      invoke(
-        "start",
-        Object.fromEntries(
-          ["cwd", "dataDir", "prompt"].map((id) => [id, element(id).value]),
-        ),
+    element("start").onclick = () => {
+      const body = Object.fromEntries(
+        ["cwd", "dataDir", "prompt"].map((id) => [id, element(id).value]),
       );
+      if (element("retryLimit").value)
+        body.retryLimit = Number(element("retryLimit").value);
+      invoke("start", body);
+    };
     element("refresh").onclick = () => invoke("refresh");
     setInterval(() => {
       if (
@@ -338,28 +416,9 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     }, 1500);
     document.querySelectorAll("[data-fixture]").forEach((button) =>
       button.addEventListener("click", async () => {
-        document
-          .querySelectorAll("[data-fixture]")
-          .forEach((b) => (b.disabled = true));
-        element("error").textContent = "";
         events = [];
         element("events").textContent = "재생 중…";
-        try {
-          const response = await fetch("/api/replay", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fixture: button.dataset.fixture }),
-          });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.message ?? data.error);
-          render(data);
-        } catch (error) {
-          element("error").textContent = error.message;
-        } finally {
-          document
-            .querySelectorAll("[data-fixture]")
-            .forEach((b) => (b.disabled = false));
-        }
+        await invoke("replay", { fixture: button.dataset.fixture });
       }),
     );
     render(await (await fetch("/api/state")).json());

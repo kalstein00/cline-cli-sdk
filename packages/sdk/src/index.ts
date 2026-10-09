@@ -9,6 +9,7 @@ export type {
   Message,
   Interaction,
   ResponseRequest,
+  ResponseResult,
   SdkEvent,
   ExecutionState,
   ConnectionState,

@@ -1,12 +1,13 @@
 import childProcess from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import {
   createReducer,
   SdkError,
   type Snapshot,
   type SdkEvent,
   type ResponseRequest,
+  type ResponseResult,
 } from "./reducer.js";
 
 export interface ConnectionOptions {
@@ -18,6 +19,7 @@ export interface ConnectionOptions {
   sshExecutable?: string;
   remoteRoot?: string;
   timeoutMs?: number;
+  responseTimeoutMs?: number;
 }
 export interface LiveOptions {
   mode: "live";
@@ -44,6 +46,7 @@ export interface StartRequest {
   cwd: string;
   prompt: string;
   dataDir?: string;
+  retryLimit?: number;
 }
 export interface ManagedExecution {
   executionId: string;
@@ -60,10 +63,11 @@ export interface LiveClient {
   capabilities(): {
     replay: false;
     live: true;
-    responses: false;
+    responses: true;
+    freeText: false;
     companyCompatibility: "unverified";
   };
-  respond(request: ResponseRequest): Promise<never>;
+  respond(request: ResponseRequest): Promise<ResponseResult>;
   close(): void;
 }
 const quote = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
@@ -78,6 +82,16 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       "invalid-connection",
       "A host or SSH alias is required.",
     );
+  if (
+    config.responseTimeoutMs !== undefined &&
+    (!Number.isInteger(config.responseTimeoutMs) ||
+      config.responseTimeoutMs < 250 ||
+      config.responseTimeoutMs > 120000)
+  )
+    throw new SdkError(
+      "invalid-response-timeout",
+      "Response observation timeout must be 250–120000 milliseconds.",
+    );
   const reducer = createReducer({ mode: "replay" });
   let state: Snapshot = { ...reducer.snapshot(), mode: "live" };
   let report: PreflightReport | null = null;
@@ -88,6 +102,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let refreshing: Promise<Snapshot> | null = null;
   let observationGap = false;
   let closed = false;
+  let processEvidence: any = null;
+  let remoteRequests: any[] = [];
+  let activeRequest: string | null = null;
+  const requests = new Map<
+    string,
+    { binding: string; promise: Promise<ResponseResult> }
+  >();
   const processes = new Set<ReturnType<typeof childProcess.spawn>>();
   const listeners = new Set<(e: SdkEvent) => void>();
   const snapshot = () => structuredClone(state);
@@ -280,6 +301,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       for (const raw of result.observations ?? [])
         await reducer.ingest({ ...raw, seq: ++sequence });
       cursor = result.cursor;
+      remoteRequests = result.requests ?? [];
+      processEvidence = result.process ?? processEvidence;
       if (result.history && result.history.sha256 !== historyHash) {
         try {
           await reducer.ingest({
@@ -336,6 +359,53 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       });
     return refreshing;
   };
+  const validateResponse = (request: ResponseRequest) => {
+    if (closed || state.connection !== "connected")
+      throw new SdkError("not-connected", "A live connection is required.");
+    if (
+      !managed ||
+      request.sessionId !== state.sessionId ||
+      request.executionId !== state.executionId
+    )
+      throw new SdkError(
+        "response-target-mismatch",
+        "The response belongs to another session or execution.",
+      );
+    if (request.interactionId !== state.interaction?.id)
+      throw new SdkError(
+        "stale-interaction",
+        "This interaction is no longer current.",
+      );
+    if (request.revision !== state.revision)
+      throw new SdkError(
+        "stale-revision",
+        "Refresh the current interaction before responding.",
+      );
+    const interaction = state.interaction;
+    if (
+      observationGap ||
+      interaction.state !== "awaiting-response" ||
+      !interaction.toolId ||
+      !interaction.responseKinds?.length
+    )
+      throw new SdkError(
+        "interaction-unavailable",
+        "This interaction does not support a verified response.",
+      );
+    if (
+      typeof request.answer !== "string" ||
+      !interaction.choices.includes(request.answer)
+    )
+      throw new SdkError(
+        "unsupported-answer",
+        "Submit one of the exact choices; free text is not supported yet.",
+      );
+    if (!processEvidence?.alive || !processEvidence.identityConfirmed)
+      throw new SdkError(
+        "execution-unconfirmed",
+        "The managed process identity is not confirmed alive.",
+      );
+  };
   return {
     preflight,
     async connect() {
@@ -370,7 +440,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       if (
         !request.cwd.startsWith("/") ||
         !request.prompt.trim() ||
-        request.prompt.length > 100000
+        request.prompt.length > 100000 ||
+        (request.retryLimit !== undefined &&
+          (!Number.isInteger(request.retryLimit) ||
+            request.retryLimit < 1 ||
+            request.retryLimit > 10))
       )
         throw new SdkError(
           "invalid-task",
@@ -453,15 +527,193 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       return {
         replay: false,
         live: true,
-        responses: false,
+        responses: true,
+        freeText: false,
         companyCompatibility: "unverified",
       };
     },
-    async respond() {
-      throw new SdkError(
-        "responses-unavailable",
-        "Live response support is not available.",
-      );
+    async respond(input) {
+      if (!input || typeof input !== "object")
+        throw new SdkError(
+          "invalid-response",
+          "A bound response request is required.",
+        );
+      const request = structuredClone(input);
+      if (
+        typeof request.requestId !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(request.requestId)
+      )
+        throw new SdkError(
+          "invalid-request-id",
+          "Use a bounded stable response request ID.",
+        );
+      const binding = JSON.stringify([
+        request.sessionId,
+        request.executionId,
+        request.interactionId,
+        request.revision,
+        request.requestId,
+        request.answer,
+      ]);
+      const existing = requests.get(request.requestId);
+      if (existing) {
+        if (existing.binding !== binding)
+          throw new SdkError(
+            "request-conflict",
+            "This request ID is already bound to a different response.",
+          );
+        return existing.promise;
+      }
+      if (activeRequest || state.response?.state === "delivery-unknown")
+        throw new SdkError(
+          "response-busy",
+          "A response is submitting or its delivery is unknown.",
+        );
+      if (requests.size >= 256)
+        throw new SdkError(
+          "response-request-limit",
+          "This execution has reached its bounded response request limit.",
+        );
+      validateResponse(request);
+      activeRequest = request.requestId;
+      const promise = (async () => {
+        let sent = false;
+        try {
+          await refresh();
+          validateResponse(request);
+          const interaction = structuredClone(state.interaction!);
+          const bytes =
+            interaction.kind === "approval"
+              ? request.answer === "Approve"
+                ? "y\r"
+                : "n\r"
+              : `${interaction.choices.indexOf(request.answer) + 1}\r`;
+          const base = {
+            requestId: request.requestId,
+            sessionId: request.sessionId,
+            executionId: request.executionId,
+            interactionId: request.interactionId,
+            revision: state.revision,
+          };
+          reducer.setResponse({ ...base, state: "submitting" });
+          state = {
+            ...reducer.snapshot(),
+            connection: state.connection,
+            mode: "live",
+          };
+          sent = true;
+          const accepted = await helper({
+            action: "respond",
+            root: managed!.remoteRoot,
+            executionId: managed!.executionId,
+            sessionId: request.sessionId,
+            interactionId: request.interactionId,
+            requestId: request.requestId,
+            revision: request.revision,
+            kind: interaction.kind,
+            toolId: interaction.toolId,
+            answerDigest: createHash("sha256")
+              .update(request.answer)
+              .digest("hex"),
+            expectedCursor: cursor,
+            historyHash,
+            processIdentity: processEvidence.identity,
+            dataBase64: Buffer.from(bytes).toString("base64"),
+          });
+          if (accepted.state === "rejected")
+            throw new SdkError(
+              "input-rejected",
+              accepted.reason ?? "Remote input was rejected before write.",
+            );
+          const deadline = Date.now() + (config.responseTimeoutMs ?? 30000);
+          while (Date.now() < deadline) {
+            await refresh();
+            const result = reducer.toolResult(interaction.toolId!);
+            const current = state.interaction;
+            const written = remoteRequests.some(
+              (r) => r.requestId === request.requestId && r.state === "written",
+            );
+            const rejected = remoteRequests.find(
+              (r) =>
+                r.requestId === request.requestId && r.state === "rejected",
+            );
+            if (rejected)
+              throw new SdkError(
+                "input-rejected",
+                rejected.reason ?? "Remote input was rejected before write.",
+              );
+            const delivered =
+              interaction.kind === "approval"
+                ? (request.answer === "Deny"
+                    ? result?.rejected
+                    : !!result && !result.rejected) ||
+                  (request.answer === "Approve" &&
+                    current?.kind === "question" &&
+                    current.toolId === interaction.toolId &&
+                    current.id !== interaction.id)
+                : interaction.kind === "question"
+                  ? result?.digest ===
+                    createHash("sha256").update(request.answer).digest("hex")
+                  : written &&
+                    ((processEvidence?.identityConfirmed &&
+                      !processEvidence.alive &&
+                      processEvidence.exitCode !== null) ||
+                      (current?.kind === "approval" &&
+                        current.id !== interaction.id));
+            if (delivered) {
+              reducer.setResponse({ ...base, state: "delivered" });
+              state = {
+                ...reducer.snapshot(),
+                mode: "live",
+                connection: state.connection,
+              };
+              return structuredClone(state.response!);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+          reducer.setResponse({ ...base, state: "delivery-unknown" });
+          state = {
+            ...reducer.snapshot(),
+            mode: "live",
+            connection: state.connection,
+          };
+          return structuredClone(state.response!);
+        } catch (error) {
+          if (
+            error instanceof SdkError &&
+            [
+              "ssh-failed",
+              "ssh-timeout",
+              "ssh-unavailable",
+              "invalid-remote-response",
+            ].includes(error.code)
+          )
+            state.connection = closed ? "closed" : "disconnected";
+          if (sent) {
+            reducer.setResponse({
+              requestId: request.requestId,
+              sessionId: request.sessionId,
+              executionId: request.executionId,
+              interactionId: request.interactionId,
+              revision: state.revision,
+              state:
+                error instanceof SdkError && error.code === "input-rejected"
+                  ? "not-submitted"
+                  : "delivery-unknown",
+            });
+            state = {
+              ...reducer.snapshot(),
+              mode: "live",
+              connection: state.connection,
+            };
+          }
+          throw error;
+        } finally {
+          activeRequest = null;
+        }
+      })();
+      requests.set(request.requestId, { binding, promise });
+      return promise;
     },
     close() {
       closed = true;

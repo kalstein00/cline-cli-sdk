@@ -52,9 +52,13 @@ const server = createServer(async (request, response) => {
     }
     if (
       request.method === "POST" &&
-      ["/api/replay", "/api/connect", "/api/start", "/api/refresh"].includes(
-        url.pathname,
-      )
+      [
+        "/api/replay",
+        "/api/connect",
+        "/api/start",
+        "/api/refresh",
+        "/api/respond",
+      ].includes(url.pathname)
     ) {
       const origin = request.headers.origin;
       if (
@@ -100,6 +104,10 @@ const server = createServer(async (request, response) => {
           cwd: input.cwd,
           prompt: input.prompt,
           dataDir: input.dataDir || undefined,
+          retryLimit:
+            input.retryLimit === undefined
+              ? undefined
+              : Number(input.retryLimit),
         });
         json(response, 200, {
           snapshot,
@@ -112,6 +120,16 @@ const server = createServer(async (request, response) => {
         const snapshot = await client.refresh();
         json(response, 200, {
           snapshot,
+          capabilities: client.capabilities(),
+          preflight,
+        });
+        return;
+      }
+      if (url.pathname === "/api/respond") {
+        const result = await client.respond(input);
+        json(response, 200, {
+          result,
+          snapshot: client.snapshot(),
           capabilities: client.capabilities(),
           preflight,
         });
@@ -145,6 +163,9 @@ const server = createServer(async (request, response) => {
     json(response, 400, {
       error: error.code ?? "invalid-request",
       message: error.message,
+      snapshot: client.snapshot(),
+      capabilities: client.capabilities(),
+      preflight,
     });
   }
 });
