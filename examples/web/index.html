@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  />
+  <title>Cline SDK · 기록 재생</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f4f6fa;
+      color: #192338;
+      font:
+        16px system-ui,
+        sans-serif;
+    }
+    main {
+      max-width: 980px;
+      margin: 48px auto;
+      padding: 0 24px;
+    }
+    h1 {
+      font-size: 30px;
+      margin: 12px 0;
+    }
+    .badge {
+      background: #e0ebff;
+      color: #17479d;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    p {
+      line-height: 1.6;
+      color: #526078;
+    }
+    nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 24px 0;
+    }
+    button {
+      font: inherit;
+      background: white;
+      border: 1px solid #c3cede;
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      border-color: #3e69bc;
+    }
+    button:disabled {
+      cursor: default;
+      color: #7d8797;
+      background: #f0f2f6;
+    }
+    section {
+      background: white;
+      border: 1px solid #dde3ec;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 16px 0;
+    }
+    h2 {
+      font-size: 19px;
+      margin: 0 0 16px;
+    }
+    dl {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px;
+      margin: 0;
+    }
+    dt {
+      color: #637088;
+    }
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    .text {
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+    .warning {
+      color: #936113;
+      background: #fff7e2;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .choices {
+      display: flex;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .empty {
+      color: #7c8798;
+    }
+    small {
+      color: #67758a;
+    }
+    pre {
+      white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 220px;
+      overflow: auto;
+    }
+    #error {
+      color: #aa283c;
+    }
+  </style>
+  <main>
+    <span class="badge">기록 재생 · 읽기 전용</span>
+    <h1>Cline CLI SDK 예제</h1>
+    <p>
+      검토한 공개 Cline 관측 자료를 SDK로 해석합니다. 질문·메시지의 기록 재생
+      결과이며 실제 원격 작업을 실행하지 않습니다.
+    </p>
+    <nav aria-label="재생 기록">
+      <button data-fixture="message">정상 메시지 재생</button
+      ><button data-fixture="question">선택 질문 재생</button
+      ><button data-fixture="unsupported">미지원 화면 재생</button>
+    </nav>
+    <p id="error" role="alert"></p>
+    <section>
+      <h2>현재 상태</h2>
+      <dl>
+        <dt>연결</dt>
+        <dd id="connection">closed</dd>
+        <dt>실행</dt>
+        <dd id="execution">unknown</dd>
+        <dt>세션</dt>
+        <dd id="session">—</dd>
+        <dt>실행 ID</dt>
+        <dd id="run">—</dd>
+        <dt>Revision</dt>
+        <dd id="revision">0</dd>
+        <dt>기록</dt>
+        <dd id="position">—</dd>
+        <dt>회사 호환성</dt>
+        <dd>미검증</dd>
+      </dl>
+    </section>
+    <section>
+      <h2>메시지</h2>
+      <div id="messages" class="empty">재생 기록을 선택하세요.</div>
+    </section>
+    <section>
+      <h2>상호작용</h2>
+      <div id="interaction" class="empty">대기 중인 질문이 없습니다.</div>
+    </section>
+    <section>
+      <h2>SDK 이벤트</h2>
+      <small
+        >원문 터미널을 파싱하지 않고 SDK 공개 이벤트와 snapshot을
+        표시합니다.</small
+      >
+      <pre id="events">아직 이벤트가 없습니다.</pre>
+    </section>
+  </main>
+  <script type="module">
+    const element = (id) => document.getElementById(id);
+    let events = [];
+    function render({ snapshot: s }) {
+      for (const [id, value] of Object.entries({
+        connection: s.connection,
+        execution: s.execution,
+        session: s.sessionId ?? "—",
+        run: s.executionId ?? "—",
+        revision: s.revision,
+        position: `${s.replay.position}/${s.replay.total} · ${s.replay.truncated ? "선택·잘림 기록" : "완전 기록"}`,
+      }))
+        element(id).textContent = value;
+      const messages = element("messages");
+      messages.replaceChildren();
+      messages.className = "";
+      if (!s.messages.length) {
+        messages.className = "empty";
+        messages.textContent = "이 관측 구간에 메시지가 없습니다.";
+      }
+      for (const message of s.messages) {
+        const p = document.createElement("p");
+        p.className = "text";
+        p.textContent = `${message.role}: ${message.text}`;
+        messages.append(p);
+      }
+      const interaction = element("interaction");
+      interaction.replaceChildren();
+      interaction.className = "";
+      if (!s.interaction) {
+        interaction.className = "empty";
+        interaction.textContent = "대기 중인 질문이 없습니다.";
+        return;
+      }
+      const p = document.createElement("p");
+      p.className = s.interaction.kind === "unsupported" ? "warning" : "text";
+      p.textContent = s.interaction.prompt;
+      interaction.append(p);
+      const identity = document.createElement("small");
+      identity.textContent = `${s.interaction.state} · ${s.interaction.id} · revision ${s.interaction.revision}`;
+      interaction.append(identity);
+      const choices = document.createElement("div");
+      choices.className = "choices";
+      for (const choice of s.interaction.choices) {
+        const button = document.createElement("button");
+        button.textContent = choice;
+        button.disabled = true;
+        choices.append(button);
+      }
+      interaction.append(choices);
+      const note = document.createElement("p");
+      note.textContent = "재생 모드는 응답을 전송하지 않습니다.";
+      interaction.append(note);
+    }
+    new EventSource("/api/events").onmessage = (event) => {
+      events.push(JSON.parse(event.data));
+      element("events").textContent = events
+        .map((e) => JSON.stringify(e))
+        .join("\n");
+    };
+    document.querySelectorAll("[data-fixture]").forEach((button) =>
+      button.addEventListener("click", async () => {
+        document
+          .querySelectorAll("[data-fixture]")
+          .forEach((b) => (b.disabled = true));
+        element("error").textContent = "";
+        events = [];
+        element("events").textContent = "재생 중…";
+        try {
+          const response = await fetch("/api/replay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fixture: button.dataset.fixture }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message ?? data.error);
+          render(data);
+        } catch (error) {
+          element("error").textContent = error.message;
+        } finally {
+          document
+            .querySelectorAll("[data-fixture]")
+            .forEach((b) => (b.disabled = false));
+        }
+      }),
+    );
+    render(await (await fetch("/api/state")).json());
+  </script>
+</html>

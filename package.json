@@ -1,0 +1,18 @@
+{
+  "name": "@cline-cli-sdk/workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/sdk"
+  ],
+  "scripts": {
+    "build": "tsc -p packages/sdk/tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "example:node": "npm run build && node examples/node/replay.mjs",
+    "example:web": "npm run build && node examples/web/server.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}

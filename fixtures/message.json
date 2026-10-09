@@ -1,0 +1,38 @@
+{
+  "observations": [
+    {
+      "seq": 30,
+      "observedAt": "2026-10-09T09:19:00Z",
+      "kind": "history",
+      "dataBase64": "eyJzZXNzaW9uSWQiOiJmaXh0dXJlLXNlc3Npb24iLCJ2ZXJzaW9uIjoxLCJtZXNzYWdlcyI6W3siaWQiOiJmaXh0dXJlLW1lc3NhZ2UiLCJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiQ0hPU0VOOkJMVUUifV0sInRzIjoxNzkxNTM3NjQyMTQ5fV19",
+      "elapsedNs": "79026480481"
+    }
+  ],
+  "schemaVersion": 1,
+  "cli": {
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-readline",
+    "name": "cline"
+  },
+  "provenance": {
+    "source": "20261009/logs/choice-live/frames.ndjson",
+    "transformations": [
+      "selected observations",
+      "pseudonymous session/execution ids",
+      "relative ordering retained",
+      "history restricted to assistant text",
+      "wall-clock normalized to fixed replay clock; not original capture time",
+      "elapsed nanoseconds retained from source"
+    ],
+    "sourceSha256": "b1f079bf9630646b1dc16e7be18bf4f6a48eb8ead35877889c2f694822657848",
+    "complete": false,
+    "review": "PTY frames 16 and 18 contain only controlled test color; final assistant text selected from frame 30; all other metadata excluded",
+    "truncated": true
+  },
+  "sessionId": "fixture-session",
+  "terminal": {
+    "cols": 120,
+    "rows": 40
+  },
+  "executionId": "fixture-execution"
+}
