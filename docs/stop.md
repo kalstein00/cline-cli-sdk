@@ -37,6 +37,8 @@ Windows Chrome에서도 실행 `run-b97efcb3-92e0-45f6-9cec-bff2b30e9673`, 세�
 
 ![실제 관측 실패를 중단 완료로 바꾸지 않은 화면](evidence/ticket-8-unknown.jpg)
 
+#5 TUI 및 #6 재연결 통합 뒤에도 공개 API를 다시 실측했다. 실행 `run-f430cd99-60a9-44a1-b62a-24e67f298031`, 세션 `1791546767238_4xkph`의 CLI 119121, Python 119668, sleep 119669를 중단하고 세 identity의 종료를 확인했다. 새 SDK 클라이언트의 `listManagedExecutions()`와 `attach(executionId)`에서도 동일 중단 요청 ID, `confirmed`/`stopped`, 동일 세션과 두 대화 메시지를 복원했다. 이 재접속은 새 CLI나 모델 실행을 만들지 않았다.
+
 재현용 격리 work 디렉터리에서 `child.py`를 준비한다. 이는 시험 명령 파일이며 제품 SDK가 CLI 기록을 고치는 기능이 아니다.
 
 ```python
