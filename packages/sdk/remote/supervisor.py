@@ -2,6 +2,7 @@
 import base64, collections, datetime, errno, fcntl, hashlib, json, os
 from pathlib import Path
 import pty, select, shlex, signal, stat, struct, subprocess, sys, termios, time
+from contextlib import contextmanager
 
 LIMIT = 512 * 1024
 
@@ -34,6 +35,40 @@ def private(path):
     if stat.S_ISLNK(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ValueError('Management directory must be owned by this user with mode 0700')
     return path
+
+@contextmanager
+def request_ledger(run):
+    with open(run / 'requests.lock', 'a') as lock:
+        os.chmod(run / 'requests.lock', 0o600)
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            try:
+                values = json.loads((run / 'requests.json').read_text())
+            except FileNotFoundError:
+                values = {}
+            yield values
+            save(run / 'requests.json', values)
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+def input_binding(run, meta, request, cursor):
+    expected = meta.get('identity')
+    if request.get('executionId') != meta['executionId'] or not expected or request.get('processIdentity') != expected or identity(expected['pid']) != expected:
+        return 'process-identity-changed'
+    if request.get('expectedCursor') != cursor:
+        return 'terminal-observation-changed'
+    sid, _, history_path = session_files(meta)
+    if sid != request.get('sessionId'):
+        return 'session-changed'
+    if history_path:
+        try:
+            if hashlib.sha256(history_path.read_bytes()).hexdigest() != request.get('historyHash'):
+                return 'history-observation-changed'
+        except OSError:
+            return 'history-unavailable'
+    else:
+        return 'history-unavailable'
+    return None
 
 def session_files(meta):
     sessions = Path(meta['dataDir']) / 'sessions'
@@ -94,15 +129,11 @@ def serve(run):
     meta.pop('argv', None)
     save(run / 'meta.json', meta)
     status = None
+    input_buffer = b''
     try:
         while True:
             readable, _, _ = select.select([master, fifo_fd], [], [], .1)
-            if fifo_fd in readable:
-                payload = os.read(fifo_fd, 65536)
-                offset = 0
-                while offset < len(payload):
-                    offset += os.write(master, payload[offset:])
-                event('input', dataBase64=base64.b64encode(payload).decode())
+            # Drain already-ready output before checking a queued response's cursor.
             if master in readable:
                 try:
                     payload = os.read(master, 65536)
@@ -114,9 +145,33 @@ def serve(run):
                     _, status = os.waitpid(pid, 0)
                     break
                 event('pty', dataBase64=base64.b64encode(payload).decode())
-                # tmux restores screen on reconnection without a full raw-log replay.
                 sys.stdout.buffer.write(payload)
                 sys.stdout.buffer.flush()
+            if fifo_fd in readable:
+                input_buffer += os.read(fifo_fd, 65536)
+                while b'\n' in input_buffer:
+                    line, input_buffer = input_buffer.split(b'\n', 1)
+                    try:
+                        request = json.loads(line)
+                        with request_ledger(run) as ledger:
+                            record = ledger.get(request.get('requestId'))
+                            if not record or record['state'] != 'queued':
+                                continue
+                            reason = input_binding(run, meta, request, seq)
+                            if reason:
+                                record.update(state='rejected', reason=reason, updatedAt=now())
+                                continue
+                            payload = base64.b64decode(request['dataBase64'], validate=True)
+                            offset = 0
+                            while offset < len(payload):
+                                offset += os.write(master, payload[offset:])
+                            record.update(state='written', updatedAt=now())
+                            event('input', requestId=request['requestId'], interactionId=request['interactionId'], byteCount=len(payload))
+                    except (ValueError, KeyError, OSError):
+                        # A reserved request with no conclusive write witness remains uncertain.
+                        continue
+                if len(input_buffer) > 8192:
+                    input_buffer = b''
     finally:
         if status is not None:
             meta['exitCode'] = os.waitstatus_to_exitcode(status)
@@ -154,6 +209,10 @@ def handle(request):
         os.chmod(helper, 0o600)
         socket = str(root / 'tmux.sock')
         argv = [executable, '--data-dir', str(data), '--cwd', str(cwd), '--auto-approve', 'false', request['prompt']]
+        if request.get('retryLimit') is not None:
+            if type(request['retryLimit']) is not int or not 1 <= request['retryLimit'] <= 10:
+                raise ValueError('Retry limit must be an integer from 1 to 10')
+            argv[-1:-1] = ['--retries', str(request['retryLimit'])]
         meta = dict(schemaVersion=1, executionId=run_id, sessionId=None, cwd=str(cwd), dataDir=str(data), priorSessions=prior,
                     cliPath=executable, cliHash=request['cliHash'], argv=argv, terminal=dict(rows=40, cols=120),
                     bootId=boot_id(), tmuxSocket=socket, tmuxSession=run_id, identity=None, exitCode=None)
@@ -170,6 +229,50 @@ def handle(request):
     meta = json.loads((run / 'meta.json').read_text())
     if meta['executionId'] != request['executionId']:
         raise ValueError('Execution identity mismatch')
+    if action == 'respond':
+        request_id = request.get('requestId', '')
+        if not request_id or len(request_id) > 128 or not all(c.isalnum() or c in '._:-' for c in request_id):
+            raise ValueError('Invalid response request identity')
+        payload = base64.b64decode(request.get('dataBase64', ''), validate=True)
+        if request.get('kind') == 'approval':
+            valid = payload in (b'y\r', b'n\r')
+        else:
+            valid = request.get('kind') in ('question', 'recovery') and len(payload) == 2 and payload[0:1] in [bytes([c]) for c in range(49, 58)] and payload[1:] == b'\r'
+        if not valid:
+            raise ValueError('Only verified approval or choice input is allowed')
+        binding = {key: request.get(key) for key in ('sessionId', 'executionId', 'interactionId', 'revision', 'toolId', 'kind', 'answerDigest')}
+        with request_ledger(run) as ledger:
+            prior = ledger.get(request_id)
+            if prior:
+                if prior['binding'] != binding:
+                    raise ValueError('Request identity conflict')
+                return dict(requestId=request_id, state=prior['state'], reason=prior.get('reason'))
+            if len(ledger) >= 256:
+                raise ValueError('Response request limit reached')
+            phase = ('sessionId', 'executionId', 'toolId', 'kind')
+            if any(value['state'] in ('queued', 'written') and all(value['binding'].get(key) == binding.get(key) for key in phase) for value in ledger.values()):
+                return dict(requestId=request_id, state='rejected', reason='interaction-already-submitted')
+            buffer = json.loads((run / 'buffer.json').read_text())
+            reason = input_binding(run, meta, request, buffer['cursor'])
+            record = dict(binding=binding, state='queued', createdAt=now())
+            ledger[request_id] = record
+            if reason:
+                record.update(state='rejected', reason=reason)
+                return dict(requestId=request_id, state='rejected', reason=reason)
+            frame = {key: request.get(key) for key in ('requestId', 'sessionId', 'executionId', 'interactionId', 'expectedCursor', 'historyHash', 'processIdentity', 'dataBase64')}
+            line = (json.dumps(frame) + '\n').encode('utf8')
+            if len(line) > 4096:
+                raise ValueError('Input control frame exceeded atomic FIFO limit')
+            try:
+                fd = os.open(run / 'input.fifo', os.O_WRONLY | os.O_NONBLOCK)
+                try:
+                    os.write(fd, line)
+                finally:
+                    os.close(fd)
+            except OSError:
+                record.update(state='rejected', reason='input-fifo-unavailable')
+                return dict(requestId=request_id, state='rejected', reason=record['reason'])
+            return dict(requestId=request_id, state='queued')
     if action == 'status':
         cursor = request.get('cursor', 0)
         try:
@@ -191,10 +294,16 @@ def handle(request):
         same_boot = meta['bootId'] == boot_id()
         alive = bool(same_boot and expected and actual == expected)
         confirmed = bool(same_boot and ((expected and (actual == expected or actual is None)) or (meta.get('startupFailed') and meta.get('supervisorIdentity'))))
+        try:
+            requests = json.loads((run / 'requests.json').read_text())
+        except FileNotFoundError:
+            requests = {}
         return dict(executionId=meta['executionId'], sessionId=sid, observations=observations, cursor=buffer['cursor'],
                     gap=cursor < buffer['first'] - 1, history=history, historyError=history_error,
                     process=dict(kind='process', identity=expected, alive=alive, identityConfirmed=confirmed,
-                                 exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else None),
+                                 exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else None,
+                                 requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
+                    requests=[dict(requestId=key, state=value['state'], reason=value.get('reason')) for key,value in requests.items()],
                     management=dict(remoteRoot=str(root), terminal=meta['terminal'], bootId=meta['bootId']))
     raise ValueError('Unsupported supervisor action')
 

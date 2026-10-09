@@ -1,4 +1,5 @@
 import xterm from "@xterm/headless";
+import { createHash } from "node:crypto";
 export interface Message {
   id: string;
   role: "assistant" | "user";
@@ -27,6 +28,7 @@ export interface ProcessObservation {
   identityConfirmed: boolean;
   exitCode: number | null;
   manifestStatus: string | null;
+  requestedStop?: boolean;
 }
 export type Observation =
   | HistoryObservation
@@ -70,10 +72,22 @@ export type InteractionState =
 export interface Interaction {
   id: string;
   revision: number;
-  kind: "question" | "unsupported";
+  kind: "question" | "approval" | "recovery" | "unsupported";
   state: InteractionState;
   prompt: string;
   choices: string[];
+  toolId?: string;
+  toolName?: string;
+  toolInput?: unknown;
+  responseKinds?: ("choice" | "approval" | "text")[];
+}
+export interface ResponseResult {
+  requestId: string;
+  sessionId: string;
+  executionId: string;
+  interactionId: string;
+  state: "submitting" | "delivered" | "delivery-unknown" | "not-submitted";
+  revision: number;
 }
 export interface Snapshot {
   mode: "replay" | "live";
@@ -84,6 +98,7 @@ export interface Snapshot {
   execution: ExecutionState;
   messages: Message[];
   interaction: Interaction | null;
+  response: ResponseResult | null;
   replay: {
     position: number;
     total: number;
@@ -92,7 +107,11 @@ export interface Snapshot {
   };
 }
 export interface SdkEvent {
-  type: "message.upsert" | "interaction.changed" | "state.changed";
+  type:
+    | "message.upsert"
+    | "interaction.changed"
+    | "state.changed"
+    | "response.changed";
   sessionId: string | null;
   executionId: string | null;
   interactionId: string | null;
@@ -149,6 +168,8 @@ interface Reducer extends Client {
       >
     >,
   ): Snapshot;
+  setResponse(response: ResponseResult): Snapshot;
+  toolResult(id: string): { digest: string; rejected: boolean } | undefined;
 }
 function validateRecording(input: Recording): void {
   const invalid = () => {
@@ -201,11 +222,14 @@ export function createReducer(options: { mode: "replay" }): Reducer {
     execution: "unknown",
     messages: [],
     interaction: null,
+    response: null,
     replay: { position: 0, total: 0, complete: false, truncated: false },
   };
   let recording: Recording | null = null;
   let terminal: import("@xterm/headless").Terminal | null = null;
   let interactionSerial = 0;
+  let pendingTools: { id: string; name: string; input: any }[] = [];
+  let results = new Map<string, { digest: string; rejected: boolean }>();
   const listeners = new Set<(event: SdkEvent) => void>();
   const snapshot = () => structuredClone(state);
   const emit = (type: SdkEvent["type"], obs: Observation, payload: unknown) => {
@@ -216,8 +240,14 @@ export function createReducer(options: { mode: "replay" }): Reducer {
           type,
           sessionId: state.sessionId,
           executionId: state.executionId,
-          interactionId: state.interaction?.id ?? null,
-          requestId: null,
+          interactionId:
+            type === "response.changed"
+              ? (state.response?.interactionId ?? null)
+              : (state.interaction?.id ?? null),
+          requestId:
+            type === "response.changed"
+              ? (state.response?.requestId ?? null)
+              : null,
           revision: state.revision,
           observationSeq: obs.seq,
           observedAt: obs.observedAt,
@@ -241,9 +271,34 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       recording!.cli.name === "cline" &&
       recording!.cli.version === "3.0.69" &&
       recording!.cli.profile === "cline-3.0.69-readline";
+    const approval = current
+      .trim()
+      .match(/^Approve "(ask_question|run_commands)" (.+) \[y\/N\]$/);
+    let approvedTool: (typeof pendingTools)[number] | undefined;
+    if (approval) {
+      try {
+        const input = JSON.parse(approval[2]);
+        const matches = pendingTools.filter(
+          (tool) =>
+            tool.name === approval[1] &&
+            JSON.stringify(tool.input) === JSON.stringify(input),
+        );
+        if (matches.length === 1) approvedTool = matches[0];
+      } catch {
+        const prefix = approval[2].replace(/\.\.\.$/, "").trimEnd();
+        if (approval[2].endsWith("...") && prefix.length >= 32) {
+          const matches = pendingTools.filter(
+            (tool) =>
+              tool.name === approval[1] &&
+              JSON.stringify(tool.input).startsWith(prefix),
+          );
+          if (matches.length === 1) approvedTool = matches[0];
+        }
+      }
+    }
     const unsupported =
       (!verified && screen.trim()) ||
-      current.includes("[y/N]") ||
+      (current.includes("[y/N]") && !approvedTool) ||
       (!questionComplete && /^>\s*$/.test(current));
     if (unsupported) {
       const prompt = !verified
@@ -268,7 +323,42 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       emit("interaction.changed", obs, state.interaction);
       return;
     }
+    if (verified && approvedTool) {
+      if (
+        state.interaction?.kind === "approval" &&
+        state.interaction.toolId === approvedTool.id
+      )
+        return;
+      state.interaction = {
+        id: `${state.executionId}:interaction:${++interactionSerial}`,
+        revision: state.revision + 1,
+        kind: "approval",
+        state: "awaiting-response",
+        prompt: `Approve ${approvedTool.name}?`,
+        choices: ["Approve", "Deny"],
+        toolId: approvedTool.id,
+        toolName: approvedTool.name,
+        toolInput: structuredClone(approvedTool.input),
+        responseKinds: ["approval"],
+      };
+      state.execution = "awaiting-input";
+      emit("interaction.changed", obs, state.interaction);
+      return;
+    }
     if (!questionComplete) {
+      // This verified readline CLI can print the last assistant line after opening
+      // recovery. Its unanswered prompt remains active while the cursor advances
+      // exactly one row; this is not permission to rediscover a scrollback menu.
+      const lateRecoveryOutput =
+        state.interaction?.kind === "recovery" &&
+        (state.response?.interactionId !== state.interaction.id ||
+          state.response?.state === "not-submitted") &&
+        current.trim() === "" &&
+        previous.trim() !== "" &&
+        /^Choose 1-2 or type a custom answer:$/.test(
+          (lines.at(-3) ?? "").trim(),
+        );
+      if (lateRecoveryOutput) return;
       if (state.interaction) {
         state.interaction = null;
         state.execution = "unknown";
@@ -280,15 +370,63 @@ export function createReducer(options: { mode: "replay" }): Reducer {
     if (start < 0) return;
     const block = screen.slice(start);
     if (!/Choose 1-\d+ or type a custom answer:/.test(block)) return;
-    const prompt = block.split("\n")[0].slice("[follow-up]".length).trim();
+    const prompt = block
+      .slice(0, block.indexOf("Choose 1-"))
+      .replace(/^\[follow-up\]\s*/, "")
+      .replace(/^\s+\d+\.\s+.+$/gm, "")
+      .trim();
     const choices = [
       ...block
         .slice(0, block.indexOf("Choose 1-"))
         .matchAll(/^\s+\d+\.\s+(.+)$/gm),
     ].map((match) => match[1].trim());
     if (!choices.length) return;
+    const firstLine = block.split("\n")[0].slice("[follow-up]".length).trim();
+    const recovery =
+      /^mistake_limit_reached \(\d+\/\d+\)$/.test(firstLine) &&
+      prompt.includes("How should Cline continue?") &&
+      JSON.stringify(choices) ===
+        JSON.stringify(["Try a different approach", "Stop this run"]);
+    const matches = pendingTools.filter(
+      (tool) =>
+        tool.name === "ask_question" &&
+        tool.input?.question === firstLine &&
+        JSON.stringify(tool.input?.options) === JSON.stringify(choices),
+    );
+    const tool = matches.length === 1 ? matches[0] : undefined;
+    const rejectedId = recovery
+      ? [...results.entries()]
+          .filter(([, result]) => result.rejected)
+          .at(-1)?.[0]
+      : undefined;
     if (
-      state.interaction?.prompt === prompt &&
+      state.mode === "live" &&
+      ((!tool && !rejectedId) ||
+        choices.length > 9 ||
+        new Set(choices).size !== choices.length)
+    ) {
+      const unresolved = `${firstLine}\nSafe response target is not uniquely linked to current history.`;
+      if (
+        state.interaction?.kind === "unsupported" &&
+        state.interaction.prompt === unresolved
+      )
+        return;
+      state.interaction = {
+        id: `${state.executionId}:interaction:${++interactionSerial}`,
+        revision: state.revision + 1,
+        kind: "unsupported",
+        state: "unsupported",
+        prompt: unresolved,
+        choices: [],
+        responseKinds: [],
+      };
+      state.execution = "unknown";
+      emit("interaction.changed", obs, state.interaction);
+      return;
+    }
+    if (
+      state.interaction?.prompt === (recovery ? prompt : firstLine) &&
+      state.interaction?.toolId === (tool?.id ?? rejectedId) &&
       JSON.stringify(state.interaction.choices) === JSON.stringify(choices)
     )
       return;
@@ -297,8 +435,16 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       revision: state.revision + 1,
       kind: "question",
       state: "awaiting-response",
-      prompt,
+      prompt: recovery ? prompt : firstLine,
       choices,
+      responseKinds:
+        (tool || rejectedId) &&
+        choices.length <= 9 &&
+        new Set(choices).size === choices.length
+          ? ["choice"]
+          : [],
+      ...(tool ? { toolId: tool.id, toolName: tool.name } : {}),
+      ...(recovery ? { kind: "recovery" as const, toolId: rejectedId } : {}),
     };
     state.execution = "awaiting-input";
     emit("interaction.changed", obs, state.interaction);
@@ -314,6 +460,8 @@ export function createReducer(options: { mode: "replay" }): Reducer {
         scrollback: 1000,
       });
       interactionSerial = 0;
+      pendingTools = [];
+      results = new Map();
       state = {
         ...state,
         sessionId: input.sessionId,
@@ -323,6 +471,7 @@ export function createReducer(options: { mode: "replay" }): Reducer {
         execution: "unknown",
         messages: [],
         interaction: null,
+        response: null,
         replay: {
           position: 0,
           total: input.observations.length,
@@ -346,6 +495,11 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       }
       if (obs.kind === "history") {
         let messages: Message[];
+        let nextTools: typeof pendingTools = [];
+        const nextResults = new Map<
+          string,
+          { digest: string; rejected: boolean }
+        >();
         try {
           const doc = JSON.parse(
             Buffer.from(obs.dataBase64, "base64").toString("utf8"),
@@ -356,6 +510,39 @@ export function createReducer(options: { mode: "replay" }): Reducer {
             !Array.isArray(doc.messages)
           )
             throw new Error("Invalid envelope");
+          for (const raw of doc.messages) {
+            if (!Array.isArray(raw.content)) throw new Error("Invalid content");
+            for (const part of raw.content) {
+              if (
+                part.type === "tool_use" &&
+                typeof part.id === "string" &&
+                typeof part.name === "string"
+              )
+                nextTools.push({
+                  id: part.id,
+                  name: part.name,
+                  input: part.input,
+                });
+              if (
+                part.type === "tool_result" &&
+                typeof part.tool_use_id === "string"
+              )
+                nextResults.set(part.tool_use_id, {
+                  digest: createHash("sha256")
+                    .update(
+                      typeof part.content === "string"
+                        ? part.content
+                        : JSON.stringify(part.content),
+                    )
+                    .digest("hex"),
+                  rejected:
+                    part.is_error === true ||
+                    JSON.stringify(part.content).includes(
+                      "rejected by the user and not executed",
+                    ),
+                });
+            }
+          }
           messages = doc.messages
             .filter(
               (raw: { role: string }) =>
@@ -392,6 +579,8 @@ export function createReducer(options: { mode: "replay" }): Reducer {
             "History observation was incomplete or incompatible; the last valid conversation is preserved.",
           );
         }
+        results = nextResults;
+        pendingTools = nextTools.filter((tool) => !results.has(tool.id));
         for (const message of messages) {
           if (!message.text) continue;
           const old = state.messages.find((m) => m.id === message.id);
@@ -401,19 +590,20 @@ export function createReducer(options: { mode: "replay" }): Reducer {
             emit("message.upsert", obs, message);
           }
         }
+        interpretScreen(obs);
       }
       if (obs.kind === "process") {
         const previous = state.execution;
         if (!obs.identityConfirmed) state.execution = "unknown";
         else if (obs.alive)
           state.execution =
-            state.interaction?.state === "awaiting-response"
+            state.interaction && state.interaction.state !== "unsupported"
               ? "awaiting-input"
               : state.interaction?.state === "unsupported"
                 ? "unknown"
                 : "running";
         else if (obs.exitCode === null) state.execution = "unknown";
-        else if (obs.manifestStatus === "cancelled")
+        else if (obs.manifestStatus === "cancelled" || obs.requestedStop)
           state.execution = "stopped";
         else if (obs.exitCode !== 0 || obs.manifestStatus === "failed")
           state.execution = "failed";
@@ -474,6 +664,28 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       return snapshot();
     },
     snapshot,
+    toolResult(id) {
+      return results.get(id);
+    },
+    setResponse(response) {
+      state.response = { ...response, revision: state.revision + 1 };
+      if (state.interaction?.id === response.interactionId)
+        state.interaction.state =
+          response.state === "not-submitted"
+            ? "awaiting-response"
+            : response.state;
+      emit(
+        "response.changed",
+        {
+          kind: "pty",
+          seq: 0,
+          observedAt: new Date().toISOString(),
+          dataBase64: "",
+        },
+        state.response,
+      );
+      return snapshot();
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

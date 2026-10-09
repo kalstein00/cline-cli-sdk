@@ -1,0 +1,371 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-readline"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "session-52f2ae61d352",
+  "executionId": "execution-a4702a1f116e",
+  "observations": [
+    {
+      "kind": "history",
+      "seq": 14,
+      "elapsedNs": "1523105537",
+      "observedAt": "2026-10-09T00:00:01.523Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTUyZjJhZTYxZDM1MiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjIzOjQyLjg2MloiLCJtZXNzYWdlcyI6W119",
+      "sha256": "31d23563b7b40f086469b73817d5f5e1aadc8b97d836e2423779eba8383a7340",
+      "sourcePayloadSha256": "9dac5140e0d47ac655f7c516e604cffb5fcbeaa6774dedaa838357f98db89572"
+    },
+    {
+      "kind": "pty",
+      "seq": 15,
+      "elapsedNs": "5231269141",
+      "observedAt": "2026-10-09T00:00:05.231Z",
+      "dataBase64": "UGxhbg==",
+      "sha256": "fa8ed0bdabdd6bcb1c0746f1d3e15212f7f3439d74339fbaaf16c60c0a80fb8e",
+      "sourcePayloadSha256": "fa8ed0bdabdd6bcb1c0746f1d3e15212f7f3439d74339fbaaf16c60c0a80fb8e"
+    },
+    {
+      "kind": "pty",
+      "seq": 16,
+      "elapsedNs": "5232967827",
+      "observedAt": "2026-10-09T00:00:05.232Z",
+      "dataBase64": "OiBSdW4gdGhlIGV4YWN0",
+      "sha256": "af38b60c3f153edffda6b34254b382ab13d308c9620e4460021e1b30ffb91999",
+      "sourcePayloadSha256": "af38b60c3f153edffda6b34254b382ab13d308c9620e4460021e1b30ffb91999"
+    },
+    {
+      "kind": "pty",
+      "seq": 17,
+      "elapsedNs": "5234615891",
+      "observedAt": "2026-10-09T00:00:05.234Z",
+      "dataBase64": "IHJlcXVlc3RlZCBjb21tYW5kIG9uY2U=",
+      "sha256": "543b2f39dee2a52c8d28bb8d4b7ea069fb0a9570ed8e91dbc729a90d4a4bca3b",
+      "sourcePayloadSha256": "543b2f39dee2a52c8d28bb8d4b7ea069fb0a9570ed8e91dbc729a90d4a4bca3b"
+    },
+    {
+      "kind": "pty",
+      "seq": 18,
+      "elapsedNs": "5236060986",
+      "observedAt": "2026-10-09T00:00:05.236Z",
+      "dataBase64": "IGluIHRoZSBjdXJyZW50",
+      "sha256": "f8125fd5f9d0fddbfa34091dc18f940686232c485e44e997401e7d372814c701",
+      "sourcePayloadSha256": "f8125fd5f9d0fddbfa34091dc18f940686232c485e44e997401e7d372814c701"
+    },
+    {
+      "kind": "pty",
+      "seq": 19,
+      "elapsedNs": "5237376702",
+      "observedAt": "2026-10-09T00:00:05.237Z",
+      "dataBase64": "IHdvcmtpbmcgZGlyZWN0b3J5",
+      "sha256": "fcf1b2e469fca5009414fc7ef42e4e2b1126801b8318defae65ca2d25a64bcaa",
+      "sourcePayloadSha256": "fcf1b2e469fca5009414fc7ef42e4e2b1126801b8318defae65ca2d25a64bcaa"
+    },
+    {
+      "kind": "pty",
+      "seq": 20,
+      "elapsedNs": "5238641566",
+      "observedAt": "2026-10-09T00:00:05.238Z",
+      "dataBase64": "LCB0aGVu",
+      "sha256": "aae687415b64628689a47f7a9d38150eb22a0a82d1e615ef8ede3a603a1d0b4b",
+      "sourcePayloadSha256": "aae687415b64628689a47f7a9d38150eb22a0a82d1e615ef8ede3a603a1d0b4b"
+    },
+    {
+      "kind": "pty",
+      "seq": 21,
+      "elapsedNs": "5239808477",
+      "observedAt": "2026-10-09T00:00:05.239Z",
+      "dataBase64": "IHdhaXQ=",
+      "sha256": "80ab6e959cdbdb6001b11ba2e329c6852ffad0ee5ef33fd51604c74ebf0e8aba",
+      "sourcePayloadSha256": "80ab6e959cdbdb6001b11ba2e329c6852ffad0ee5ef33fd51604c74ebf0e8aba"
+    },
+    {
+      "kind": "pty",
+      "seq": 22,
+      "elapsedNs": "5243266861",
+      "observedAt": "2026-10-09T00:00:05.243Z",
+      "dataBase64": "IGZvcg==",
+      "sha256": "a3fa396491822fb5a54491f2162b08d9eb96af80d2fd51d62afb123268a108ea",
+      "sourcePayloadSha256": "a3fa396491822fb5a54491f2162b08d9eb96af80d2fd51d62afb123268a108ea"
+    },
+    {
+      "kind": "pty",
+      "seq": 23,
+      "elapsedNs": "5244567767",
+      "observedAt": "2026-10-09T00:00:05.244Z",
+      "dataBase64": "IHRoZSBhcHByb3ZhbCByZXN1bHQu",
+      "sha256": "b0ed0523e3e2be463ff114cfc99f5246fa8e801bfea2091a750db942e65eac59",
+      "sourcePayloadSha256": "b0ed0523e3e2be463ff114cfc99f5246fa8e801bfea2091a750db942e65eac59"
+    },
+    {
+      "kind": "pty",
+      "seq": 24,
+      "elapsedNs": "5410541322",
+      "observedAt": "2026-10-09T00:00:05.410Z",
+      "dataBase64": "DQo=",
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "sourcePayloadSha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6"
+    },
+    {
+      "kind": "history",
+      "seq": 25,
+      "elapsedNs": "5411802573",
+      "observedAt": "2026-10-09T00:00:05.411Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTUyZjJhZTYxZDM1MiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjIzOjQ2LjkyOFoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWNkOTFiZWIzZGZkMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzgyNjkyNSwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiUGxhbjogUnVuIHRoZSBleGFjdCByZXF1ZXN0ZWQgY29tbWFuZCBvbmNlIGluIHRoZSBjdXJyZW50IHdvcmtpbmcgZGlyZWN0b3J5LCB0aGVuIHdhaXQgZm9yIHRoZSBhcHByb3ZhbCByZXN1bHQuIn0seyJ0eXBlIjoidG9vbF91c2UiLCJpZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImlucHV0Ijp7ImNvbW1hbmRzIjpbInByaW50ZiBBUFBST1ZBTF9QUk9CRSJdfX1dfV19",
+      "sha256": "7b54e70ae4c86048e88c685135db9d13b03f078868164b6e24bc70f0de3deaad",
+      "sourcePayloadSha256": "96d9a92f4187a7fa11679e5309af35fae8fae8610887792c3b7e47b306eb675e"
+    },
+    {
+      "kind": "pty",
+      "seq": 26,
+      "elapsedNs": "5425638412",
+      "observedAt": "2026-10-09T00:00:05.425Z",
+      "dataBase64": "G1sxRxtbMEo=",
+      "sha256": "fa2085b3a20ba244110ec1521d8ebd69b8e8fd0d790ffb43ba932aaa66a57259",
+      "sourcePayloadSha256": "fa2085b3a20ba244110ec1521d8ebd69b8e8fd0d790ffb43ba932aaa66a57259"
+    },
+    {
+      "kind": "pty",
+      "seq": 28,
+      "elapsedNs": "5427134420",
+      "observedAt": "2026-10-09T00:00:05.427Z",
+      "dataBase64": "DQobWzMzbUFwcHJvdmUgG1szMm0icnVuX2NvbW1hbmRzIiAbWzJteyJjb21tYW5kcyI6WyJwcmludGYgQVBQUk9WQUxfUFJPQkUiXX0gG1swbVt5L05dIBtbNjlH",
+      "sha256": "6ed71326514d1b9d2dbd0d7fc6f692a3e849992c50715f6f84a8791ca5cc8353",
+      "sourcePayloadSha256": "6ed71326514d1b9d2dbd0d7fc6f692a3e849992c50715f6f84a8791ca5cc8353"
+    },
+    {
+      "kind": "pty",
+      "seq": 30,
+      "elapsedNs": "5541576661",
+      "observedAt": "2026-10-09T00:00:05.541Z",
+      "dataBase64": "bg==",
+      "sha256": "1b16b1df538ba12dc3f97edbb85caa7050d46c148134290feba80f8236c83db9",
+      "sourcePayloadSha256": "1b16b1df538ba12dc3f97edbb85caa7050d46c148134290feba80f8236c83db9"
+    },
+    {
+      "kind": "pty",
+      "seq": 31,
+      "elapsedNs": "5542679230",
+      "observedAt": "2026-10-09T00:00:05.542Z",
+      "dataBase64": "DQ0K",
+      "sha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54",
+      "sourcePayloadSha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54"
+    },
+    {
+      "kind": "pty",
+      "seq": 32,
+      "elapsedNs": "5548047700",
+      "observedAt": "2026-10-09T00:00:05.548Z",
+      "dataBase64": "G1szNm1bcnVuX2NvbW1hbmRzXRtbMG0gcHJpbnRmIEFQUFJPVkFMX1BST0JFDQo=",
+      "sha256": "97880f772175ef2dc7f1497d139482f37b22b2fdb32b1c3cbb198fd575d17457",
+      "sourcePayloadSha256": "97880f772175ef2dc7f1497d139482f37b22b2fdb32b1c3cbb198fd575d17457"
+    },
+    {
+      "kind": "pty",
+      "seq": 34,
+      "elapsedNs": "5549613647",
+      "observedAt": "2026-10-09T00:00:05.549Z",
+      "dataBase64": "ICAgG1s5MG3ijr8gG1swbRtbMzFtZXJyb3I6IHsiZXJyb3IiOiJUaGlzIHRvb2wgY2FsbCB3YXMgcmVqZWN0ZWQgYnkgdGhlIHVzZXIgYW5kIG5vdCBleGVjdXRlZC4gLS0gTk9UIGEgdG9vbCBvciBzeXN0ZW0gZmFpbHVyZS4gQ2xhcmlmeSB3aXRoIHVzZXIgYmVmb3JlIHByb2NlZWRpbmcuIn0bWzBtDQo=",
+      "sha256": "7116feb8581ff452f0ed5d09a1536355eb2b88c61cde18685904cc008ae517ab",
+      "sourcePayloadSha256": "7116feb8581ff452f0ed5d09a1536355eb2b88c61cde18685904cc008ae517ab"
+    },
+    {
+      "kind": "pty",
+      "seq": 35,
+      "elapsedNs": "5553965506",
+      "observedAt": "2026-10-09T00:00:05.553Z",
+      "dataBase64": "DQobWzJtW2ZvbGxvdy11cF0bWzBtIG1pc3Rha2VfbGltaXRfcmVhY2hlZCAoMS8xKQ0KTGF0ZXN0OiB0b29sX2V4ZWN1dGlvbl9mYWlsZWQ6IDEgdG9vbCBjYWxsKHMpIGZhaWxlZDogW3J1bl9jb21tYW5kc10geyJlcnJvciI6IlRoaXMgdG9vbCBjYWxsIHdhcyByZWplY3RlZCBieSB0aGUgdXNlciBhbmQgbm90IGV4ZWN1dGVkLiAtLSBOT1QgYSB0b29sIG9yIHN5c3RlbSBmYWlsdXJlLiBDbGFyaWZ5IHdpdGggdXNlciBiZWZvcmUgcHJvY2VlZGluZy4ifQ0KSG93IHNob3VsZCBDbGluZSBjb250aW51ZT8NChtbMm0gIDEuG1swbSBUcnkgYSBkaWZmZXJlbnQgYXBwcm9hY2gNChtbMm0gIDIuG1swbSBTdG9wIHRoaXMgcnVuDQobWz8yNWgbWzJtQ2hvb3NlIDEtMiBvciB0eXBlIGEgY3VzdG9tIGFuc3dlcjobWzBtDQobWzMybT4bWzBtIBtbMUcbWzBKIBtbMUc=",
+      "sha256": "a15b93cc04c0466091815389118fa721752e31731d3f46cf1f328e0174320955",
+      "sourcePayloadSha256": "a15b93cc04c0466091815389118fa721752e31731d3f46cf1f328e0174320955"
+    },
+    {
+      "kind": "history",
+      "seq": 36,
+      "elapsedNs": "5555485618",
+      "observedAt": "2026-10-09T00:00:05.555Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTUyZjJhZTYxZDM1MiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjIzOjQ3LjA3MVoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWNkOTFiZWIzZGZkMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzgyNjkyNSwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiUGxhbjogUnVuIHRoZSBleGFjdCByZXF1ZXN0ZWQgY29tbWFuZCBvbmNlIGluIHRoZSBjdXJyZW50IHdvcmtpbmcgZGlyZWN0b3J5LCB0aGVuIHdhaXQgZm9yIHRoZSBhcHByb3ZhbCByZXN1bHQuIn0seyJ0eXBlIjoidG9vbF91c2UiLCJpZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImlucHV0Ijp7ImNvbW1hbmRzIjpbInByaW50ZiBBUFBST1ZBTF9QUk9CRSJdfX1dfSx7ImlkIjoibWVzc2FnZS04OGJiZjliMzk1MjIiLCJyb2xlIjoidXNlciIsInRzIjoxNzkxNTM3ODI3MDY1LCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImNvbnRlbnQiOiJ7XCJlcnJvclwiOlwiVGhpcyB0b29sIGNhbGwgd2FzIHJlamVjdGVkIGJ5IHRoZSB1c2VyIGFuZCBub3QgZXhlY3V0ZWQuIC0tIE5PVCBhIHRvb2wgb3Igc3lzdGVtIGZhaWx1cmUuIENsYXJpZnkgd2l0aCB1c2VyIGJlZm9yZSBwcm9jZWVkaW5nLlwifSIsImlzX2Vycm9yIjp0cnVlfV19XX0=",
+      "sha256": "f300e1c395561e38e2bca2ed43db1f6e22be6de71fbd4db1d71e02118089c89e",
+      "sourcePayloadSha256": "fb2a9e0b9133f151b8f9e1f9486e81785e6f10a50564b6327bcbfc022d369bb7"
+    },
+    {
+      "kind": "pty",
+      "seq": 37,
+      "elapsedNs": "6925741498",
+      "observedAt": "2026-10-09T00:00:06.925Z",
+      "dataBase64": "REVO",
+      "sha256": "2fcc32efa12bc6f248a98584b1e110f682b56f0b80154701975bea05bda90bcf",
+      "sourcePayloadSha256": "2fcc32efa12bc6f248a98584b1e110f682b56f0b80154701975bea05bda90bcf"
+    },
+    {
+      "kind": "pty",
+      "seq": 38,
+      "elapsedNs": "6947165231",
+      "observedAt": "2026-10-09T00:00:06.947Z",
+      "dataBase64": "SUVE",
+      "sha256": "8db8f0617c594820026f4a5dd98d184279dca14fc535cd5ba7dc6dbec846a5b2",
+      "sourcePayloadSha256": "8db8f0617c594820026f4a5dd98d184279dca14fc535cd5ba7dc6dbec846a5b2"
+    },
+    {
+      "kind": "pty",
+      "seq": 39,
+      "elapsedNs": "7295788392",
+      "observedAt": "2026-10-09T00:00:07.295Z",
+      "dataBase64": "DQo=",
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "sourcePayloadSha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6"
+    },
+    {
+      "kind": "history",
+      "seq": 40,
+      "elapsedNs": "7297117485",
+      "observedAt": "2026-10-09T00:00:07.297Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTUyZjJhZTYxZDM1MiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjIzOjQ4LjgxM1oiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWNkOTFiZWIzZGZkMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzgyNjkyNSwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiUGxhbjogUnVuIHRoZSBleGFjdCByZXF1ZXN0ZWQgY29tbWFuZCBvbmNlIGluIHRoZSBjdXJyZW50IHdvcmtpbmcgZGlyZWN0b3J5LCB0aGVuIHdhaXQgZm9yIHRoZSBhcHByb3ZhbCByZXN1bHQuIn0seyJ0eXBlIjoidG9vbF91c2UiLCJpZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImlucHV0Ijp7ImNvbW1hbmRzIjpbInByaW50ZiBBUFBST1ZBTF9QUk9CRSJdfX1dfSx7ImlkIjoibWVzc2FnZS04OGJiZjliMzk1MjIiLCJyb2xlIjoidXNlciIsInRzIjoxNzkxNTM3ODI3MDY1LCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImNvbnRlbnQiOiJ7XCJlcnJvclwiOlwiVGhpcyB0b29sIGNhbGwgd2FzIHJlamVjdGVkIGJ5IHRoZSB1c2VyIGFuZCBub3QgZXhlY3V0ZWQuIC0tIE5PVCBhIHRvb2wgb3Igc3lzdGVtIGZhaWx1cmUuIENsYXJpZnkgd2l0aCB1c2VyIGJlZm9yZSBwcm9jZWVkaW5nLlwifSIsImlzX2Vycm9yIjp0cnVlfV19LHsiaWQiOiJtZXNzYWdlLWY2NDUyNDQzMWIyOCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzgyODgxMSwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiREVOSUVEIn1dfV19",
+      "sha256": "e42ccac463819c93d93c57d02d27b873158a171f1e56f9c7d8f3104ca4d5d54d",
+      "sourcePayloadSha256": "439d62460c2633849d8fe27d9ae3feaa38e9abe1e1c12175a486c15d2939f367"
+    },
+    {
+      "kind": "history",
+      "seq": 41,
+      "elapsedNs": "7449273671",
+      "observedAt": "2026-10-09T00:00:07.449Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTUyZjJhZTYxZDM1MiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjIzOjQ4LjgxNVoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWNkOTFiZWIzZGZkMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzgyNjkyNSwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiUGxhbjogUnVuIHRoZSBleGFjdCByZXF1ZXN0ZWQgY29tbWFuZCBvbmNlIGluIHRoZSBjdXJyZW50IHdvcmtpbmcgZGlyZWN0b3J5LCB0aGVuIHdhaXQgZm9yIHRoZSBhcHByb3ZhbCByZXN1bHQuIn0seyJ0eXBlIjoidG9vbF91c2UiLCJpZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImlucHV0Ijp7ImNvbW1hbmRzIjpbInByaW50ZiBBUFBST1ZBTF9QUk9CRSJdfX1dfSx7ImlkIjoibWVzc2FnZS04OGJiZjliMzk1MjIiLCJyb2xlIjoidXNlciIsInRzIjoxNzkxNTM3ODI3MDY1LCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImNvbnRlbnQiOiJ7XCJlcnJvclwiOlwiVGhpcyB0b29sIGNhbGwgd2FzIHJlamVjdGVkIGJ5IHRoZSB1c2VyIGFuZCBub3QgZXhlY3V0ZWQuIC0tIE5PVCBhIHRvb2wgb3Igc3lzdGVtIGZhaWx1cmUuIENsYXJpZnkgd2l0aCB1c2VyIGJlZm9yZSBwcm9jZWVkaW5nLlwifSIsImlzX2Vycm9yIjp0cnVlfV19LHsiaWQiOiJtZXNzYWdlLWY2NDUyNDQzMWIyOCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzgyODgxMSwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiREVOSUVEIn1dfV19",
+      "sha256": "3ee96a3669904be90428d34704230d6751b35d8873536c72a1967a94be99553b",
+      "sourcePayloadSha256": "a5de076140af6807a380d00f2ab98be3dc966723ee199326f43826e4d2b10b94"
+    },
+    {
+      "kind": "pty",
+      "seq": 43,
+      "elapsedNs": "71227915213",
+      "observedAt": "2026-10-09T00:01:11.227Z",
+      "dataBase64": "Mg==",
+      "sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "sourcePayloadSha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+    },
+    {
+      "kind": "pty",
+      "seq": 44,
+      "elapsedNs": "71229089017",
+      "observedAt": "2026-10-09T00:01:11.229Z",
+      "dataBase64": "DQ0K",
+      "sha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54",
+      "sourcePayloadSha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54"
+    },
+    {
+      "kind": "history",
+      "seq": 46,
+      "elapsedNs": "71383189460",
+      "observedAt": "2026-10-09T00:01:11.383Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTUyZjJhZTYxZDM1MiIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjI0OjUyLjc2M1oiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWNkOTFiZWIzZGZkMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzgyNjkyNSwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiUGxhbjogUnVuIHRoZSBleGFjdCByZXF1ZXN0ZWQgY29tbWFuZCBvbmNlIGluIHRoZSBjdXJyZW50IHdvcmtpbmcgZGlyZWN0b3J5LCB0aGVuIHdhaXQgZm9yIHRoZSBhcHByb3ZhbCByZXN1bHQuIn0seyJ0eXBlIjoidG9vbF91c2UiLCJpZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImlucHV0Ijp7ImNvbW1hbmRzIjpbInByaW50ZiBBUFBST1ZBTF9QUk9CRSJdfX1dfSx7ImlkIjoibWVzc2FnZS04OGJiZjliMzk1MjIiLCJyb2xlIjoidXNlciIsInRzIjoxNzkxNTM3ODI3MDY1LCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6InRvb2wtMDgwMWFmMTcwMGVjIiwibmFtZSI6InJ1bl9jb21tYW5kcyIsImNvbnRlbnQiOiJ7XCJlcnJvclwiOlwiVGhpcyB0b29sIGNhbGwgd2FzIHJlamVjdGVkIGJ5IHRoZSB1c2VyIGFuZCBub3QgZXhlY3V0ZWQuIC0tIE5PVCBhIHRvb2wgb3Igc3lzdGVtIGZhaWx1cmUuIENsYXJpZnkgd2l0aCB1c2VyIGJlZm9yZSBwcm9jZWVkaW5nLlwifSIsImlzX2Vycm9yIjp0cnVlfV19LHsiaWQiOiJtZXNzYWdlLWY2NDUyNDQzMWIyOCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzgyODgxMSwiY29udGVudCI6W3sidHlwZSI6InRleHQiLCJ0ZXh0IjoiREVOSUVEIn1dfV19",
+      "sha256": "185e5fed4aa7ac8694b154c84d9b8539541f984d0a371a9753d25f80c8e4c69a",
+      "sourcePayloadSha256": "3365ec0029b04bc8a874685fa809b483bf422dcc95a0e74949936f528e49030d"
+    }
+  ],
+  "provenance": {
+    "source": "20261009/logs/deny-live/frames.ndjson",
+    "sourceSha256": "8f4859f090686cba28d9b6324416de586d77d10f87c3f8e4ab929742c2efa6b6",
+    "review": "Selected controlled test observations; decoded histories allowlisted; no credentials, provider data, system prompt, user text context, thinking, metrics, or personal paths retained.",
+    "transformations": [
+      "selected observations, original sequence and nanosecond relative timing retained",
+      "PTY output bytes and original packet boundaries unchanged",
+      "history envelopes decoded then allowlisted and reencoded; payload hash recomputed",
+      "session/message/tool IDs replaced by consistent SHA-derived pseudonyms; tool_result linkage retained",
+      "manifest PIDs replaced with pseudonymous numeric values; cannot be used as live process ownership",
+      "wall clock normalized to 2026-10-09T00:00:00Z plus source elapsed time",
+      "history user text blocks removed; user tool_result blocks retained"
+    ],
+    "complete": false,
+    "truncated": true
+  },
+  "evidence": {
+    "classification": "sanitized-observation",
+    "inputWitnesses": [
+      {
+        "seq": 29,
+        "elapsedNs": "5540180801",
+        "observedAt": "2026-10-09T00:00:05.540Z",
+        "dataBase64": "bg0=",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 42,
+        "elapsedNs": "71226701112",
+        "observedAt": "2026-10-09T00:01:11.226Z",
+        "dataBase64": "Mg0=",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      }
+    ],
+    "manifestObservations": [
+      {
+        "seq": 13,
+        "elapsedNs": "1522951253",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-52f2ae61d352",
+          "pid": 2783154,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:23:42.862Z"
+        }
+      },
+      {
+        "seq": 27,
+        "elapsedNs": "5427003134",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-52f2ae61d352",
+          "pid": 2783154,
+          "status": "pending",
+          "interactive": false,
+          "started_at": "2026-10-09T09:23:42.862Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 33,
+        "elapsedNs": "5549372779",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-52f2ae61d352",
+          "pid": 2783154,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:23:42.862Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 45,
+        "elapsedNs": "71382997864",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-52f2ae61d352",
+          "pid": 2783154,
+          "status": "completed",
+          "interactive": false,
+          "started_at": "2026-10-09T09:23:42.862Z",
+          "ended_at": "2026-10-09T09:24:52.774Z",
+          "exit_code": 0
+        }
+      }
+    ],
+    "exitWitnesses": [
+      {
+        "seq": 47,
+        "kind": "exit",
+        "elapsedNs": "71501114302",
+        "exitCode": 0,
+        "timedOut": false
+      }
+    ],
+    "notes": [
+      "Actual n at seq29 followed by mistake_limit_reached question at seq35; recovery choice 2 at seq42. Rejected run_commands result is_error:true; command not executed. Exit0 alone is not task success."
+    ]
+  }
+}
