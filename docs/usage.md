@@ -50,6 +50,7 @@ const result=await sdk.respond({sessionId:s.sessionId,executionId:s.executionId,
 | `preflight()`, `connect()` | 환경·CLI fingerprint 확인. 미지원 프로필은 시작/조작을 막는다. |
 | `start(request)` | 새 관리 실행. 선택적인 `retryLimit:1..10`만 CLI 기본값을 변경한다. |
 | `refresh()` | 실제 history·현재 터미널·프로세스·입력 receipt를 다시 관측한다. |
+| `snapshot().historySync` | 부분 JSON·읽기 실패 시 마지막 유효 내용을 유지하며 current false로 응답을 막는다. 완전한 재관측으로 복구한다. [history 복구](history-sync.md). |
 | `disconnect()` | 로컬 연결 해제. 원격 작업 중단을 뜻하지 않는다. |
 | `listManagedExecutions()`, `attach(id)` | SDK가 시작한 실행만 조회·복원한다. [재연결](reconnect.md). |
 | `reconfirmDelivery()` | 불명 요청의 원래 receipt·도구 결과·단계를 다시 판정한다. 입력을 재전송하지 않는다. [전달 복구](delivery.md). |

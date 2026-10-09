@@ -89,7 +89,7 @@ export function createDiagnosticCollector() {
   let manifestBytes = 0;
   let journalBytes = 0;
   let reserve = 2048;
-  let finalized=true;
+  let finalized = true;
   const fail = (error: unknown) => {
     status.state = "failed";
     status.truncated = true;
@@ -132,7 +132,7 @@ export function createDiagnosticCollector() {
           "Choose a directory, 4 KiB–256 MiB, 1–50 bundles and 1–90 retention days.",
         );
       status = { ...initial(), ...limits, state: "collecting" };
-      finalized=false;
+      finalized = false;
       lastSnapshot = null;
       queue = Promise.resolve();
       startedAt = new Date().toISOString();
@@ -147,7 +147,7 @@ export function createDiagnosticCollector() {
         schemaVersion: 2,
         sdkVersion: "0.1.0",
         adapterVersion: 1,
-        ownerPid:process.pid,
+        ownerPid: process.pid,
         startedAt,
         limits,
         exclusions: [
@@ -162,7 +162,7 @@ export function createDiagnosticCollector() {
         const root = resolve(options.directory);
         await mkdir(root, { recursive: true, mode: 0o700 });
         const owned = [];
-        let protectedCount=0;
+        let protectedCount = 0;
         for (const name of await readdir(root)) {
           if (!/^cline-sdk-diag-[A-Za-z0-9]+$/.test(name)) continue;
           const path = join(root, name);
@@ -180,17 +180,29 @@ export function createDiagnosticCollector() {
             const m = JSON.parse(
               await readFile(join(path, "manifest.json"), "utf8"),
             );
-            if(m.format!==header.format)continue;
-            let ownerAlive=false;
-            if(!m.stoppedAt) {
-              if(!Number.isInteger(m.ownerPid))ownerAlive=true;
-              else try{process.kill(m.ownerPid,0);ownerAlive=true;}catch(error){ownerAlive=(error as NodeJS.ErrnoException).code!=="ESRCH";}
+            if (m.format !== header.format) continue;
+            let ownerAlive = false;
+            if (!m.stoppedAt) {
+              if (!Number.isInteger(m.ownerPid)) ownerAlive = true;
+              else
+                try {
+                  process.kill(m.ownerPid, 0);
+                  ownerAlive = true;
+                } catch (error) {
+                  ownerAlive =
+                    (error as NodeJS.ErrnoException).code !== "ESRCH";
+                }
             }
-            if(ownerAlive)protectedCount++;else owned.push({ path, time: Date.parse(m.startedAt) });
+            if (ownerAlive) protectedCount++;
+            else owned.push({ path, time: Date.parse(m.startedAt) });
           } catch {}
         }
         owned.sort((a, b) => b.time - a.time);
-        if(protectedCount>=limits.maxBundles)throw Object.assign(new Error("Active diagnostics occupy the finite bundle limit."),{code:"diagnostic-bundle-limit"});
+        if (protectedCount >= limits.maxBundles)
+          throw Object.assign(
+            new Error("Active diagnostics occupy the finite bundle limit."),
+            { code: "diagnostic-bundle-limit" },
+          );
         for (const [index, item] of owned.entries())
           if (
             index >= limits.maxBundles - protectedCount - 1 ||
@@ -222,7 +234,7 @@ export function createDiagnosticCollector() {
         });
       } catch (error) {
         fail(error);
-        if(!status.path)finalized=true;
+        if (!status.path) finalized = true;
       }
       return structuredClone(status);
     },
@@ -245,26 +257,33 @@ export function createDiagnosticCollector() {
           const filtered = {
             version: original.version,
             sessionId: original.sessionId,
-            messages: original.messages?.filter((m:any)=>m.role!=="system").map((m: any) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content
-                ?.filter((p: any) =>
-                  ["text", "tool_use", "tool_result"].includes(p.type),
-                )
-                .map((p: any) =>
-                  p.type === "text"
-                    ? { type: p.type, text: p.text }
-                    : p.type === "tool_use"
-                      ? { type: p.type, id: p.id, name: p.name, input: p.input }
-                      : {
-                          type: p.type,
-                          tool_use_id: p.tool_use_id,
-                          content: p.content,
-                          is_error: p.is_error,
-                        },
-                ),
-            })),
+            messages: original.messages
+              ?.filter((m: any) => m.role !== "system")
+              .map((m: any) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content
+                  ?.filter((p: any) =>
+                    ["text", "tool_use", "tool_result"].includes(p.type),
+                  )
+                  .map((p: any) =>
+                    p.type === "text"
+                      ? { type: p.type, text: p.text }
+                      : p.type === "tool_use"
+                        ? {
+                            type: p.type,
+                            id: p.id,
+                            name: p.name,
+                            input: p.input,
+                          }
+                        : {
+                            type: p.type,
+                            tool_use_id: p.tool_use_id,
+                            content: p.content,
+                            is_error: p.is_error,
+                          },
+                  ),
+              })),
           };
           obs.dataBase64 = Buffer.from(JSON.stringify(filtered)).toString(
             "base64",
@@ -302,7 +321,7 @@ export function createDiagnosticCollector() {
       await queue;
       if (status.path)
         try {
-          const stoppedAt=new Date().toISOString();
+          const stoppedAt = new Date().toISOString();
           let manifest = JSON.stringify({
             ...header,
             stoppedAt,
@@ -314,14 +333,21 @@ export function createDiagnosticCollector() {
               code: "metadata-limit",
             });
           status.bytes = journalBytes + manifestBytes;
-          for(let n=0;n<3;n++){manifest=JSON.stringify({...header,stoppedAt,status:{...status,path:undefined}});status.bytes=journalBytes+Buffer.byteLength(manifest);}
+          for (let n = 0; n < 3; n++) {
+            manifest = JSON.stringify({
+              ...header,
+              stoppedAt,
+              status: { ...status, path: undefined },
+            });
+            status.bytes = journalBytes + Buffer.byteLength(manifest);
+          }
           await writeFile(join(status.path, "manifest.json"), manifest, {
             mode: 0o600,
           });
         } catch (error) {
           fail(error);
         }
-      finalized=true;
+      finalized = true;
       return structuredClone(status);
     },
   };
@@ -350,8 +376,9 @@ export async function readDiagnostic(path: string): Promise<DiagnosticBundle> {
   const events: SdkEvent[] = [];
   let lastSnapshot: Snapshot | null = null;
   const content = await readFile(file, "utf8");
-  metadata.status.bytes=Buffer.byteLength(content)+(await stat(manifestPath)).size;
-  let truncated = !!metadata.status.truncated||!metadata.stoppedAt;
+  metadata.status.bytes =
+    Buffer.byteLength(content) + (await stat(manifestPath)).size;
+  let truncated = !!metadata.status.truncated || !metadata.stoppedAt;
   for (const line of content.split("\n")) {
     if (!line) continue;
     let entry;

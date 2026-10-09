@@ -175,7 +175,7 @@ const server = createServer(async (request, response) => {
       if (url.pathname === "/api/diagnostics/replay") {
         lastDiagnostics = (await client.stopDiagnostics?.()) ?? lastDiagnostics;
         const bundle = await readDiagnostic(input.path);
-        lastDiagnostics={...bundle.metadata.status,path:input.path};
+        lastDiagnostics = { ...bundle.metadata.status, path: input.path };
         client.close();
         client = createClient({ mode: "replay" });
         watch();

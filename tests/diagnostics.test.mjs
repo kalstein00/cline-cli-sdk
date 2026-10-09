@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -23,6 +23,7 @@ test("raw question response receipts produce the same events offline and sidecar
   );
   let position = 18;
   let submitted;
+  let historyMode = "normal";
   let transportForbidden = false;
   t.mock.method(childProcess, "spawn", () => {
     if (transportForbidden) throw Error("offline transport forbidden");
@@ -80,6 +81,21 @@ test("raw question response receipts produce the same events offline and sidecar
                 },
               ]
             : [],
+          ...(historyMode === "missing"
+            ? { history: null, historyError: "read-failed" }
+            : historyMode !== "normal"
+              ? {
+                  history: {
+                    sha256: historyMode,
+                    dataBase64:
+                      historyMode === "partial"
+                        ? Buffer.from('{"messages":[').toString("base64")
+                        : record.observations
+                            .filter((o) => o.kind === "history" && o.seq <= 18)
+                            .at(-1).dataBase64,
+                  },
+                }
+              : {}),
         };
       p.stdout.end(JSON.stringify(value));
       queueMicrotask(() => p.emit("close", 0, null));
@@ -92,11 +108,23 @@ test("raw question response receipts produce the same events offline and sidecar
   await live.start({ cwd: "/fixture/work", prompt: "controlled" });
   await live.refresh();
   const s = live.snapshot();
+  historyMode = "missing";
+  await live.refresh();
+  assert.equal(live.snapshot().historySync.current, false);
+  assert.equal(live.snapshot().interaction.id, s.interaction.id);
+  historyMode = "partial";
+  await live.refresh();
+  assert.equal(live.snapshot().historySync.current, false);
+  historyMode = "good";
+  await live.refresh();
+  assert.equal(live.snapshot().historySync.current, true);
+  assert.equal(live.snapshot().interaction.id, s.interaction.id);
+  historyMode = "normal";
   const result = await live.respond({
     sessionId: s.sessionId,
     executionId: s.executionId,
     interactionId: s.interaction.id,
-    revision: s.revision,
+    revision: live.snapshot().revision,
     requestId: "diagnostic-choice",
     answer: "BLUE",
   });
@@ -105,6 +133,9 @@ test("raw question response receipts produce the same events offline and sidecar
   const bundle = await readDiagnostic(status.path);
   assert.ok(
     bundle.recording.observations.some((o) => o.kind === "response-input"),
+  );
+  assert.ok(
+    bundle.recording.observations.some((o) => o.kind === "history-failure"),
   );
   transportForbidden = true;
   const replay = createClient({ mode: "replay" });
@@ -126,6 +157,41 @@ test("raw question response receipts produce the same events offline and sidecar
   assert.equal(replay.snapshot().response.state, "delivered");
   live.close();
   replay.close();
+});
+
+test("finite bundle retention protects an active collector and removes only finalized owned bundles", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "cline-sdk-diag-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const options = {
+    mode: "live",
+    connection: {
+      host: "fixture",
+      sshExecutable: "cline-sdk-missing-ssh-diagnostics",
+    },
+  };
+  const first = createClient(options),
+    second = createClient(options);
+  t.after(() => {
+    first.close();
+    second.close();
+  });
+  const active = await first.startDiagnostics({ directory, maxBundles: 1 });
+  const blocked = await second.startDiagnostics({ directory, maxBundles: 1 });
+  assert.equal(blocked.state, "failed");
+  assert.equal(blocked.failure, "diagnostic-bundle-limit");
+  assert.equal((await stat(active.path)).isDirectory(), true);
+  await first.stopDiagnostics();
+  const next = await second.startDiagnostics({ directory, maxBundles: 1 });
+  assert.equal(next.state, "collecting");
+  await assert.rejects(stat(active.path), { code: "ENOENT" });
+  await writeFile(join(next.path, "user-note.txt"), "preserve user data");
+  await second.stopDiagnostics();
+  await first.startDiagnostics({ directory, maxBundles: 1 });
+  assert.equal(
+    await readFile(join(next.path, "user-note.txt"), "utf8"),
+    "preserve user data",
+  );
+  await first.stopDiagnostics();
 });
 
 test("consumer captures a real SSH startup failure and reinterprets it offline without transport", async (t) => {
@@ -196,6 +262,12 @@ test("finite diagnostics stop at the byte limit and storage failure leaves clien
   assert.equal(live.diagnostics().truncated, true);
   assert.ok(live.diagnostics().bytes <= 4096);
   const limited = await live.stopDiagnostics();
+  assert.equal(
+    limited.bytes,
+    (await stat(join(limited.path, "manifest.json"))).size +
+      (await stat(join(limited.path, "observations.ndjson"))).size,
+  );
+  assert.ok(limited.bytes <= 4096);
   const bundle = await readDiagnostic(limited.path);
   assert.equal(bundle.recording.provenance.truncated, true);
   const replay = createClient({ mode: "replay" });
