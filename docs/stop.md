@@ -39,6 +39,8 @@ Windows Chrome에서도 실행 `run-b97efcb3-92e0-45f6-9cec-bff2b30e9673`, 세�
 
 #5 TUI 및 #6 재연결 통합 뒤에도 공개 API를 다시 실측했다. 실행 `run-f430cd99-60a9-44a1-b62a-24e67f298031`, 세션 `1791546767238_4xkph`의 CLI 119121, Python 119668, sleep 119669를 중단하고 세 identity의 종료를 확인했다. 새 SDK 클라이언트의 `listManagedExecutions()`와 `attach(executionId)`에서도 동일 중단 요청 ID, `confirmed`/`stopped`, 동일 세션과 두 대화 메시지를 복원했다. 이 재접속은 새 CLI나 모델 실행을 만들지 않았다.
 
+마지막 PID 재사용 안전 검토에서 새 자식의 실제 PPID와 부모 identity를 재확인하도록 강화했다. 그 뒤 실행 `run-24a0aa3a-6b13-4c9b-9ba4-c9294857ed1d`, 세션 `1791546996636_fhh0g`을 다시 실측해 CLI 122468/Python 123381/sleep 123382의 종료와 대화 보존을 확인했다. 누적 관측은 네 프로세스였고 중단 시 살아 있던 대상 세 개가 모두 사라졌다. 해당 인증 사본과 시험 keepalive도 정리했다.
+
 재현용 격리 work 디렉터리에서 `child.py`를 준비한다. 이는 시험 명령 파일이며 제품 SDK가 CLI 기록을 고치는 기능이 아니다.
 
 ```python
