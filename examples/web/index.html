@@ -242,6 +242,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       <h2>상호작용</h2>
       <button id="stop" disabled>작업 중단</button>
       <p id="stopState">중단 요청 없음</p>
+      <p id="historyWarning" class="warning" role="status" hidden></p>
       <div id="interaction" class="empty">대기 중인 질문이 없습니다.</div>
     </section>
     <section>
@@ -315,6 +316,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       !capability.live ||
       !capability.responses ||
       s.connection !== "connected" ||
+      s.historySync?.current === false ||
       s.interaction?.state !== "awaiting-response" ||
       !s.interaction?.responseKinds?.length ||
       !s.interaction?.toolId ||
@@ -364,6 +366,10 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         );
       if (capabilities) capability = capabilities;
       current = s;
+      element("historyWarning").hidden = !s.historySync?.warning;
+      element("historyWarning").textContent = s.historySync?.warning
+        ? "기록 동기화에 일시적인 문제가 있습니다. 마지막 정상 대화와 질문을 표시하며 응답을 차단합니다. 원격 기록 갱신으로 현재성을 다시 확인하세요."
+        : "";
       element("start").disabled =
         busy ||
         !preflight?.ready ||
@@ -467,6 +473,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         s.response?.state,
         s.mode,
         s.connection,
+        s.historySync,
         capability.responses,
       ]);
       if (interactionViewKey === viewKey) {

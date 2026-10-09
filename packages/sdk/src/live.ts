@@ -280,14 +280,12 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     try {
       found = await execute(PREFLIGHT, { cliPath: config.cliPath ?? null });
     } catch (error) {
-      if (
-        !(
-          error instanceof SdkError &&
-          ["python-unavailable", "python-version-unsupported"].includes(
-            error.code,
-          )
+      if (!(
+        error instanceof SdkError &&
+        ["python-unavailable", "python-version-unsupported"].includes(
+          error.code,
         )
-      )
+      ))
         throw error;
       report = {
         platform: "unknown",
@@ -399,6 +397,18 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       reservationSupported = !!result.management?.responseReservation;
       phase = result.phase ?? phase;
       pendingPhase = null;
+      if (
+        result.historyError ||
+        (Object.hasOwn(result, "history") &&
+          !result.history &&
+          (result.sessionId || historyHash))
+      )
+        await reducer.ingest({
+          kind: "history-failure",
+          seq: ++sequence,
+          observedAt: new Date().toISOString(),
+          reason: result.historyError || "missing",
+        });
       reducer.phase({
         kind: "phase",
         seq: ++sequence,
@@ -413,14 +423,20 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           terminal: result.management?.terminal,
         },
       });
-      for (const raw of result.observations ?? [])
-        await reducer.ingest({
-          ...raw,
-          sourceSeq: raw.seq,
-          source: "packet",
-          ...(result.screen ? { apply: false } : {}),
-          seq: ++sequence,
-        });
+      for (const raw of result.observations ?? []) {
+        try {
+          await reducer.ingest({
+            ...raw,
+            sourceSeq: raw.seq,
+            source: "packet",
+            ...(result.screen ? { apply: false } : {}),
+            seq: ++sequence,
+          });
+        } catch (error) {
+          if (!(error instanceof SdkError && error.code === "invalid-history"))
+            throw error;
+        }
+      }
       cursor = result.cursor;
       remoteRequests = result.requests ?? [];
       modalHash = result.modalHash ?? null;
@@ -443,7 +459,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           : {}),
         ...(result.historyError ? { reason: result.historyError } : {}),
       });
-      if (result.history && result.history.sha256 !== historyHash) {
+      if (
+        result.history &&
+        (result.history.sha256 !== historyHash ||
+          !reducer.snapshot().historySync.current)
+      ) {
         try {
           await reducer.ingest({
             kind: "history",
@@ -454,7 +474,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             sourceBytes: Buffer.from(result.history.dataBase64, "base64")
               .length,
           });
-          historyHash = result.history.sha256;
+          if (reducer.snapshot().historySync.current)
+            historyHash = result.history.sha256;
         } catch (error) {
           if (!(error instanceof SdkError && error.code === "invalid-history"))
             throw error;
@@ -486,6 +507,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       observationGap ||= !!result.gap && !result.screen;
       if (
         pendingPhase &&
+        reducer.snapshot().historySync.current &&
         !observationGap &&
         reducer.snapshot().interaction?.id === pendingPhase.id
       ) {
@@ -575,7 +597,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                 next[key as keyof ResponseResult],
             )
           ) {
-            reducer.responseObservation({kind:"response-receipt",seq:++sequence,observedAt:new Date().toISOString(),receipts:[receipt],final:true});
+            reducer.responseObservation({
+              kind: "response-receipt",
+              seq: ++sequence,
+              observedAt: new Date().toISOString(),
+              receipts: [receipt],
+              final: true,
+            });
             state = {
               ...reducer.snapshot(),
               mode: "live",
@@ -599,6 +627,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     return refreshing;
   };
   const validateResponse = (request: ResponseRequest) => {
+    if (!state.historySync.current)
+      throw new SdkError(
+        "history-unconfirmed",
+        "History is not current. Requery before responding.",
+      );
     if (state.stop)
       throw new SdkError(
         "stop-in-progress",

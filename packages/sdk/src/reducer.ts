@@ -1,7 +1,7 @@
 import xterm from "@xterm/headless";
 import unicode11 from "@xterm/addon-unicode11";
 import { createHash } from "node:crypto";
-import {deliveryState,type DurableResponse} from "./delivery.js";
+import { deliveryState, type DurableResponse } from "./delivery.js";
 export interface Message {
   id: string;
   role: "assistant" | "user";
@@ -25,6 +25,12 @@ export interface PtyObservation {
   sourceSeq?: number;
   apply?: boolean;
   source?: "packet" | "screen" | "modal";
+}
+export interface HistoryFailureObservation {
+  kind: "history-failure";
+  seq: number;
+  observedAt: string;
+  reason: string;
 }
 export interface ProcessObservation {
   kind: "process";
@@ -59,6 +65,7 @@ export interface StopResult {
 export type Observation =
   | HistoryObservation
   | PtyObservation
+  | HistoryFailureObservation
   | ProcessObservation
   | ConnectionObservation
   | InitializeObservation
@@ -187,18 +194,9 @@ export interface Recording {
   };
 }
 export type ConnectionState =
-  | "replay"
-  | "closed"
-  | "connecting"
-  | "connected"
-  | "disconnected";
+  "replay" | "closed" | "connecting" | "connected" | "disconnected";
 export type ExecutionState =
-  | "unknown"
-  | "running"
-  | "awaiting-input"
-  | "completed"
-  | "stopped"
-  | "failed";
+  "unknown" | "running" | "awaiting-input" | "completed" | "stopped" | "failed";
 export type InteractionState =
   | "awaiting-response"
   | "submitting"
@@ -239,6 +237,7 @@ export interface Snapshot {
   response: ResponseResult | null;
   stop: StopResult | null;
   executionEvidence: ProcessObservation | null;
+  historySync: { current: boolean; warning: string | null };
   replay: {
     position: number;
     total: number;
@@ -366,7 +365,10 @@ function validateRecording(input: Recording): void {
         "response-fault",
         "execution-action",
         "file-read",
+        "history-failure",
       ].includes(obs.kind) ||
+      (obs.kind === "history-failure" &&
+        (typeof obs.reason !== "string" || !obs.reason)) ||
       ((obs.kind === "pty" || obs.kind === "history") &&
         (typeof obs.dataBase64 !== "string" ||
           !/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
@@ -445,6 +447,7 @@ export function createReducer(options: {
     response: null,
     stop: null,
     executionEvidence: null,
+    historySync: { current: true, warning: null },
     replay: { position: 0, total: 0, complete: false, truncated: false },
   };
   let recording: Recording | null = null;
@@ -485,6 +488,19 @@ export function createReducer(options: {
   const listeners = new Set<(event: SdkEvent) => void>();
   let observationEvents: SdkEvent[] = [];
   const snapshot = () => structuredClone(state);
+  const historyFailure = (obs: Observation) => {
+    if (!state.historySync.current) return;
+    state.historySync = {
+      current: false,
+      warning:
+        "History synchronization is temporarily unavailable; the last good conversation is preserved. Requery before responding.",
+    };
+    state.execution = "unknown";
+    emit("state.changed", obs, {
+      historySync: state.historySync,
+      execution: state.execution,
+    });
+  };
   const emit = (type: SdkEvent["type"], obs: Observation, payload: unknown) => {
     state.revision++;
     const event: SdkEvent = structuredClone({
@@ -510,6 +526,7 @@ export function createReducer(options: {
     for (const listener of listeners) listener(structuredClone(event));
   };
   const interpretScreen = (obs: Observation) => {
+    if (!state.historySync.current) return;
     const lines = [];
     const buffer = terminal!.buffer.active;
     if (
@@ -1005,6 +1022,7 @@ export function createReducer(options: {
       response: null,
       stop: null,
       executionEvidence: null,
+      historySync: { current: true, warning: null },
     });
     emit("state.changed", obs, {
       sessionId: obs.sessionId,
@@ -1034,7 +1052,8 @@ export function createReducer(options: {
       next = obs.beforeWrite ? "not-submitted" : "delivery-unknown";
     if (obs.kind === "response-receipt") {
       const receipt =
-        (obs.final?obs.receipts.at(-1):undefined) ?? obs.receipts.find((r) => r.requestId === responseBinding?.requestId) ??
+        (obs.final ? obs.receipts.at(-1) : undefined) ??
+        obs.receipts.find((r) => r.requestId === responseBinding?.requestId) ??
         (responseBinding
           ? {
               requestId: responseBinding.requestId,
@@ -1044,13 +1063,23 @@ export function createReducer(options: {
           : obs.final
             ? obs.receipts.at(-1)
             : undefined);
-      if (receipt?.binding && (!responseBinding||obs.final))
+      if (receipt?.binding && (!responseBinding || obs.final))
         responseBinding = { ...receipt.binding, requestId: receipt.requestId };
       if (receipt && responseBinding) {
         const b = responseBinding;
         const result = results.get(b.toolId);
-        const resolved=deliveryState({...receipt,binding:b} as DurableResponse,state,result,latestProcess);
-        if(obs.final||receipt.resolution||(resolved!=="delivery-unknown"&&receipt.state!=="reserved"))next=resolved;
+        const resolved = deliveryState(
+          { ...receipt, binding: b } as DurableResponse,
+          state,
+          result,
+          latestProcess,
+        );
+        if (
+          obs.final ||
+          receipt.resolution ||
+          (resolved !== "delivery-unknown" && receipt.state !== "reserved")
+        )
+          next = resolved;
       }
     }
     if (
@@ -1152,6 +1181,7 @@ export function createReducer(options: {
         response: null,
         stop: null,
         executionEvidence: null,
+        historySync: { current: true, warning: null },
         replay: {
           position: 0,
           total: input.observations.length,
@@ -1185,6 +1215,7 @@ export function createReducer(options: {
           ...(obs.reason ? { reason: obs.reason } : {}),
         });
       }
+      if (obs.kind === "history-failure") historyFailure(obs);
       if (obs.kind === "pty" && obs.apply !== false) {
         await new Promise<void>((resolve) =>
           terminal!.write(Buffer.from(obs.dataBase64, "base64"), resolve),
@@ -1272,6 +1303,7 @@ export function createReducer(options: {
               },
             );
         } catch {
+          historyFailure(obs);
           options.observe?.(obs, observationEvents, snapshot());
           throw new SdkError(
             "invalid-history",
@@ -1279,6 +1311,10 @@ export function createReducer(options: {
           );
         }
         results = nextResults;
+        if (!state.historySync.current) {
+          state.historySync = { current: true, warning: null };
+          emit("state.changed", obs, { historySync: state.historySync });
+        }
         pendingTools = nextTools.filter((tool) => !results.has(tool.id));
         for (const message of messages) {
           if (!message.text) continue;
@@ -1306,6 +1342,7 @@ export function createReducer(options: {
             !obs.alive
               ? "stopped"
               : "unknown";
+        else if (!state.historySync.current) state.execution = "unknown";
         else if (!obs.identityConfirmed) {
           state.execution = "unknown";
           state.interaction = null;
@@ -1333,7 +1370,8 @@ export function createReducer(options: {
         )
           state.execution = "completed";
         else state.execution = "unknown";
-        if (!obs.alive && obs.exitCode !== null) state.interaction = null;
+        if (state.historySync.current && !obs.alive && obs.exitCode !== null)
+          state.interaction = null;
         if (
           previous !== state.execution ||
           previousStop !== JSON.stringify(state.stop)
@@ -1383,10 +1421,19 @@ export function createReducer(options: {
       return snapshot();
     },
     async replayAll() {
-      while (recording && state.replay.position < recording.observations.length) {
-        try { await this.nextObservation(); }
-        catch (error) {
-          if (recording.schemaVersion !== 2 || !(error instanceof SdkError) || error.code !== "invalid-history") throw error;
+      while (
+        recording &&
+        state.replay.position < recording.observations.length
+      ) {
+        try {
+          await this.nextObservation();
+        } catch (error) {
+          if (
+            recording.schemaVersion !== 2 ||
+            !(error instanceof SdkError) ||
+            error.code !== "invalid-history"
+          )
+            throw error;
         }
       }
       return snapshot();

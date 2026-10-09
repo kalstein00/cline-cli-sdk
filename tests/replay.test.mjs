@@ -62,7 +62,7 @@ test("history message updates retain identity and malformed reads preserve the l
     client.snapshot().messages.map((m) => [m.id, m.text]),
     [["fixture-message", "CHOSEN:BLUE (updated)"]],
   );
-  assert.equal(client.snapshot().revision, 2);
+  assert.equal(client.snapshot().revision, 4);
   client.close();
 });
 test("split UTF-8 and cursor erasure restore the intended Korean question", async () => {
