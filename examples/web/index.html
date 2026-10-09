@@ -191,6 +191,34 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       </details>
     </section>
     <section>
+      <h2>진단 기록</h2>
+      <label
+        ><input id="diagnosticEnabled" type="checkbox" />다음 연결부터 원시 진단
+        수집</label
+      >
+      <label>저장 디렉터리<input id="diagnosticDirectory" /></label>
+      <label
+        >용량 한도 (MiB, 1–256)<input
+          id="diagnosticLimit"
+          type="number"
+          min="1"
+          max="256"
+          value="16"
+      /></label>
+      <p>
+        기본 보관: 5개 묶음 · 7일. 대화·도구 인자·응답이 포함될 수 있습니다.
+        반출 전 내용을 검토하세요.
+      </p>
+      <button id="diagnosticStart" disabled>진단 시작</button>
+      <button id="diagnosticStop" disabled>진단 종료·저장</button>
+      <pre id="diagnosticStatus">
+평상시: 로컬 원시 기록을 저장하지 않습니다.</pre
+      >
+      <label>열 기록 경로<input id="diagnosticPath" /></label>
+      <button id="diagnosticReplay">기록 열기·오프라인 비교</button>
+      <pre id="diagnosticComparison">아직 비교하지 않았습니다.</pre>
+    </section>
+    <section>
       <h2>관리 세션 복구</h2>
       <p>
         SDK로 시작한 실행을 선택하면 원격 기록과 현재 질문을 다시 확인합니다.
@@ -263,10 +291,14 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     const mutations = new Set();
     let capability = {};
     let interactionViewKey;
+    let viewGeneration = 0;
+    let readingState = false;
+    let stateDirty = false;
     const stopDisabled = (s) =>
       mutations.has("stop") ||
       (busy && !mutations.has("respond")) ||
       s.mode !== "live" ||
+      !capability.live ||
       s.connection !== "connected" ||
       !s.executionId ||
       !!s.stop ||
@@ -284,6 +316,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     const responseDisabled = (s) =>
       busy ||
       s.mode !== "live" ||
+      !capability.live ||
       !capability.responses ||
       s.connection !== "connected" ||
       s.historySync?.current === false ||
@@ -297,7 +330,43 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       preflight,
       capabilities,
       managedExecutions,
+      diagnostics,
+      diagnosticComparison,
+      diagnosticDirectory,
     }) {
+      if (
+        current &&
+        s.mode === current.mode &&
+        s.executionId === current.executionId &&
+        s.revision < current.revision
+      )
+        s = current;
+      if (capabilities) capability = capabilities;
+      if (diagnosticDirectory && !element("diagnosticDirectory").value)
+        element("diagnosticDirectory").value = diagnosticDirectory;
+      element("diagnosticStart").disabled =
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        diagnostics?.state === "collecting";
+      element("diagnosticStop").disabled =
+        busy || s.mode !== "live" || !capability.live || !diagnostics?.path;
+      element("diagnosticReplay").disabled = busy;
+      if (diagnostics) {
+        element("diagnosticStatus").textContent = JSON.stringify(
+          diagnostics,
+          null,
+          2,
+        );
+        if (diagnostics.path)
+          element("diagnosticPath").value = diagnostics.path;
+      }
+      if (diagnosticComparison)
+        element("diagnosticComparison").textContent = JSON.stringify(
+          diagnosticComparison,
+          null,
+          2,
+        );
       if (capabilities) capability = capabilities;
       current = s;
       element("resume").disabled = busy || !capability.resume;
@@ -312,6 +381,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         busy ||
         !preflight?.ready ||
         s.mode !== "live" ||
+        !capability.live ||
         s.connection !== "connected" ||
         !!s.executionId;
       element("stop").disabled = stopDisabled(s);
@@ -321,12 +391,19 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       element("refresh").disabled =
         busy ||
         s.mode !== "live" ||
+        !capability.live ||
         !s.executionId ||
         s.connection !== "connected";
       element("disconnect").disabled =
-        busy || s.mode !== "live" || s.connection !== "connected";
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        s.connection !== "connected";
       element("managedRefresh").disabled =
-        busy || s.mode !== "live" || s.connection !== "connected";
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        s.connection !== "connected";
       if (managedExecutions) {
         const select = element("managedRuns");
         const previous =
@@ -354,11 +431,13 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       element("attach").disabled =
         busy ||
         s.mode !== "live" ||
+        !capability.live ||
         s.connection !== "connected" ||
         !element("managedRuns").value;
       element("reconfirm").disabled =
         busy ||
         s.mode !== "live" ||
+        !capability.live ||
         s.connection !== "connected" ||
         !s.executionId;
       if (s.executionId)
@@ -366,7 +445,10 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       if (preflight)
         element("preflight").textContent = JSON.stringify(preflight, null, 2);
       for (const [id, value] of Object.entries({
-        connection: s.connection,
+        connection:
+          s.mode === "replay"
+            ? `재생 · 기록 당시 ${s.connection}`
+            : s.connection,
         execution: s.execution,
         session: s.sessionId ?? "—",
         run: s.executionId ?? "—",
@@ -494,10 +576,43 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       element("events").textContent = events
         .map((e) => JSON.stringify(e))
         .join("\n");
+      stateDirty = true;
+      if (!readingState) readPublishedState();
     };
+    async function readPublishedState() {
+      readingState = true;
+      const generation = viewGeneration;
+      try {
+        while (stateDirty && generation === viewGeneration) {
+          stateDirty = false;
+          const result = await (await fetch("/api/state")).json();
+          if (generation === viewGeneration && result.snapshot) render(result);
+        }
+      } catch {
+        /* The next SDK event or explicit refresh retries the local view read. */
+      } finally {
+        readingState = false;
+      }
+    }
     async function invoke(action, body = {}) {
       const background = action === "refresh";
-      if (background && (polling || busy)) return;
+      if (
+        background &&
+        (polling ||
+          !capability.live ||
+          current?.mode !== "live" ||
+          [...mutations].some(
+            (action) => !["respond", "stop", "reconfirm"].includes(action),
+          ))
+      )
+        return;
+      if (
+        ["connect", "start", "attach", "resume", "replay", "diagnostics/replay"].includes(
+          action,
+        )
+      )
+        viewGeneration++;
+      const generation = viewGeneration;
       if (background) polling = true;
       else {
         mutations.add(action);
@@ -523,10 +638,10 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           busy = mutations.size > 0;
         }
         if (!response.ok) {
-          if (result.snapshot) render(result);
+          if (result.snapshot && generation === viewGeneration) render(result);
           throw new Error(result.message ?? result.error);
         }
-        render(result);
+        if (generation === viewGeneration) render(result);
         if (action === "start" || action === "attach" || action === "resume")
           element("setup").open = false;
         return result;
@@ -545,6 +660,15 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         }
       }
     }
+    const diagnosticOptions = () => ({
+      directory: element("diagnosticDirectory").value,
+      maxBytes: Number(element("diagnosticLimit").value) * 1024 * 1024,
+    });
+    element("diagnosticStart").onclick = () =>
+      invoke("diagnostics/start", diagnosticOptions());
+    element("diagnosticStop").onclick = () => invoke("diagnostics/stop");
+    element("diagnosticReplay").onclick = () =>
+      invoke("diagnostics/replay", { path: element("diagnosticPath").value });
     element("connect").onclick = () => {
       localStorage.setItem(
         "cline-sdk-connection",
@@ -554,15 +678,17 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           ),
         ),
       );
-      return invoke(
-        "connect",
-        Object.fromEntries(
+      return invoke("connect", {
+        ...Object.fromEntries(
           ["host", "cliPath", "remoteRoot", "identityFile"].map((id) => [
             id,
             element(id).value,
           ]),
         ),
-      );
+        diagnostics: element("diagnosticEnabled").checked
+          ? diagnosticOptions()
+          : undefined,
+      });
     };
     element("start").onclick = () => {
       const body = Object.fromEntries(
@@ -593,7 +719,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     element("reconfirm").onclick = () => invoke("reconfirm");
     setInterval(() => {
       if (
-        !busy &&
+        capability.live &&
         current?.mode === "live" &&
         current?.connection === "connected" &&
         current?.response?.state !== "delivery-unknown" &&
