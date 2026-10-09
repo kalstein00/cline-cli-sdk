@@ -34,13 +34,40 @@ export interface ProcessObservation {
 export type Observation =
   | HistoryObservation
   | PtyObservation
-  | ProcessObservation;
+  | ProcessObservation
+  | ConnectionObservation
+  | InitializeObservation
+  | BindingObservation
+  | PhaseObservation
+  | GapObservation
+  | ResponseInputObservation
+  | ResponseReceiptObservation
+  | ResponseFaultObservation;
+export interface ResponseInputObservation {kind:"response-input";seq:number;observedAt:string;binding:Omit<ResponseRequest,"answer">&{kind:string;toolId:string;answerDigest:string};dataBase64?:string;inputType?:string;stepIndex?:number}
+export interface ResponseReceiptObservation {kind:"response-receipt";seq:number;observedAt:string;receipts:any[];final?:boolean}
+export interface ResponseFaultObservation {kind:"response-fault";seq:number;observedAt:string;requestId:string;reason:string;beforeWrite?:boolean}
+export interface InitializeObservation {
+  kind:"initialize"; seq:number;observedAt:string;
+  cli:Recording["cli"];terminal:Recording["terminal"];sessionId:string|null;executionId:string;
+}
+export interface BindingObservation {kind:"binding";seq:number;observedAt:string;sessionId:string|null;executionId?:string}
+export interface PhaseObservation {kind:"phase";seq:number;observedAt:string;supported:boolean;phase:any}
+export interface GapObservation {kind:"gap";seq:number;observedAt:string;cursor:number;first?:number}
+export interface ConnectionObservation {
+  kind: "connection";
+  seq: number;
+  observedAt: string;
+  action: "connecting" | "connected" | "disconnected" | "closed";
+  reason?: string;
+}
 export interface Recording {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   cli: { name: string; version: string; profile: string };
   terminal: { rows: number; cols: number };
-  sessionId: string;
-  executionId: string;
+  sessionId: string | null;
+  executionId: string | null;
+  /** Diagnostic recordings use the same strict bindings as their live source. */
+  interpretation?: "live";
   observations: Observation[];
   provenance: {
     source: string;
@@ -157,6 +184,12 @@ export interface Client {
   close(): void;
 }
 interface Reducer extends Client {
+  responseObservation(observation:ResponseInputObservation|ResponseReceiptObservation|ResponseFaultObservation):Snapshot;
+  initialize(observation:InitializeObservation):Promise<Snapshot>;
+  binding(observation:BindingObservation):Snapshot;
+  phase(observation:PhaseObservation):Snapshot;
+  gap(observation:GapObservation):Snapshot;
+  connection(observation: ConnectionObservation): Snapshot;
   ingest(observation: Observation): Promise<Snapshot>;
   setContext(
     context: Partial<
@@ -182,9 +215,8 @@ function validateRecording(input: Recording): void {
     );
   };
   if (
-    input?.schemaVersion !== 1 ||
-    !input.sessionId ||
-    !input.executionId ||
+    ![1,2].includes(input?.schemaVersion) ||
+    (input.schemaVersion === 1 && (!input.sessionId || !input.executionId)) ||
     !input.cli?.profile ||
     !input.provenance ||
     !Array.isArray(input.observations) ||
@@ -202,8 +234,8 @@ function validateRecording(input: Recording): void {
       !Number.isSafeInteger(obs.seq) ||
       obs.seq <= last ||
       !Number.isFinite(Date.parse(obs.observedAt)) ||
-      !["pty", "history", "process"].includes(obs.kind) ||
-      (obs.kind !== "process" &&
+      !["pty", "history", "process", "connection","initialize","binding","phase","gap","response-input","response-receipt","response-fault"].includes(obs.kind) ||
+      ((obs.kind === "pty" || obs.kind === "history") &&
         (typeof obs.dataBase64 !== "string" ||
           !/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
             obs.dataBase64,
@@ -215,6 +247,7 @@ function validateRecording(input: Recording): void {
 }
 export function createReducer(options: {
   mode: "replay";
+  observe?: (observation: Observation, events: SdkEvent[], snapshot: Snapshot) => void;
   interactionIdentity?: (
     kind: string,
     toolId: string | undefined,
@@ -239,6 +272,8 @@ export function createReducer(options: {
   let recording: Recording | null = null;
   let terminal: import("@xterm/headless").Terminal | null = null;
   let interactionSerial = 0;
+  let strictBindings=false;
+  let rawPhase:any=null;let phaseSupported=false;let pendingPhase:any=null;
   const identify = (
     kind: string,
     toolId: string | undefined,
@@ -246,13 +281,21 @@ export function createReducer(options: {
     choices: string[],
   ) =>
     options.interactionIdentity?.(kind, toolId, prompt, choices) ??
-    `${state.executionId}:interaction:${++interactionSerial}`;
+    (()=>{if(phaseSupported){const fingerprint=createHash("sha256").update(JSON.stringify([kind,toolId,prompt,choices])).digest("hex");if(rawPhase?.active&&rawPhase.fingerprint===fingerprint)return rawPhase.id;pendingPhase={fingerprint,epoch:(rawPhase?.epoch??0)+1,id:`${state.executionId}:phase:${(rawPhase?.epoch??0)+1}:${fingerprint.slice(0,16)}`,active:true};return pendingPhase.id;}return `${state.executionId}:interaction:${++interactionSerial}`;})();
   let pendingTools: { id: string; name: string; input: any }[] = [];
   let results = new Map<string, { digest: string; rejected: boolean }>();
+  let responseBinding:ResponseInputObservation["binding"]|null=null;
+  let latestProcess:ProcessObservation|null=null;
   const listeners = new Set<(event: SdkEvent) => void>();
+  let observationEvents: SdkEvent[] = [];
   const snapshot = () => structuredClone(state);
   const emit = (type: SdkEvent["type"], obs: Observation, payload: unknown) => {
     state.revision++;
+    const event: SdkEvent = structuredClone({type,sessionId:state.sessionId,executionId:state.executionId,
+      interactionId:type === "response.changed" ? (state.response?.interactionId ?? null) : (state.interaction?.id ?? null),
+      requestId:type === "response.changed" ? (state.response?.requestId ?? null) : null,
+      revision:state.revision,observationSeq:obs.seq,observedAt:obs.observedAt,payload});
+    observationEvents.push(event);
     for (const listener of listeners)
       listener(
         structuredClone({
@@ -624,7 +667,7 @@ export function createReducer(options: {
           .at(-1)?.[0]
       : undefined;
     if (
-      state.mode === "live" &&
+      (strictBindings || state.mode === "live") &&
       ((!tool && !rejectedId) ||
         choices.length > 9 ||
         new Set(choices).size !== choices.length)
@@ -680,10 +723,70 @@ export function createReducer(options: {
     state.execution = "awaiting-input";
     emit("interaction.changed", obs, state.interaction);
   };
+  const rawContext=(obs:BindingObservation|PhaseObservation|GapObservation)=>{
+    observationEvents=[];
+    if(obs.kind==="binding") {
+      const next={sessionId:obs.sessionId,...(obs.executionId?{executionId:obs.executionId}:{})};
+      if(Object.entries(next).some(([k,v])=>state[k as keyof Snapshot]!==v)){Object.assign(state,next);emit("state.changed",obs,next);}
+    }
+    if(obs.kind==="phase") {rawPhase=obs.phase;phaseSupported=obs.supported;pendingPhase=null;}
+    if(obs.kind==="gap"&&state.interaction?.id!==`${state.executionId}:observation-gap`) {
+      state.execution="unknown";state.interaction={id:`${state.executionId}:observation-gap`,revision:state.revision+1,kind:"unsupported",state:"unsupported",prompt:"Terminal observations were dropped. Resynchronization is required before responding.",choices:[]};
+      emit("state.changed",obs,{execution:state.execution,interaction:state.interaction});
+    }
+    options.observe?.(obs,observationEvents,snapshot());return snapshot();
+  };
+  const initialize=async(obs:InitializeObservation)=>{
+    if(!recording)recording={schemaVersion:2,cli:obs.cli,terminal:obs.terminal,sessionId:obs.sessionId,executionId:obs.executionId,observations:[],provenance:{source:"live",sourceSha256:"",review:"",transformations:[],complete:false,truncated:false}};
+    recording.cli=obs.cli;recording.terminal=obs.terminal;strictBindings=true;
+    terminal?.dispose();terminal=new xterm.Terminal({...obs.terminal,allowProposedApi:true,scrollback:1000});terminal.loadAddon(new unicode11.Unicode11Addon());terminal.unicode.activeVersion="11";
+    interactionSerial=0;pendingTools=[];results=new Map();rawPhase=null;phaseSupported=false;pendingPhase=null;responseBinding=null;latestProcess=null;
+    observationEvents=[];Object.assign(state,{sessionId:obs.sessionId,executionId:obs.executionId,execution:"unknown",messages:[],interaction:null,response:null});
+    emit("state.changed",obs,{sessionId:obs.sessionId,executionId:obs.executionId});options.observe?.(obs,observationEvents,snapshot());return snapshot();
+  };
+  const responseObservation=(obs:ResponseInputObservation|ResponseReceiptObservation|ResponseFaultObservation)=>{
+    observationEvents=[];
+    let next:ResponseResult["state"]|undefined;
+    if(obs.kind==="response-input") {
+      if(responseBinding?.requestId!==obs.binding.requestId){responseBinding=obs.binding;next="submitting";}
+    }
+    if(obs.kind==="response-fault"&&responseBinding?.requestId===obs.requestId)next=obs.beforeWrite?"not-submitted":"delivery-unknown";
+    if(obs.kind==="response-receipt") {
+      const receipt=obs.receipts.find(r=>r.requestId===responseBinding?.requestId)??(responseBinding?{requestId:responseBinding.requestId,binding:responseBinding,state:"unobserved"}:(obs.final?obs.receipts.at(-1):undefined));
+      if(receipt?.binding&&!responseBinding)responseBinding={...receipt.binding,requestId:receipt.requestId};
+      if(receipt&&responseBinding) {
+        const b=responseBinding;const result=results.get(b.toolId);
+        const digest=(text:string)=>createHash("sha256").update(text).digest("hex");
+        const confirmed= b.kind==="approval" ? (b.answerDigest===digest("Deny")?result?.rejected:(b.answerDigest===digest("Approve")&&((result&&!result.rejected)||(state.interaction?.kind==="question"&&state.interaction.toolId===b.toolId&&state.interaction.id!==b.interactionId)))) : b.kind==="question" ? result?.digest===b.answerDigest : receipt.state==="written"&&((latestProcess?.identityConfirmed&&!latestProcess.alive&&latestProcess.exitCode!==null)||(state.interaction?.kind==="approval"&&state.interaction.id!==b.interactionId));
+        if(receipt.resolution)next=receipt.resolution;
+        else if(receipt.state==="rejected"||(obs.final&&receipt.state==="reserved"))next="not-submitted";
+        else if(confirmed)next="delivered";
+        else if(obs.final)next="delivery-unknown";
+      }
+    }
+    if(next&&responseBinding&&(state.response?.requestId!==responseBinding.requestId||state.response.state!==next)) {
+      const b=responseBinding;state.response={sessionId:b.sessionId,executionId:b.executionId,interactionId:b.interactionId,requestId:b.requestId,state:next,revision:state.revision+1};
+      if(state.interaction?.id===b.interactionId)state.interaction.state=next==="not-submitted"?"awaiting-response":next;
+      emit("response.changed",obs,state.response);
+    }
+    options.observe?.(obs,observationEvents,snapshot());return snapshot();
+  };
   return {
+    responseObservation,
+    initialize,
+    binding:rawContext,
+    phase:rawContext,
+    gap:rawContext,
+    connection(obs) {
+      observationEvents = [];
+      if(state.connection !== obs.action) {state.connection=obs.action;emit("state.changed",obs,{connection:obs.action,...(obs.reason?{reason:obs.reason}:{})});}
+      options.observe?.(obs,observationEvents,snapshot());
+      return snapshot();
+    },
     async openReplay(input) {
       validateRecording(input);
       recording = structuredClone(input);
+      strictBindings=input.interpretation==="live";rawPhase=null;phaseSupported=false;pendingPhase=null;responseBinding=null;latestProcess=null;
       terminal?.dispose();
       terminal = new xterm.Terminal({
         ...input.terminal,
@@ -700,7 +803,7 @@ export function createReducer(options: {
         sessionId: input.sessionId,
         executionId: input.executionId,
         revision: 0,
-        connection: "replay",
+        connection: input.schemaVersion===2 ? "closed" : "replay",
         execution: "unknown",
         messages: [],
         interaction: null,
@@ -720,6 +823,14 @@ export function createReducer(options: {
       const obs = recording.observations[state.replay.position];
       if (!obs) return snapshot();
       state.replay.position++;
+      if(obs.kind==="initialize")return initialize(obs);
+      if(obs.kind==="binding"||obs.kind==="phase"||obs.kind==="gap")return rawContext(obs);
+      if(obs.kind==="response-input"||obs.kind==="response-receipt"||obs.kind==="response-fault")return responseObservation(obs);
+      observationEvents = [];
+      if (obs.kind === "connection" && state.connection !== obs.action) {
+        state.connection = obs.action;
+        emit("state.changed",obs,{connection:obs.action,...(obs.reason?{reason:obs.reason}:{})});
+      }
       if (obs.kind === "pty") {
         await new Promise<void>((resolve) =>
           terminal!.write(Buffer.from(obs.dataBase64, "base64"), resolve),
@@ -826,6 +937,7 @@ export function createReducer(options: {
         interpretScreen(obs);
       }
       if (obs.kind === "process") {
+        latestProcess=obs;
         const previous = state.execution;
         if (!obs.identityConfirmed) {
           state.execution = "unknown";
@@ -857,6 +969,7 @@ export function createReducer(options: {
             process: obs,
           });
       }
+      options.observe?.(obs,observationEvents,snapshot());
       return snapshot();
     },
     async ingest(obs) {

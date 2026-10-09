@@ -1,6 +1,7 @@
 import childProcess from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { randomUUID, createHash } from "node:crypto";
+import {createDiagnosticCollector,type DiagnosticOptions,type DiagnosticStatus} from "./diagnostics.js";
 import {
   createReducer,
   SdkError,
@@ -61,6 +62,9 @@ export interface ManagedExecution {
   cliHash?: string;
 }
 export interface LiveClient {
+  startDiagnostics(options:DiagnosticOptions):Promise<DiagnosticStatus>;
+  stopDiagnostics():Promise<DiagnosticStatus>;
+  diagnostics():DiagnosticStatus;
   preflight(): Promise<PreflightReport>;
   connect(): Promise<PreflightReport>;
   disconnect(): void;
@@ -105,8 +109,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let phase: any = null;
   let pendingPhase: any = null;
   let phaseSupported = false;
+  const diagnostics=createDiagnosticCollector();
   const reducer = createReducer({
     mode: "replay",
+    observe:diagnostics.capture,
     interactionIdentity(kind, toolId, prompt, choices) {
       if (!phaseSupported) return undefined;
       const fingerprint = createHash("sha256")
@@ -145,6 +151,9 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   const processes = new Set<ReturnType<typeof childProcess.spawn>>();
   const listeners = new Set<(e: SdkEvent) => void>();
   const snapshot = () => structuredClone(state);
+  const connection=(action:"connecting"|"connected"|"disconnected"|"closed",reason?:string)=>{
+    state={...reducer.connection({kind:"connection",seq:++sequence,observedAt:new Date().toISOString(),action,...(reason?{reason}:{})}),mode:"live"};
+  };
   reducer.subscribe((event) => {
     state = {
       ...reducer.snapshot(),
@@ -346,11 +355,12 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         );
       if (result.sessionId) {
         managed.sessionId = result.sessionId;
-        reducer.setContext({ sessionId: result.sessionId });
+        reducer.binding({kind:"binding",seq:++sequence,observedAt:new Date().toISOString(),sessionId:result.sessionId});
       }
       phaseSupported = !!result.management?.phaseSupported;
       phase = result.phase ?? phase;
       pendingPhase = null;
+      reducer.phase({kind:"phase",seq:++sequence,observedAt:new Date().toISOString(),supported:phaseSupported,phase});
       for (const raw of result.screen ? [] : (result.observations ?? []))
         await reducer.ingest({ ...raw, seq: ++sequence });
       cursor = result.cursor;
@@ -387,6 +397,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           seq: ++sequence,
           observedAt: new Date().toISOString(),
         });
+      reducer.responseObservation({kind:"response-receipt",seq:++sequence,observedAt:new Date().toISOString(),receipts:remoteRequests});
       observationGap ||= !!result.gap && !result.screen;
       if (
         pendingPhase &&
@@ -416,29 +427,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         reducer.snapshot().interaction?.id !==
           `${managed.executionId}:observation-gap`
       ) {
-        const current = reducer.snapshot();
-        reducer.setContext({
-          execution: "unknown",
-          interaction: {
-            id: `${managed.executionId}:observation-gap`,
-            revision: current.revision + 1,
-            kind: "unsupported",
-            state: "unsupported",
-            prompt:
-              "Terminal observations were dropped. Resynchronization is required before responding.",
-            choices: [],
-          },
-        });
+        reducer.gap({kind:"gap",seq:++sequence,observedAt:new Date().toISOString(),cursor});
       }
       state = { ...reducer.snapshot(), mode: "live", connection: "connected" };
       return snapshot();
     })()
       .catch((error) => {
-        state = {
-          ...reducer.snapshot(),
-          mode: "live",
-          connection: closed ? "closed" : "disconnected",
-        };
+        connection(closed?"closed":"disconnected",error instanceof SdkError?error.code:"refresh-failed");
         throw error;
       })
       .finally(() => {
@@ -514,12 +509,15 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       );
   };
   return {
+    startDiagnostics:diagnostics.start,
+    stopDiagnostics:diagnostics.stop,
+    diagnostics:diagnostics.status,
     preflight,
     async connect() {
       if (closed)
         throw new SdkError("client-closed", "Create a new client after close.");
       const currentGeneration = ++generation;
-      state.connection = "connecting";
+      connection("connecting");
       try {
         const found = await preflight();
         if (closed || generation !== currentGeneration)
@@ -527,10 +525,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             "connection-interrupted",
             "Connection was detached.",
           );
-        state.connection = "connected";
+        connection("connected");
         return found;
       } catch (error) {
-        state.connection = closed ? "closed" : "disconnected";
+        connection(closed ? "closed" : "disconnected",error instanceof SdkError?error.code:"connection-failed");
         throw error;
       }
     },
@@ -538,7 +536,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       generation++;
       for (const process of processes) process.kill();
       processes.clear();
-      state.connection = closed ? "closed" : "disconnected";
+      connection(closed ? "closed" : "disconnected","local-detach");
       fullSynchronization = true;
     },
     async listManagedExecutions() {
@@ -590,34 +588,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           );
         terminalMode = found.terminalMode ?? "readline";
         cursor = 0;
-        sequence = 0;
         historyHash = null;
         phase = null;
-        await reducer.openReplay({
-          schemaVersion: 1,
-          cli: {
-            name: "cline",
-            version: "3.0.69",
-            profile: `cline-3.0.69-${terminalMode}`,
-          },
-          terminal: found.terminal ?? { rows: 40, cols: 120 },
-          sessionId: found.sessionId ?? executionId,
-          executionId,
-          observations: [],
-          provenance: {
-            source: "live",
-            sourceSha256: "",
-            review: "remote synchronization",
-            transformations: [],
-            complete: false,
-            truncated: false,
-          },
-        });
-        reducer.setContext({
-          mode: "live",
-          connection: "connected",
-          sessionId: found.sessionId,
-        });
+        await reducer.initialize({kind:'initialize',seq:++sequence,observedAt:new Date().toISOString(),cli:{name:'cline',version:'3.0.69',profile:`cline-3.0.69-${terminalMode}`},terminal:found.terminal??{rows:40,cols:120},sessionId:found.sessionId,executionId});
+
       }
       fullSynchronization = true;
       return refresh();
@@ -674,13 +648,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           ...request,
         });
       } catch (error) {
-        state = reducer.setContext({
-          executionId,
-          sessionId: null,
-          mode: "live",
-          execution: "unknown",
-          connection: closed ? "closed" : "disconnected",
-        });
+        reducer.binding({kind:"binding",seq:++sequence,observedAt:new Date().toISOString(),executionId,sessionId:null});
+        connection(closed?"closed":"disconnected",error instanceof SdkError?error.code:"launch-failed");
         throw error;
       }
       if (launched.executionId !== executionId)
@@ -694,32 +663,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "client-closed",
           "The client was closed during task launch.",
         );
-      await reducer.openReplay({
-        schemaVersion: 1,
-        cli: {
-          name: "cline",
-          version: "3.0.69",
-          profile: `cline-3.0.69-${terminalMode}`,
-        },
-        terminal: { rows: 40, cols: 120 },
-        sessionId: executionId,
-        executionId: managed!.executionId,
-        observations: [],
-        provenance: {
-          source: "live",
-          sourceSha256: "",
-          review: "live source",
-          transformations: [],
-          complete: false,
-          truncated: false,
-        },
-      });
-      reducer.setContext({
-        sessionId: null,
-        executionId: managed!.executionId,
-        connection: "connected",
-        mode: "live",
-      });
+      await reducer.initialize({kind:'initialize',seq:++sequence,observedAt:new Date().toISOString(),cli:{name:'cline',version:'3.0.69',profile:`cline-3.0.69-${terminalMode}`},terminal:{rows:40,cols:120},sessionId:null,executionId:managed!.executionId});
       state = reducer.snapshot();
       return snapshot();
     },
@@ -803,7 +747,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             interactionId: request.interactionId,
             revision: state.revision,
           };
-          reducer.setResponse({ ...base, state: "submitting" });
+          const responseBinding={...base,kind:interaction.kind,toolId:interaction.toolId!,answerDigest:createHash("sha256").update(request.answer).digest("hex")};
+          reducer.responseObservation({kind:"response-input",seq:++sequence,observedAt:new Date().toISOString(),binding:responseBinding,inputType:custom?(terminalMode==="tui"?"tui-intent":"readline-text"):interaction.kind,dataBase64:Buffer.from(custom?request.answer+(terminalMode==="readline"?"\r":""):bytes).toString("base64")});
           state = {
             ...reducer.snapshot(),
             connection: state.connection,
@@ -857,6 +802,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                 processIdentity: processEvidence.identity,
                 dataBase64: Buffer.from(text).toString("base64"),
               });
+              reducer.responseObservation({kind:"response-input",seq:++sequence,observedAt:new Date().toISOString(),binding:responseBinding,inputType,stepIndex,dataBase64:Buffer.from(text).toString("base64")});
               if (accepted.state === "rejected")
                 throw new SdkError(
                   anyWritten ? "input-uncertain" : "input-rejected",
@@ -1009,7 +955,6 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                       (current?.kind === "approval" &&
                         current.id !== interaction.id));
             if (delivered) {
-              reducer.setResponse({ ...base, state: "delivered" });
               state = {
                 ...reducer.snapshot(),
                 mode: "live",
@@ -1019,7 +964,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             }
             await new Promise((resolve) => setTimeout(resolve, 250));
           }
-          reducer.setResponse({ ...base, state: "delivery-unknown" });
+          reducer.responseObservation({kind:"response-fault",seq:++sequence,observedAt:new Date().toISOString(),requestId:request.requestId,reason:"observation-deadline"});
           state = {
             ...reducer.snapshot(),
             mode: "live",
@@ -1036,19 +981,9 @@ export function createLiveClient(options: LiveOptions): LiveClient {
               "invalid-remote-response",
             ].includes(error.code)
           )
-            state.connection = closed ? "closed" : "disconnected";
+            connection(closed?"closed":"disconnected",error.code);
           if (sent) {
-            reducer.setResponse({
-              requestId: request.requestId,
-              sessionId: request.sessionId,
-              executionId: request.executionId,
-              interactionId: request.interactionId,
-              revision: state.revision,
-              state:
-                error instanceof SdkError && error.code === "input-rejected"
-                  ? "not-submitted"
-                  : "delivery-unknown",
-            });
+            reducer.responseObservation({kind:"response-fault",seq:++sequence,observedAt:new Date().toISOString(),requestId:request.requestId,reason:error instanceof SdkError?error.code:"response-failed",beforeWrite:error instanceof SdkError&&error.code==="input-rejected"});
             state = {
               ...reducer.snapshot(),
               mode: "live",
