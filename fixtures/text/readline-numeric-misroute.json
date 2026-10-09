@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-readline"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "session-6ac43c21fd87",
+  "executionId": "execution-ea42e7d89a30",
+  "observations": [
+    {
+      "kind": "history",
+      "seq": 16,
+      "elapsedNs": "1373296947",
+      "observedAt": "2026-10-09T00:00:01.373Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTZhYzQzYzIxZmQ4NyIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjI1OjA3Ljc3MVoiLCJtZXNzYWdlcyI6W119",
+      "sha256": "a780bde9a7bc6c5133a44eaa659742bf627703e8f04ae6c724bc7510c6a9d7da",
+      "sourcePayloadSha256": "d4e46ddfc2dc7096301c19e2ea190aef367bfb94f2c21731b518099b8afa657d"
+    },
+    {
+      "kind": "pty",
+      "seq": 17,
+      "elapsedNs": "7977329024",
+      "observedAt": "2026-10-09T00:00:07.977Z",
+      "dataBase64": "G1sybVt0aGlua2luZ10gG1swbRtbMm0qKkFza2luZyBhIHF1ZXN0aW9uKiobWzBt",
+      "sha256": "acf282d51258c3bcdc2fbe358b9a3372e157fa380a3c5d436b5a3233517e0f13",
+      "sourcePayloadSha256": "acf282d51258c3bcdc2fbe358b9a3372e157fa380a3c5d436b5a3233517e0f13"
+    },
+    {
+      "kind": "pty",
+      "seq": 18,
+      "elapsedNs": "8259887696",
+      "observedAt": "2026-10-09T00:00:08.259Z",
+      "dataBase64": "DQo=",
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "sourcePayloadSha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6"
+    },
+    {
+      "kind": "history",
+      "seq": 19,
+      "elapsedNs": "8261214716",
+      "observedAt": "2026-10-09T00:00:08.261Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTZhYzQzYzIxZmQ4NyIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjI1OjE0Ljc5MloiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLTQyODNiYTI1MTRlMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzkxNDc4OSwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLWRhODM1ZTI5NmRmNCIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkVudGVyIGFuIGlkZW50aWZpZXIiLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX19XX1dfQ==",
+      "sha256": "37d5b0ec28c6dbf802fa70b8bf37fc6224c416fac5d37a04f940a7168f1b31f7",
+      "sourcePayloadSha256": "67a374fca464da417720c7dfd897614a43a4cde34885182170fea61677925c96"
+    },
+    {
+      "kind": "pty",
+      "seq": 20,
+      "elapsedNs": "8273397211",
+      "observedAt": "2026-10-09T00:00:08.273Z",
+      "dataBase64": "G1sxRxtbMEo=",
+      "sha256": "fa2085b3a20ba244110ec1521d8ebd69b8e8fd0d790ffb43ba932aaa66a57259",
+      "sourcePayloadSha256": "fa2085b3a20ba244110ec1521d8ebd69b8e8fd0d790ffb43ba932aaa66a57259"
+    },
+    {
+      "kind": "pty",
+      "seq": 22,
+      "elapsedNs": "8275973550",
+      "observedAt": "2026-10-09T00:00:08.275Z",
+      "dataBase64": "DQobWzMzbUFwcHJvdmUgG1szMm0iYXNrX3F1ZXN0aW9uIiAbWzJteyJxdWVzdGlvbiI6IkVudGVyIGFuIGlkZW50aWZpZXIiLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX0gG1swbVt5L05dIBtbOTBH",
+      "sha256": "9afb1697ea091e0b514a1c2660a5c1c66b4fc76544927179dd809520bb089bd5",
+      "sourcePayloadSha256": "9afb1697ea091e0b514a1c2660a5c1c66b4fc76544927179dd809520bb089bd5"
+    },
+    {
+      "kind": "pty",
+      "seq": 24,
+      "elapsedNs": "8423792164",
+      "observedAt": "2026-10-09T00:00:08.423Z",
+      "dataBase64": "eQ==",
+      "sha256": "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa",
+      "sourcePayloadSha256": "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa"
+    },
+    {
+      "kind": "pty",
+      "seq": 25,
+      "elapsedNs": "8425177956",
+      "observedAt": "2026-10-09T00:00:08.425Z",
+      "dataBase64": "DQ0K",
+      "sha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54",
+      "sourcePayloadSha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54"
+    },
+    {
+      "kind": "pty",
+      "seq": 26,
+      "elapsedNs": "8432843286",
+      "observedAt": "2026-10-09T00:00:08.432Z",
+      "dataBase64": "DQobWzJtW2ZvbGxvdy11cF0bWzBtIEVudGVyIGFuIGlkZW50aWZpZXINChtbMm0gIDEuG1swbSBSRUQNChtbMm0gIDIuG1swbSBCTFVFDQobWz8yNWgbWzJtQ2hvb3NlIDEtMiBvciB0eXBlIGEgY3VzdG9tIGFuc3dlcjobWzBtDQobWzMybT4bWzBtIBtbMUcbWzBKIBtbMUc=",
+      "sha256": "76172cd6035384c547ed31c2ae8a28c9b34b1deaeecaf4f067ef420ef041ab4b",
+      "sourcePayloadSha256": "76172cd6035384c547ed31c2ae8a28c9b34b1deaeecaf4f067ef420ef041ab4b"
+    },
+    {
+      "kind": "pty",
+      "seq": 29,
+      "elapsedNs": "8574696610",
+      "observedAt": "2026-10-09T00:00:08.574Z",
+      "dataBase64": "MiBjdXN0b20gaWRlbnRpZmllcg==",
+      "sha256": "e437cb3fd057de37680d6d12650c2d9fffd420ade2e879a5fe875ebeccb1bedf",
+      "sourcePayloadSha256": "e437cb3fd057de37680d6d12650c2d9fffd420ade2e879a5fe875ebeccb1bedf"
+    },
+    {
+      "kind": "pty",
+      "seq": 30,
+      "elapsedNs": "8576492970",
+      "observedAt": "2026-10-09T00:00:08.576Z",
+      "dataBase64": "DQ0K",
+      "sha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54",
+      "sourcePayloadSha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54"
+    },
+    {
+      "kind": "history",
+      "seq": 31,
+      "elapsedNs": "8729742652",
+      "observedAt": "2026-10-09T00:00:08.729Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTZhYzQzYzIxZmQ4NyIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjI1OjE1LjExMFoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLTQyODNiYTI1MTRlMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzkxNDc4OSwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLWRhODM1ZTI5NmRmNCIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkVudGVyIGFuIGlkZW50aWZpZXIiLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX19XX0seyJpZCI6Im1lc3NhZ2UtOWJhNjdmMWM1YTEyIiwicm9sZSI6InVzZXIiLCJ0cyI6MTc5MTUzNzkxNTEwNywiY29udGVudCI6W3sidHlwZSI6InRvb2xfcmVzdWx0IiwidG9vbF91c2VfaWQiOiJ0b29sLWRhODM1ZTI5NmRmNCIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJjb250ZW50IjoiQkxVRSJ9XX1dfQ==",
+      "sha256": "396604f90d14653639330cbdb8a49217cbda1551764eceeee5e1c30c59f9977f",
+      "sourcePayloadSha256": "6179acdf06381b638145f79a041460f862a77252b8bc7f0030ec9e5541a3ab67"
+    },
+    {
+      "kind": "pty",
+      "seq": 32,
+      "elapsedNs": "10412847828",
+      "observedAt": "2026-10-09T00:00:10.412Z",
+      "dataBase64": "SURFTlQ=",
+      "sha256": "89f8a056bb61d8ec3515be640c78d9f3e18cb8d2c7faefa23ce34418df85eb6f",
+      "sourcePayloadSha256": "89f8a056bb61d8ec3515be640c78d9f3e18cb8d2c7faefa23ce34418df85eb6f"
+    },
+    {
+      "kind": "pty",
+      "seq": 33,
+      "elapsedNs": "10423697550",
+      "observedAt": "2026-10-09T00:00:10.423Z",
+      "dataBase64": "SUZJRVI=",
+      "sha256": "69755fc39f39b020ce1c797326ab1336efda7b2b307bb120adcdc49cd6893591",
+      "sourcePayloadSha256": "69755fc39f39b020ce1c797326ab1336efda7b2b307bb120adcdc49cd6893591"
+    },
+    {
+      "kind": "pty",
+      "seq": 34,
+      "elapsedNs": "10429920915",
+      "observedAt": "2026-10-09T00:00:10.429Z",
+      "dataBase64": "Og==",
+      "sha256": "e7ac0786668e0ff0f02b62bd04f45ff636fd82db63b1104601c975dc005f3a67",
+      "sourcePayloadSha256": "e7ac0786668e0ff0f02b62bd04f45ff636fd82db63b1104601c975dc005f3a67"
+    },
+    {
+      "kind": "pty",
+      "seq": 35,
+      "elapsedNs": "10431577073",
+      "observedAt": "2026-10-09T00:00:10.431Z",
+      "dataBase64": "QkxVRQ==",
+      "sha256": "24a866f4940f1b00083a71ba4df7323bac1486f28dc81d500bbc4bb02c6e0e16",
+      "sourcePayloadSha256": "24a866f4940f1b00083a71ba4df7323bac1486f28dc81d500bbc4bb02c6e0e16"
+    },
+    {
+      "kind": "pty",
+      "seq": 36,
+      "elapsedNs": "10649233232",
+      "observedAt": "2026-10-09T00:00:10.649Z",
+      "dataBase64": "DQo=",
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "sourcePayloadSha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6"
+    },
+    {
+      "kind": "history",
+      "seq": 37,
+      "elapsedNs": "10651703345",
+      "observedAt": "2026-10-09T00:00:10.651Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTZhYzQzYzIxZmQ4NyIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjI1OjE3LjE4MVoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLTQyODNiYTI1MTRlMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzkxNDc4OSwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLWRhODM1ZTI5NmRmNCIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkVudGVyIGFuIGlkZW50aWZpZXIiLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX19XX0seyJpZCI6Im1lc3NhZ2UtOWJhNjdmMWM1YTEyIiwicm9sZSI6InVzZXIiLCJ0cyI6MTc5MTUzNzkxNTEwNywiY29udGVudCI6W3sidHlwZSI6InRvb2xfcmVzdWx0IiwidG9vbF91c2VfaWQiOiJ0b29sLWRhODM1ZTI5NmRmNCIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJjb250ZW50IjoiQkxVRSJ9XX0seyJpZCI6Im1lc3NhZ2UtOTViMWQ4YTMyNWE0Iiwicm9sZSI6ImFzc2lzdGFudCIsInRzIjoxNzkxNTM3OTE3MTc4LCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJJREVOVElGSUVSOkJMVUUifV19XX0=",
+      "sha256": "145b537d37edf33aae6e514afdb02e68cbae91cd3d2524d81b4776dccae44e25",
+      "sourcePayloadSha256": "cf5a7f55a8e11245e6c9f3dec1d8c58911e96c63df764dc2188a4b40c14da954"
+    },
+    {
+      "kind": "pty",
+      "seq": 38,
+      "elapsedNs": "10667645258",
+      "observedAt": "2026-10-09T00:00:10.667Z",
+      "dataBase64": "KG5vZGU6NTk0OCkgV2FybmluZzogQUkgU0RLIFdhcm5pbmcgU3lzdGVtOiBUbyB0dXJuIG9mZiB3YXJuaW5nIGxvZ2dpbmcsIHNldCB0aGUgQUlfU0RLX0xPR19XQVJOSU5HUyBnbG9iYWwgdG8gZmFsc2UuDQooVXNlIGBjbGluZS0zLjAuNjkgLS10cmFjZS13YXJuaW5ncyAuLi5gIHRvIHNob3cgd2hlcmUgdGhlIHdhcm5pbmcgd2FzIGNyZWF0ZWQpDQoobm9kZTo1OTQ4KSBXYXJuaW5nOiBBSSBTREsgV2FybmluZyAob3BlbmFpLWNvZGV4LnJlc3BvbnNlcyAvIGdwdC02LWx1bmEpOiBOb24tT3BlbkFJIHJlYXNvbmluZyBwYXJ0cyBhcmUgbm90IHN1cHBvcnRlZC4gU2tpcHBpbmcgcmVhc29uaW5nIHBhcnQ6IHsidHlwZSI6InJlYXNvbmluZyIsInRleHQiOiIqKkFza2luZyBhIHF1ZXN0aW9uKioifS4NCg==",
+      "sha256": "ab048b9f630feaa3cd2bc134e9490e2089c0a11ab4b3f81f43fee95591b49950",
+      "sourcePayloadSha256": "ab048b9f630feaa3cd2bc134e9490e2089c0a11ab4b3f81f43fee95591b49950"
+    },
+    {
+      "kind": "history",
+      "seq": 40,
+      "elapsedNs": "10669692950",
+      "observedAt": "2026-10-09T00:00:10.669Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTZhYzQzYzIxZmQ4NyIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjI1OjE3LjE5NFoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLTQyODNiYTI1MTRlMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzkxNDc4OSwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLWRhODM1ZTI5NmRmNCIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkVudGVyIGFuIGlkZW50aWZpZXIiLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX19XX0seyJpZCI6Im1lc3NhZ2UtOWJhNjdmMWM1YTEyIiwicm9sZSI6InVzZXIiLCJ0cyI6MTc5MTUzNzkxNTEwNywiY29udGVudCI6W3sidHlwZSI6InRvb2xfcmVzdWx0IiwidG9vbF91c2VfaWQiOiJ0b29sLWRhODM1ZTI5NmRmNCIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJjb250ZW50IjoiQkxVRSJ9XX0seyJpZCI6Im1lc3NhZ2UtOTViMWQ4YTMyNWE0Iiwicm9sZSI6ImFzc2lzdGFudCIsInRzIjoxNzkxNTM3OTE3MTc4LCJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJJREVOVElGSUVSOkJMVUUifV19XX0=",
+      "sha256": "e358226c0da464cc1ab58ada1072261b0699612f28f61db76ed57f71b1c1e67f",
+      "sourcePayloadSha256": "c4e33dbb5454fd0d2f66aaed971817de80b7e11fab5738f639fe4766f5511a07"
+    }
+  ],
+  "provenance": {
+    "source": "20261009/logs/numeric-live/frames.ndjson",
+    "sourceSha256": "5eaf25714537258681d38e850e96ace6bc4307b78a2a9ede3ab502e883b5dadc",
+    "review": "Selected controlled test observations; decoded histories allowlisted; no credentials, provider data, system prompt, user text context, thinking, metrics, or personal paths retained.",
+    "transformations": [
+      "selected observations, original sequence and nanosecond relative timing retained",
+      "PTY output bytes and original packet boundaries unchanged",
+      "history envelopes decoded then allowlisted and reencoded; payload hash recomputed",
+      "session/message/tool IDs replaced by consistent SHA-derived pseudonyms; tool_result linkage retained",
+      "manifest PIDs replaced with pseudonymous numeric values; cannot be used as live process ownership",
+      "wall clock normalized to 2026-10-09T00:00:00Z plus source elapsed time",
+      "history user text blocks removed; user tool_result blocks retained"
+    ],
+    "complete": false,
+    "truncated": true
+  },
+  "evidence": {
+    "classification": "sanitized-observation",
+    "inputWitnesses": [
+      {
+        "seq": 23,
+        "elapsedNs": "8421896750",
+        "observedAt": "2026-10-09T00:00:08.421Z",
+        "dataBase64": "eQ0=",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 28,
+        "elapsedNs": "8573210117",
+        "observedAt": "2026-10-09T00:00:08.573Z",
+        "dataBase64": "MiBjdXN0b20gaWRlbnRpZmllcg0=",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      }
+    ],
+    "manifestObservations": [
+      {
+        "seq": 15,
+        "elapsedNs": "1373128064",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-6ac43c21fd87",
+          "pid": 14443558,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:07.771Z"
+        }
+      },
+      {
+        "seq": 21,
+        "elapsedNs": "8275848748",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-6ac43c21fd87",
+          "pid": 14443558,
+          "status": "pending",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:07.771Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 27,
+        "elapsedNs": "8434655416",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-6ac43c21fd87",
+          "pid": 14443558,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:07.771Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 39,
+        "elapsedNs": "10669477875",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-6ac43c21fd87",
+          "pid": 14443558,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:07.771Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 41,
+        "elapsedNs": "10821368482",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-6ac43c21fd87",
+          "pid": 14443558,
+          "status": "completed",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:07.771Z",
+          "ended_at": "2026-10-09T09:25:17.205Z",
+          "exit_code": 0
+        }
+      }
+    ],
+    "exitWitnesses": [
+      {
+        "seq": 42,
+        "kind": "exit",
+        "elapsedNs": "10955719662",
+        "exitCode": 0,
+        "timedOut": false
+      }
+    ],
+    "notes": [
+      "Actual input 2 custom identifier at seq28 was interpreted as BLUE. Negative observed behavior, not successful free-text support."
+    ]
+  }
+}

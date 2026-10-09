@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-tui"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "session-tui-long",
+  "executionId": "execution-tui-long",
+  "observations": [
+    {
+      "kind": "history",
+      "seq": 583,
+      "observedAt": "2026-10-09T11:30:06.689726+00:00",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLXR1aS1sb25nIiwibWVzc2FnZXMiOlt7ImlkIjoiaWQtMSIsInJvbGUiOiJ1c2VyIiwiY29udGVudCI6W119LHsiaWQiOiJpZC0yIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0b29sX3VzZSIsImlkIjoiaWQtMyIsIm5hbWUiOiJydW5fY29tbWFuZHMiLCJpbnB1dCI6eyJjb21tYW5kcyI6WyJwcmludGYgVFVJX0FQUFJPVkFMX1BST0JFIl19fV19LHsiaWQiOiJpZC00Iiwicm9sZSI6InVzZXIiLCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6ImlkLTMiLCJuYW1lIjoicnVuX2NvbW1hbmRzIiwiY29udGVudCI6W3sicXVlcnkiOiJwcmludGYgVFVJX0FQUFJPVkFMX1BST0JFIiwicmVzdWx0IjoiVFVJX0FQUFJPVkFMX1BST0JFIiwic3VjY2VzcyI6dHJ1ZX1dfV19LHsiaWQiOiJpZC01Iiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0b29sX3VzZSIsImlkIjoiaWQtNiIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IlRFWFRfTk9STUFMIiwib3B0aW9ucyI6WyJSRUQiLCJCTFVFIl19fV19LHsiaWQiOiJpZC03Iiwicm9sZSI6InVzZXIiLCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6ImlkLTYiLCJuYW1lIjoiYXNrX3F1ZXN0aW9uIiwiY29udGVudCI6IkNVU1RPTS00MiJ9XX0seyJpZCI6ImlkLTgiLCJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJpZC05IiwibmFtZSI6ImFza19xdWVzdGlvbiIsImlucHV0Ijp7InF1ZXN0aW9uIjoiVEVYVF9OVU1FUklDIiwib3B0aW9ucyI6WyJSRUQiLCJCTFVFIl19fV19LHsiaWQiOiJpZC0xMCIsInJvbGUiOiJ1c2VyIiwiY29udGVudCI6W3sidHlwZSI6InRvb2xfcmVzdWx0IiwidG9vbF91c2VfaWQiOiJpZC05IiwibmFtZSI6ImFza19xdWVzdGlvbiIsImNvbnRlbnQiOiIyIGN1c3RvbSBpZGVudGlmaWVyIn1dfSx7ImlkIjoiaWQtMTEiLCJyb2xlIjoiYXNzaXN0YW50IiwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJpZC0xMiIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IlRFWFRfS09SRUFOIiwib3B0aW9ucyI6WyJSRUQiLCJCTFVFIl19fV19LHsiaWQiOiJpZC0xMyIsInJvbGUiOiJ1c2VyIiwiY29udGVudCI6W3sidHlwZSI6InRvb2xfcmVzdWx0IiwidG9vbF91c2VfaWQiOiJpZC0xMiIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJjb250ZW50Ijoi7ZWc6riAIOydkeuLtSDqsIDrgpjri6Qg8J+YgCBjYWbDqSJ9XX0seyJpZCI6ImlkLTE0Iiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0b29sX3VzZSIsImlkIjoiaWQtMTUiLCJuYW1lIjoiYXNrX3F1ZXN0aW9uIiwiaW5wdXQiOnsicXVlc3Rpb24iOiJURVhUX0xPTkciLCJvcHRpb25zIjpbIlJFRCIsIkJMVUUiXX19XX1dfQ=="
+    },
+    {
+      "kind": "pty",
+      "seq": 584,
+      "observedAt": "2026-10-09T11:30:06.689726+00:00",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzI3OzFIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzI4OzJIG1szODsyOzEyMTsxODQ7MjU1bRtbNDg7MjsyOTszMjszM21DbGluZSBpcyBhc2tpbmcgYSBxdWVzdGlvbhtbMG0bWzI5OzJIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsyOTszMjszM20gICAgICAgICAgICAgICAgICAgICAgICAgIBtbMG0bWzMwOzJIG1szODsyOzIzNzsyNDE7MjQybRtbNDg7MjsyOTszMjszM21URVhUX0xPTkcbWzBtG1szMTsySBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7Mjk7MzI7MzNtICAgICAgICAgG1swbRtbMzI7M0gbWzM4OzI7MTI4OzEyODsxMjhtG1s0ODsyOzI5OzMyOzMzbSAbWzBtG1szMjs1SBtbMzg7MjsyMzc7MjQxOzI0Mm0bWzQ4OzI7Mjk7MzI7MzNtUkVEG1swbRtbMzM7NUgbWzM4OzI7MjM3OzI0MTsyNDJtG1s0ODsyOzI5OzMyOzMzbUJMVUUbWzBtG1szNDsySBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7MTIxOzE4NDsyNTVtIBtbMG0bWzM0OzNIG1szODsyOzA7MDswbRtbNDg7MjsxMjE7MTg0OzI1NW0+G1swbRtbMzQ7NEgbWzM4OzI7MjU1OzI1NTsyNTVtG1s0ODsyOzEyMTsxODQ7MjU1bSAbWzBtG1szNDs1SBtbMzg7MjswOzA7MG0bWzQ4OzI7MTIxOzE4NDsyNTVtTE9OR19hYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ejAxMjM0NTY3ODlhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ejAxMjM0NTY3ODlhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ejAxMjM0NTY3ODlhG1swbRtbMzQ7MTE5SBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7MTIxOzE4NDsyNTVtIBtbMG0bWzM1OzNIG1szODsyOzI1NTsyNTU7MjU1bRtbNDg7MjsxMjE7MTg0OzI1NW0gG1swbRtbMzU7NUgbWzM4OzI7MDswOzBtG1s0ODsyOzEyMTsxODQ7MjU1bWJjZGVmZ2hpamtsbW5vfBtbMG0bWzM1OzIwSBtbMzg7MjsyNTU7MjU1OzI1NW0bWzQ4OzI7MTIxOzE4NDsyNTVtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAbWzBtG1swbRtbPzIwMjZs"
+    },
+    {
+      "kind": "pty",
+      "seq": 585,
+      "observedAt": "2026-10-09T11:30:06.733009+00:00",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzI0OzJIG1szODsyOzEyODsxMjg7MTI4bRtbNDlt4qCnG1swbRtbMG0bWz8yMDI2bA=="
+    },
+    {
+      "kind": "pty",
+      "seq": 586,
+      "observedAt": "2026-10-09T11:30:06.813310+00:00",
+      "dataBase64": "G1s/MjAyNmgbWz8yNWwbWzI0OzJIG1szODsyOzEyODsxMjg7MTI4bRtbNDlt4qCHG1swbRtbMG0bWz8yMDI2bA=="
+    }
+  ],
+  "provenance": {
+    "source": "sanitized-observation",
+    "sourceSha256": "c6b53a13d98da79ac406dda4eb4044f091f82ad44d853bc59c96ce892d33f349",
+    "review": "Actual SDK TUI wrapped long echo; source history and raw modal frames selected.",
+    "transformations": [
+      "select current TEXT_LONG modal baseline to last input echo",
+      "history allowlist tool_use/tool_result and stable identities"
+    ],
+    "complete": false,
+    "truncated": true
+  }
+}

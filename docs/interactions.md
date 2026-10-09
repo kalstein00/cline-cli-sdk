@@ -83,3 +83,5 @@ Windows Chrome에서 같은 서버와 SDK 공개 API로 선택·승인·거절�
 최종 거절은 `run-d8b51f72-…`, session `1791544054790_a6rum`에서 Deny delivered, recovery interaction:4가 나타났다. 늦은 `SDK_DENIED` 메시지 이후에도 같은 recovery ID가 유지됐고, Stop this run을 클릭하면 컨트롤이 잠긴 뒤 같은 실행의 stopped와 delivered(revision 17)로 이어졌다. CLI 거절 결과는 명령이 실행되지 않았음을 명시했다. exit 0을 completed로 잘못 표시하지 않았다. [현재 recovery 화면](evidence/ticket-4-recovery.jpg)과 [중단 및 전달 확인 화면](evidence/ticket-4-stopped.jpg)을 보존했다. Chrome의 실제 DOM 조작·결과와 최종 recovery/stopped의 화면을 확인했으며 초기 선택/승인의 당시 화면 캡처는 활성 탭 캡처 문제로 증거로 사용하지 않는다.
 
 독립 임시 consumer에서 npm tarball을 설치해 공개 connect/preflight ready를 확인했다. tarball 8개 파일에 `remote/supervisor.py`가 포함된다. 회사망·TUI·숫자 선행/한글 자유 응답·중단 자식 종료·재접속 전달 판정은 이번 단계의 완료로 주장하지 않는다.
+
+#5에서 추가한 현재 자유 응답·TUI 계약과 수용 근거는 [text.md](text.md)를 따른다. 위 내용은 #4 단계의 readline 기준선 기록이다.
