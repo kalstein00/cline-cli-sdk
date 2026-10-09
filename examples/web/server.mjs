@@ -164,6 +164,7 @@ const server = createServer(async (request, response) => {
             cliPath: input.cliPath || undefined,
             remoteRoot: input.remoteRoot || undefined,
             identityFile: input.identityFile || undefined,
+            declaredFeatures: input.declaredFeatures,
           },
         });
         watch();
@@ -281,6 +282,7 @@ const server = createServer(async (request, response) => {
           cwd: input.cwd,
           prompt: input.prompt,
           terminalMode: input.terminalMode || "tui",
+          outputMode: input.outputMode || "terminal",
           dataDir: input.dataDir || undefined,
           retryLimit:
             input.retryLimit === undefined

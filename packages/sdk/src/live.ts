@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID, createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
 import { inputChunks } from "./input-chunks.js";
+import {cliFeatures, type CliFeatures, type DeclaredFeatures} from "./capabilities.js";
 import {
   createDiagnosticCollector,
   type DiagnosticOptions,
@@ -20,6 +21,8 @@ import {
 } from "./reducer.js";
 
 export interface ConnectionOptions {
+  /** Declarations never authorize an unknown executable or input protocol. */
+  declaredFeatures?: DeclaredFeatures;
   host: string;
   cliPath?: string;
   identityFile?: string;
@@ -35,6 +38,7 @@ export interface LiveOptions {
   connection: ConnectionOptions;
 }
 export interface PreflightReport {
+  features: CliFeatures;
   platform: string;
   python: boolean;
   pty: boolean;
@@ -53,6 +57,7 @@ export interface PreflightReport {
   };
 }
 export interface StartRequest {
+  outputMode?: "terminal" | "json";
   /** readline keeps its numeric-prefix limitation; TUI supports verified custom input. */
   terminalMode?: "readline" | "tui";
   cwd: string;
@@ -91,6 +96,8 @@ export interface LiveClient {
   snapshot(): Snapshot;
   subscribe(listener: (event: SdkEvent) => void): () => void;
   capabilities(): {
+    features: CliFeatures;
+    outputModes: {terminal: boolean; json: boolean};
     replay: false;
     live: true;
     responses: true;
@@ -299,6 +306,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       ))
         throw error;
       report = {
+        features:cliFeatures(false,undefined,config.declaredFeatures),
         platform: "unknown",
         python: false,
         pty: false,
@@ -338,6 +346,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     if (!supported) problems.push("unsupported-profile");
     report = {
       ...found,
+      features:cliFeatures(supported,found.cliFlags,config.declaredFeatures),
       python: true,
       problems,
       ready: problems.every((p) => p === "noninteractive-path-mismatch"),
@@ -893,6 +902,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "managed-execution-selected",
           "This client already controls a managed execution.",
         );
+      if (request.outputMode !== undefined && request.outputMode !== "terminal")
+        throw new SdkError("unsupported-output-mode", "JSON observation is not enabled for this profile.");
       if (
         (request.terminalMode !== undefined &&
           !["readline", "tui"].includes(request.terminalMode)) ||
@@ -1088,6 +1099,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     },
     capabilities() {
       return {
+        features:structuredClone(report?.features ?? cliFeatures(false,undefined,config.declaredFeatures)),
+        outputModes:{terminal:!!report?.ready,json:false},
         replay: false,
         live: true,
         responses: true,
@@ -1575,7 +1588,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   };
 }
 const PREFLIGHT = String.raw`
-import os,sys,json,platform,shutil,subprocess,hashlib,pty,signal
+import os,sys,json,platform,shutil,subprocess,hashlib,pty,signal,re
 if sys.version_info<(3,9):
     print(json.dumps(dict(error='python-version-unsupported',message='Python 3.9 or newer is required.')))
     sys.exit(0)
@@ -1591,6 +1604,7 @@ if not path:
     except (OSError,subprocess.TimeoutExpired): discovery='login-shell-failed'
 version=None
 digest=None
+flags=None
 if path and os.path.isfile(path) and os.access(path,os.X_OK):
     try:
         result=subprocess.run([path,'--version'],capture_output=True,text=True,timeout=15,env={**os.environ,'CLINE_NO_AUTO_UPDATE':'1'})
@@ -1599,6 +1613,10 @@ if path and os.path.isfile(path) and os.access(path,os.X_OK):
         with open(path,'rb') as source:
             for chunk in iter(lambda:source.read(1024*1024),b''):h.update(chunk)
         digest=h.hexdigest()
+    except (OSError,subprocess.TimeoutExpired): pass
+    try:
+        help_result=subprocess.run([path,'--help'],capture_output=True,text=True,timeout=10,env={**os.environ,'CLINE_NO_AUTO_UPDATE':'1'})
+        if help_result.returncode==0: flags=sorted(set(re.findall(r'(?<!\S)--[a-z][a-z-]*',help_result.stdout[:65536])))
     except (OSError,subprocess.TimeoutExpired): pass
 working_pty=False
 try:
@@ -1610,5 +1628,5 @@ try:
     if hasattr(signal,'pidfd_send_signal'):
         fd=os.pidfd_open(os.getpid());os.close(fd);working_ownership=True
 except (AttributeError,OSError): pass
-print(json.dumps(dict(platform=platform.system(),pythonVersion=platform.python_version(),pty=working_pty,processOwnership=working_ownership,tmux=subprocess.check_output([tmux,'-V'],text=True).strip() if tmux else None,cliPath=path,cliVersion=version,cliHash=digest,discovery=discovery,bootId=open('/proc/sys/kernel/random/boot_id').read().strip() if platform.system()=='Linux' else '')))
+print(json.dumps(dict(platform=platform.system(),pythonVersion=platform.python_version(),pty=working_pty,processOwnership=working_ownership,tmux=subprocess.check_output([tmux,'-V'],text=True).strip() if tmux else None,cliPath=path,cliVersion=version,cliHash=digest,cliFlags=flags,discovery=discovery,bootId=open('/proc/sys/kernel/random/boot_id').read().strip() if platform.system()=='Linux' else '')))
 `;

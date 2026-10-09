@@ -160,6 +160,7 @@
         /></label>
         <button id="connect">연결·환경 점검</button>
         <pre id="preflight">아직 점검하지 않았습니다.</pre>
+        <label><input id="companyFlags" type="checkbox" />회사 옵션 정보: --zen 미지원 / --json 지원 (미검증 선언)</label>
         <label
           >원격 작업 디렉터리<input id="cwd" placeholder="/remote/workspace"
         /></label>
@@ -173,6 +174,8 @@
 Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
         </label>
         <button id="start" disabled>작업 시작</button>
+        <label>출력 모드<select id="outputMode"><option value="terminal">터미널 관측</option><option value="json" disabled>JSON 관측 · 어댑터 지원 확인 필요</option></select></label>
+        <pre id="features">기능 지원 근거를 확인하려면 연결하세요.</pre>
         <label
           >입력 모드<select id="terminalMode">
             <option value="tui">TUI · 자유 응답</option>
@@ -381,6 +384,8 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
       )
         s = current;
       if (capabilities) capability = capabilities;
+      element("features").textContent = JSON.stringify(capability.features ?? {}, null, 2);
+      element("outputMode").querySelector('[value="json"]').disabled = !capability.outputModes?.json;
       reviewControls();
       if (diagnosticDirectory && !element("diagnosticDirectory").value)
         element("diagnosticDirectory").value = diagnosticDirectory;
@@ -894,11 +899,12 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
         diagnostics: element("diagnosticEnabled").checked
           ? diagnosticOptions()
           : undefined,
+        declaredFeatures: element("companyFlags").checked ? {zen:false,jsonOutput:true} : undefined,
       });
     };
     element("start").onclick = () => {
       const body = Object.fromEntries(
-        ["cwd", "dataDir", "prompt", "terminalMode"].map((id) => [
+        ["cwd", "dataDir", "prompt", "terminalMode", "outputMode"].map((id) => [
           id,
           element(id).value,
         ]),
