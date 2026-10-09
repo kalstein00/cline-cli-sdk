@@ -89,6 +89,73 @@ async function capture(t, directory, extras = []) {
   return saved.path;
 }
 
+test('all diagnostic APIs reject missing complete rows and changed original sidecars', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cline-sdk-integrity-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const source = await capture(t, dir);
+  const journalPath = join(source, 'observations.ndjson');
+  const journal = await readFile(journalPath, 'utf8');
+  const lines = journal.trimEnd().split('\n');
+  for (const changed of [
+    lines.slice(0, -1).join('\n') + '\n',
+    lines.filter((_, i) => i !== 2).join('\n') + '\n',
+    lines.map((line, i) => {
+      if (i !== lines.length - 1) return line;
+      const entry = JSON.parse(line);
+      entry.comparison.snapshot.revision += 1000;
+      return JSON.stringify(entry);
+    }).join('\n') + '\n',
+  ]) {
+    await writeFile(journalPath, changed);
+    const review = await reviewDiagnostic(source);
+    assert.equal(review.integrity.state, 'corrupt');
+    assert.equal(review.replay.state, 'blocked');
+    await assert.rejects(readDiagnostic(source), { code: 'diagnostic-hash-mismatch' });
+    await assert.rejects(exportDiagnostic(source, {
+      destination: join(dir, 'blocked-copy'), reviewToken: review.reviewToken,
+    }), { code: 'diagnostic-export-corrupt' });
+  }
+});
+
+test('partial flags never excuse corruption and legacy originals remain explicitly unattested', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cline-sdk-integrity-policy-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const source = await capture(t, dir);
+  const manifestPath = join(source, 'manifest.json');
+  const original = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const bad = structuredClone(original);
+  bad.status.truncated = true;
+  bad.integrity.journalSha256 = '0'.repeat(64);
+  await writeFile(manifestPath, JSON.stringify(bad));
+  assert.equal((await reviewDiagnostic(source)).integrity.state, 'corrupt');
+  await assert.rejects(readDiagnostic(source), { code: 'diagnostic-hash-mismatch' });
+  const legacy = structuredClone(original);
+  delete legacy.integrity;
+  await writeFile(manifestPath, JSON.stringify(legacy));
+  const legacyJournal = (await readFile(join(source, 'observations.ndjson'), 'utf8')).trimEnd().split('\n').map(line => {
+    const row = JSON.parse(line);
+    delete row.integritySha256; delete row.index; delete row.previousSha256;
+    return JSON.stringify(row);
+  }).join('\n') + '\n';
+  await writeFile(join(source, 'observations.ndjson'), legacyJournal);
+  const review = await reviewDiagnostic(source);
+  assert.equal(review.integrity.state, 'limited');
+  assert.equal(review.replay.state, 'partial');
+  const bundle = await readDiagnostic(source), c = createClient({ mode: 'replay' }), events = [];
+  assert.equal(bundle.recording.provenance.complete, false);
+  assert.equal(bundle.metadata.status.truncated, true);
+  assert.equal(bundle.metadata.capturedStatus.truncated, false);
+  assert.equal(await readFile(manifestPath, 'utf8'), JSON.stringify(legacy));
+  c.subscribe(e => events.push(e));
+  await c.openReplay(bundle.recording); await c.replayAll();
+  assert.equal(compareDiagnostic(bundle, events, c.snapshot()).matches, false);
+  c.close();
+  const copy = await exportDiagnostic(source, { destination: join(dir, 'legacy-copy'), reviewToken: review.reviewToken });
+  assert.equal(copy.integrity.state, 'limited');
+  const copiedBundle = await readDiagnostic(copy.path);
+  assert.equal(copiedBundle.recording.provenance.complete, false);
+});
+
 test("stopped collection remains byte-identical through export, repeated stop and client close", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "cline-sdk-export-stop-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -243,6 +310,18 @@ test("normal local export retains semantic replay, rejects overwrite and stale r
     (await readDiagnostic(truncated.path)).recording.provenance.truncated,
     true,
   );
+  const tornManifest = await readFile(join(truncated.path, 'manifest.json'));
+  const prefix = await readDiagnostic(truncated.path), partialReplay = createClient({ mode: 'replay' }), prefixEvents = [];
+  assert.equal(prefix.metadata.status.observations, prefix.recording.observations.length);
+  assert.equal(prefix.metadata.status.truncated, true);
+  assert.equal(prefix.metadata.capturedStatus.observations, bundle.recording.observations.length);
+  assert.equal(prefix.metadata.capturedStatus.truncated, false);
+  assert.deepEqual(await readFile(join(truncated.path, 'manifest.json')), tornManifest);
+  partialReplay.subscribe(e => prefixEvents.push(e));
+  await partialReplay.openReplay(prefix.recording); await partialReplay.replayAll();
+  assert.equal(compareDiagnostic(prefix, prefixEvents, partialReplay.snapshot()).matches, false);
+  assert.equal(compareDiagnostic(prefix, prefixEvents, partialReplay.snapshot()).prefixMatches, true);
+  partialReplay.close();
   await writeFile(
     join(source, "manifest.json"),
     (await readFile(join(source, "manifest.json"), "utf8")) + " ",

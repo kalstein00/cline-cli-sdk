@@ -23,6 +23,7 @@ export function deliveryState(
   result: { digest: string; rejected: boolean } | undefined,
   process: any,
 ): ResponseResult["state"] {
+  if (!receipt.binding) return "delivery-unknown";
   if (receipt.resolution) return receipt.resolution;
   if (receipt.state === "reserved" || receipt.state === "rejected")
     return "not-submitted";

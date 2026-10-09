@@ -1419,7 +1419,13 @@ export function createReducer(options: {
             obs.childrenVerified === true && !obs.children?.length
               ? "stopped"
               : "unknown";
-        else if (obs.children?.length) state.execution = "unknown";
+        else if (
+          obs.childrenVerified !== true ||
+          !Array.isArray(obs.children) ||
+          obs.children.length > 0 ||
+          obs.supervisorAlive !== false ||
+          !!obs.trackingError
+        ) state.execution = "unknown";
         else if (obs.exitCode !== 0 || obs.manifestStatus === "failed")
           state.execution = "failed";
         else if (

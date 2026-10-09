@@ -22,7 +22,9 @@
 
 기본 반출 한도는 16 MiB이며 4 KiB–256 MiB로 설정할 수 있다. manifest는 64 KiB, 읽는 journal은 최대 256 MiB다. 새 destination의 상위 디렉터리는 이미 있어야 한다. 원본 안의 경로, 기존 파일/디렉터리/심볼릭 링크에는 쓰지 않는다. 파일은 새 사본 디렉터리 안에서 exclusive create로 저장한다. 실패 시 원본은 그대로 남으며 부분 생성된 사본을 성공으로 반환하지 않는다.
 
-손상된 raw 또는 사본 sidecar는 corrupt/blocked로 표시하고 재생·검증된 반출을 거부한다. 마지막 줄이 잘렸거나 기록이 부분이면 truncated/partial로 표시하며 검증된 앞 관측만 해석한다. 부분 재생의 sidecar 대조가 일치해도 전체 실행이 동일하거나 완료되었다는 뜻이 아니다. 부분 사본을 내보내면 불완전 tail을 버린 사실과 잘림을 유지한다. 미지원 CLI 프로필·상호작용은 재생 중에도 조작을 허용하지 않는다. 재생은 SSH·모델·원격 입력을 실행하지 않는다.
+새 원본과 사본의 raw/sidecar·순서·줄 수·전체 journal 손상은 같은 검증기로 corrupt/blocked를 표시하고 재생·검증된 반출을 거부한다. truncated 플래그만으로 hash 불일치를 허용하지 않는다. 실제 마지막 줄이 찢어졌으며 앞 줄의 chain과 종료 count/bytes가 확인되는 경우에만 truncated/partial로 앞 관측을 해석한다. 완전한 행 삭제는 잘림으로 허용하지 않는다. 부분 비교는 matches false, 앞 구간이 일치하면 prefixMatches true다. 부분 사본은 불완전 tail을 버린 사실과 잘림을 유지한다.
+
+이전 raw-only 원본은 limited/partial로 열고 전체 sidecar 비교는 available false다. 새 사본도 원본의 limited 한계를 계승하며 원본에 신뢰 hash를 소급해서 쓰지 않는다. 아래 초기 Windows 실제 반출 결과는 당시 판정의 역사적 근거이며 새 chain/finalize 보증을 적용한 기록이라는 뜻이 아니다. 미지원 CLI 프로필·상호작용은 재생 중에도 조작을 허용하지 않는다. 재생은 SSH·모델·원격 입력을 실행하지 않는다.
 
 ## 실행 명령과 화면
 

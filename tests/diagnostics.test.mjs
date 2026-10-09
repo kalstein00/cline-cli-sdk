@@ -275,10 +275,9 @@ test("finite diagnostics stop at the byte limit and storage failure leaves clien
   replay.subscribe((e) => events.push(e));
   await replay.openReplay(bundle.recording);
   await replay.replayAll();
-  assert.equal(
-    compareDiagnostic(bundle, events, replay.snapshot()).matches,
-    true,
-  );
+  const comparison = compareDiagnostic(bundle, events, replay.snapshot());
+  assert.equal(comparison.matches, false);
+  assert.equal(comparison.prefixMatches, true);
   const blocked = join(directory, "occupied");
   await writeFile(blocked, "user file");
   const failure = await live.startDiagnostics({ directory: blocked });
