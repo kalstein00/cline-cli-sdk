@@ -2,6 +2,7 @@ import xterm from "@xterm/headless";
 import unicode11 from "@xterm/addon-unicode11";
 import { createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
+import {jsonOutputParser, type JsonOutputState} from "./json-output.js";
 export type MessageContent = {type:"text";text:string} | {type:"thinking";thinking:string} | {type:"redacted_thinking"};
 export interface Message {
   id: string;
@@ -18,6 +19,14 @@ export interface HistoryObservation {
   elapsedNs?: string;
   sourceSha256?: string;
   sourceBytes?: number;
+}
+export interface JsonOutputObservation {
+  kind:"json-output";
+  seq:number;
+  observedAt:string;
+  dataBase64:string;
+  channel:"stdout" | "stderr";
+  sourceSeq?:number;
 }
 export interface PtyObservation {
   kind: "pty";
@@ -70,6 +79,7 @@ export interface StopResult {
 }
 export type Observation =
   | HistoryObservation
+  | JsonOutputObservation
   | PtyObservation
   | HistoryFailureObservation
   | ProcessObservation
@@ -236,6 +246,7 @@ export interface ResponseResult {
   revision: number;
 }
 export interface Snapshot {
+  jsonOutput?:JsonOutputState;
   mode: "replay" | "live";
   sessionId: string | null;
   executionId: string | null;
@@ -367,6 +378,7 @@ function validateRecording(input: Recording): void {
       !Number.isFinite(Date.parse(obs.observedAt)) ||
       ![
         "pty",
+        "json-output",
         "history",
         "process",
         "connection",
@@ -383,7 +395,8 @@ function validateRecording(input: Recording): void {
       ].includes(obs.kind) ||
       (obs.kind === "history-failure" &&
         (typeof obs.reason !== "string" || !obs.reason)) ||
-      ((obs.kind === "pty" || obs.kind === "history") &&
+      (obs.kind === "json-output" && !["stdout","stderr"].includes(obs.channel)) ||
+      ((obs.kind === "pty" || obs.kind === "history" || obs.kind === "json-output") &&
         (typeof obs.dataBase64 !== "string" ||
           !/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
             obs.dataBase64,
@@ -498,6 +511,7 @@ export function createReducer(options: {
       return `${state.executionId}:interaction:${++interactionSerial}`;
     })();
   let pendingTools: { id: string; name: string; input: any }[] = [];
+  let jsonParser=jsonOutputParser();
   let results = new Map<string, { digest: string; rejected: boolean }>();
   let responseBinding: ResponseInputObservation["binding"] | null = null;
   let resumeDigest: string | null = null;
@@ -985,6 +999,7 @@ export function createReducer(options: {
       obs.kind === "gap" &&
       state.interaction?.id !== `${state.executionId}:observation-gap`
     ) {
+      if(state.jsonOutput) {jsonParser.gap();state.jsonOutput=jsonParser.state();}
       state.execution = "unknown";
       state.interaction = {
         id: `${state.executionId}:observation-gap`,
@@ -1041,12 +1056,14 @@ export function createReducer(options: {
     responseBinding = null;
     resumeDigest = null;
     latestProcess = null;
+    jsonParser=jsonOutputParser();
     observationEvents = [];
     Object.assign(state, {
       sessionId: obs.sessionId,
       executionId: obs.executionId,
       execution: "unknown",
       messages: [],
+      jsonOutput:obs.cli.profile==="cline-3.0.69-json"?jsonParser.state():undefined,
       interaction: null,
       response: null,
       stop: null,
@@ -1216,6 +1233,7 @@ export function createReducer(options: {
       responseBinding = null;
       resumeDigest = null;
       latestProcess = null;
+      jsonParser=jsonOutputParser();
       terminal?.dispose();
       terminal = new xterm.Terminal({
         ...input.terminal,
@@ -1235,6 +1253,7 @@ export function createReducer(options: {
         connection: input.schemaVersion === 2 ? "closed" : "replay",
         execution: "unknown",
         messages: [],
+        jsonOutput:input.cli.profile==="cline-3.0.69-json"?jsonParser.state():undefined,
         interaction: null,
         response: null,
         stop: null,
@@ -1268,6 +1287,19 @@ export function createReducer(options: {
         return responseObservation(obs);
       if (obs.kind === "execution-action") return executionAction(obs);
       observationEvents = [];
+      if (obs.kind === "json-output") {
+        if(recording!.cli.profile!=="cline-3.0.69-json") throw new SdkError("unsupported-json-profile","JSON observations require a verified profile.");
+        jsonParser.feed(Buffer.from(obs.dataBase64,"base64"),obs.channel);
+        const output=jsonParser.state();
+        if(JSON.stringify(output)!==JSON.stringify(state.jsonOutput)) {
+          state.jsonOutput=output;
+          emit("state.changed",obs,{jsonOutput:output});
+          if(output.state === "unsupported") {
+            state.interaction={id:`${state.executionId}:json-unsupported`,revision:state.revision,kind:"unsupported",state:"unsupported",prompt:output.warning!,choices:[]};
+            emit("interaction.changed",obs,state.interaction);
+          }
+        }
+      }
       if (obs.kind === "connection" && state.connection !== obs.action) {
         state.connection = obs.action;
         emit("state.changed", obs, {
@@ -1392,6 +1424,11 @@ export function createReducer(options: {
         interpretScreen(obs);
       }
       if (obs.kind === "process") {
+        if(state.jsonOutput && !obs.alive && obs.exitCode !== null && obs.supervisorAlive === false) {
+          const previousOutput=JSON.stringify(state.jsonOutput);
+          jsonParser.end(); state.jsonOutput=jsonParser.state();
+          if(previousOutput!==JSON.stringify(state.jsonOutput)) emit("state.changed",obs,{jsonOutput:state.jsonOutput});
+        }
         latestProcess = obs;
         const previous = state.execution;
         const previousStop = JSON.stringify(state.stop);
@@ -1436,6 +1473,7 @@ export function createReducer(options: {
           state.execution = "failed";
         else if (
           obs.manifestStatus === "completed" &&
+          (!state.jsonOutput || state.jsonOutput.state === "completed") &&
           state.messages.some((m) => m.role === "assistant" && m.text)
         )
           state.execution = "completed";

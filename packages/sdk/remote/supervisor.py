@@ -175,6 +175,8 @@ def serve(run):
             ring_bytes -= len(json.dumps(ring.popleft()))
         save(run / 'buffer.json', dict(cursor=seq, first=ring[0]['seq'], observations=list(ring)))
     meta['supervisorIdentity'] = identity(os.getpid())
+    json_mode = meta.get('outputMode') == 'json'
+    stderr_read, stderr_write = os.pipe() if json_mode else (None, None)
     try:
         Ownership.subreaper()
         pid, master = pty.fork()
@@ -183,11 +185,16 @@ def serve(run):
         save(run / 'meta.json', meta)
         return
     if pid == 0:
+        if json_mode:
+            os.close(stderr_read)
+            os.dup2(stderr_write, 2)
+            os.close(stderr_write)
         os.chdir(meta['cwd'])
         os.environ['TERM'] = 'xterm-256color'
         os.environ['CLINE_NO_AUTO_UPDATE'] = '1'
         os.environ['CLINE_DISABLE_CLINE_PASS_NOTICE'] = '1'
         os.execv(meta['cliPath'], meta['argv'])
+    if json_mode: os.close(stderr_write)
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', meta['terminal']['rows'], meta['terminal']['cols'], 0, 0))
     meta['identity'] = identity(pid, allow_zombie=True)
     meta['startedAt'] = now()
@@ -205,7 +212,11 @@ def serve(run):
             stop = read_json(run / 'stop-request.json')
             if stop and not read_json(run / 'stop-result.json'):
                 owner.stop(stop)
-            readable, _, _ = select.select([master, fifo_fd], [], [], .1)
+            readable, _, _ = select.select([master, fifo_fd] + ([stderr_read] if stderr_read is not None else []), [], [], .1)
+            if stderr_read is not None and stderr_read in readable:
+                error_payload = os.read(stderr_read, 65536)
+                if error_payload: event('json-output', channel='stderr', dataBase64=base64.b64encode(error_payload).decode())
+                else: os.close(stderr_read); stderr_read = None
             # Drain already-ready output before checking a queued response's cursor.
             if master in readable:
                 try:
@@ -217,7 +228,7 @@ def serve(run):
                 if not payload:
                     _, status = os.waitpid(pid, 0)
                     break
-                event('pty', dataBase64=base64.b64encode(payload).decode())
+                event('json-output' if json_mode else 'pty', **({'channel':'stdout'} if json_mode else {}), dataBase64=base64.b64encode(payload).decode())
                 sys.stdout.buffer.write(payload)
                 sys.stdout.buffer.flush()
             if fifo_fd in readable:
@@ -251,6 +262,12 @@ def serve(run):
                 if len(input_buffer) > 8192:
                     input_buffer = b''
     finally:
+        if stderr_read is not None:
+            while select.select([stderr_read], [], [], 0)[0]:
+                payload = os.read(stderr_read, 65536)
+                if not payload: break
+                event('json-output', channel='stderr', dataBase64=base64.b64encode(payload).decode())
+            os.close(stderr_read)
         if status is not None:
             meta['exitCode'] = os.waitstatus_to_exitcode(status)
             meta['endedAt'] = now()
@@ -284,7 +301,7 @@ def handle(request):
                 executions.append(dict(executionId=candidate.name, remoteRoot=str(root), sessionId=sid,
                     alive=bool(same_boot and expected and actual == expected),
                     identityConfirmed=bool(same_boot and expected and (actual is None or actual == expected)),
-                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), cliHash=meta.get('cliHash')))
+                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), cliHash=meta.get('cliHash')))
             except (OSError, ValueError, KeyError, TypeError):
                 continue
         return dict(executions=executions)
@@ -323,6 +340,10 @@ def handle(request):
         if resume: argv += ['--id', resume['sessionId']]
         else: argv += [request['prompt']]
         mode = request.get('terminalMode', 'readline')
+        output_mode = request.get('outputMode', 'terminal')
+        if output_mode not in ('terminal','json') or (output_mode == 'json' and (mode == 'tui' or resume)):
+            raise ValueError('Unsupported output mode combination')
+        if output_mode == 'json': argv[-1:-1] = ['--json']
         if mode not in ('readline', 'tui'):
             raise ValueError('Invalid terminal mode')
         if mode == 'tui' and not resume: argv[-1:-1] = ['--tui']
@@ -331,7 +352,7 @@ def handle(request):
                 raise ValueError('Retry limit must be an integer from 1 to 10')
             argv[-1:-1] = ['--retries', str(request['retryLimit'])]
         meta = dict(schemaVersion=1, owner='cline-cli-sdk', executionId=run_id, sessionId=resume['sessionId'] if resume else None, resume=resume, cwd=str(cwd), dataDir=str(data), priorSessions=prior,
-                    cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, terminal=dict(rows=40, cols=120),
+                    cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, outputMode=output_mode, terminal=dict(rows=40, cols=120),
                     bootId=boot_id(), tmuxSocket=socket, tmuxSession=run_id, identity=None, exitCode=None)
         # Prompt is launch-only: don't retain it in minimal control metadata after startup.
         save(run / 'meta.json', meta)
@@ -339,13 +360,15 @@ def handle(request):
         result = subprocess.run(['tmux', '-S', socket, 'new-session', '-d', '-s', run_id, '-x', '120', '-y', '40', command], capture_output=True, text=True)
         if result.returncode:
             raise ValueError('Unable to start task-owned tmux session: ' + result.stderr.strip())
-        return dict(executionId=run_id, remoteRoot=str(root), sessionId=meta['sessionId'], terminalMode=mode)
+        return dict(executionId=run_id, remoteRoot=str(root), sessionId=meta['sessionId'], terminalMode=mode, outputMode=output_mode)
     run = root / request['executionId']
     if run.parent != root or not request['executionId'].startswith('run-'):
         raise ValueError('Invalid execution path')
     meta = json.loads((run / 'meta.json').read_text())
     if meta['executionId'] != request['executionId']:
         raise ValueError('Execution identity mismatch')
+    if meta.get('outputMode') == 'json' and action in ('reserve-response','respond','settle-response'):
+        raise ValueError('JSON output has no verified input path')
     if action == 'settle-resume':
         from resume import settle_resume
         return settle_resume(request, run, meta, session_files)
@@ -502,7 +525,7 @@ def handle(request):
             buffer = json.loads((run / 'buffer.json').read_text())
         except (OSError, ValueError):
             buffer = dict(cursor=cursor, first=cursor + 1, observations=[])
-        observations = [frame for frame in buffer['observations'] if frame['seq'] > cursor and frame['kind'] == 'pty']
+        observations = [frame for frame in buffer['observations'] if frame['seq'] > cursor and frame['kind'] in ('pty','json-output')]
         sid, manifest, history_path = session_files(meta)
         if sid and not meta.get('sessionId'):
             # Keep session discovery separate from the supervisor's mutable process metadata.
@@ -528,7 +551,7 @@ def handle(request):
         alive = bool(same_boot and expected and actual == expected)
         confirmed = bool(same_boot and ((expected and (actual == expected or actual is None)) or (meta.get('startupFailed') and meta.get('supervisorIdentity'))))
         screen = None
-        if alive and (request.get('fullScreen') or cursor < buffer['first'] - 1):
+        if meta.get('outputMode') != 'json' and alive and (request.get('fullScreen') or cursor < buffer['first'] - 1):
             target = meta['tmuxSession'] + ':0.0'
             try:
                 geometry = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'display-message','-p','-t',target,'#{pane_width},#{pane_height},#{cursor_x},#{cursor_y}'], timeout=5, text=True).strip()
@@ -578,7 +601,7 @@ def handle(request):
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
                     requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
-                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), bootId=meta['bootId'], phaseSupported=True, responseReservation=True))
+                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), bootId=meta['bootId'], phaseSupported=meta.get('outputMode')!='json', responseReservation=meta.get('outputMode')!='json'))
     raise ValueError('Unsupported supervisor action')
 
 if len(sys.argv) >= 3 and sys.argv[1] == '--serve':

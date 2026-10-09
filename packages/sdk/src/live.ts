@@ -71,6 +71,7 @@ export interface ResumeRequest {
   prompt: string;
 }
 export interface ManagedExecution {
+  outputMode?: "terminal" | "json";
   terminalMode?: "readline" | "tui";
   executionId: string;
   remoteRoot: string;
@@ -100,7 +101,7 @@ export interface LiveClient {
     outputModes: {terminal: boolean; json: boolean};
     replay: false;
     live: true;
-    responses: true;
+    responses: boolean;
     freeText: boolean;
     resume: boolean;
     companyCompatibility: "unverified";
@@ -171,6 +172,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let stopPromise: Promise<StopResult> | null = null;
   let stopRequestId: string | null = null;
   let terminalMode: "readline" | "tui" = "readline";
+  let outputMode: "terminal" | "json" = "terminal";
   let modalHash: string | null = null;
   let composerHash: string | null = null;
   let resumeActive = false;
@@ -757,7 +759,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                 name: "cline",
                 version: report?.cliVersion ?? "unknown",
                 profile: report?.profile.supported
-                  ? `cline-3.0.69-${terminalMode}`
+                  ? `cline-3.0.69-${outputMode === "json" ? "json" : terminalMode}`
                   : "unknown",
               },
               terminal: managed.terminal ?? { rows: 40, cols: 120 },
@@ -863,6 +865,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             "The managed terminal mode is not verified.",
           );
         terminalMode = found.terminalMode ?? "readline";
+        if(found.outputMode !== undefined && !["terminal","json"].includes(found.outputMode)) throw new SdkError("unsupported-profile","Unknown stored output mode.");
+        outputMode = found.outputMode ?? "terminal";
         cursor = 0;
         historyHash = null;
         phase = null;
@@ -873,7 +877,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           cli: {
             name: "cline",
             version: "3.0.69",
-            profile: `cline-3.0.69-${terminalMode}`,
+            profile: `cline-3.0.69-${outputMode === "json" ? "json" : terminalMode}`,
           },
           terminal: found.terminal ?? { rows: 40, cols: 120 },
           sessionId: found.sessionId,
@@ -902,8 +906,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "managed-execution-selected",
           "This client already controls a managed execution.",
         );
-      if (request.outputMode !== undefined && request.outputMode !== "terminal")
-        throw new SdkError("unsupported-output-mode", "JSON observation is not enabled for this profile.");
+      if (request.outputMode !== undefined && !["terminal","json"].includes(request.outputMode))
+        throw new SdkError("unsupported-output-mode", "Unknown output mode.");
+      if(request.outputMode === "json" && request.terminalMode === "tui")
+        throw new SdkError("unsupported-mode-combination","Pinned JSON mode cannot use TUI.");
       if (
         (request.terminalMode !== undefined &&
           !["readline", "tui"].includes(request.terminalMode)) ||
@@ -921,6 +927,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         );
       const executionId = "run-" + randomUUID();
       terminalMode = request.terminalMode ?? "readline";
+      outputMode = request.outputMode ?? "terminal";
       // Reserve identity before the first await. An uncertain launch is never retried.
       managed = {
         executionId,
@@ -969,7 +976,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         cli: {
           name: "cline",
           version: "3.0.69",
-          profile: `cline-3.0.69-${terminalMode}`,
+          profile: `cline-3.0.69-${outputMode === "json" ? "json" : terminalMode}`,
         },
         terminal: { rows: 40, cols: 120 },
         sessionId: null,
@@ -980,6 +987,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       return snapshot();
     },
     resume(input) {
+      if(outputMode === "json") return Promise.reject(new SdkError("unsupported-json-resume","Pinned JSON mode cannot resume through TUI."));
       const request = structuredClone(input);
       if (!request || typeof request.requestId !== "string" || typeof request.executionId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(request.requestId) ||
           typeof request.prompt !== "string" || !request.prompt || request.prompt.trim() !== request.prompt ||
@@ -1100,12 +1108,12 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     capabilities() {
       return {
         features:structuredClone(report?.features ?? cliFeatures(false,undefined,config.declaredFeatures)),
-        outputModes:{terminal:!!report?.ready,json:false},
+        outputModes:{terminal:!!report?.ready,json:!!report?.ready},
         replay: false,
         live: true,
-        responses: true,
+        responses: !!report?.ready && outputMode !== "json",
         freeText: !!state.interaction?.responseKinds?.includes("text"),
-        resume: !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
+        resume: outputMode !== "json" && !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
           !!state.sessionId && ["completed","stopped"].includes(state.execution) &&
           processEvidence?.alive === false && processEvidence.identityConfirmed === true &&
           processEvidence.supervisorAlive === false && processEvidence.childrenVerified === true &&
@@ -1114,6 +1122,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       };
     },
     async respond(input) {
+      if(outputMode === "json") throw new SdkError("unsupported-json-input","JSON output is not a verified input protocol.");
       if (!input || typeof input !== "object")
         throw new SdkError(
           "invalid-response",

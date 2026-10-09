@@ -281,7 +281,7 @@ const server = createServer(async (request, response) => {
         const snapshot = await client.start({
           cwd: input.cwd,
           prompt: input.prompt,
-          terminalMode: input.terminalMode || "tui",
+          terminalMode: input.outputMode === "json" ? "readline" : input.terminalMode || "tui",
           outputMode: input.outputMode || "terminal",
           dataDir: input.dataDir || undefined,
           retryLimit:

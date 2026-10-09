@@ -2,6 +2,7 @@ import { createReducer, type Client } from "./reducer.js";
 import { createLiveClient, type LiveClient, type LiveOptions } from "./live.js";
 export { SdkError } from "./reducer.js";
 export type {CliFeatures, FeatureCapability, DeclaredFeatures} from "./capabilities.js";
+export type {JsonOutputState} from "./json-output.js";
 export { readDiagnostic, compareDiagnostic } from "./diagnostics.js";
 export {
   reviewDiagnostic,
