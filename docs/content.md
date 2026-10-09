@@ -17,7 +17,7 @@ Schema는 draft 2020-12의 엄격 검증을 사용한다([Ajv JSON Schema](https
 
 이미 확정된 답변의 결과는 같은 run을 중단해도 보존한다. 현재성이 깨지면 unconfirmed로 바뀌며 새 실행/같은 세션 재개는 이전 result를 초기화한다. 현재 resume는 새로운 resultFormat을 받지 않으므로 JSON/Schema 계약이 필요한 새 작업은 start로 요청한다.
 
-관리 실행의 결과 계약에는 실제 전달 프롬프트의 SHA-256 binding을 저장한다. 같은 SID의 새 실행이 history를 갱신한 뒤 이전 run에 attach하면 다른 요청의 답변을 반환하지 않고 unconfirmed로 표시한다. 변경된 본문은 새 process 관측 또는 일치하는 JSON run_result까지 pending이며, 출력 오류·누락은 기존 성공 값을 무효화한다.
+관리 실행의 결과 계약에는 실제 전달 프롬프트의 SHA-256 binding을 저장한다. 같은 SID의 새 실행이 history를 갱신한 뒤 이전 run에 attach하면 다른 요청의 답변을 반환하지 않고 unconfirmed로 표시한다. 같은 프롬프트의 여러 user turn도 모호한 요청으로 거부하고, 재개된 실행은 supersededBy binding으로 이전 run의 결과 귀속을 차단한다. 변경된 본문은 새 process 관측 또는 일치하는 JSON run_result까지 pending이며, 출력 오류·누락은 기존 성공 값을 무효화한다.
 
 Schema 참조를 펼친 순회는 8192개 노드로 제한한다. 마스크는 JSON 전송과 JSON 답변의 escaping을 해석해 적용하고 바이트 길이를 유지한다. JSON이 잘리거나 손상돼 해석할 수 없거나 변경이 길이를 늘리면 가림 반출을 명시적으로 거부한다. 가림 사본의 원래 결과와 비교는 unavailable이다.
 

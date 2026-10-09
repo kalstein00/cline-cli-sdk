@@ -4,20 +4,22 @@
 
 | 경계 | 결과 | 근거와 한계 |
 | --- | --- | --- |
-| 공개 SDK 계약 | 통과 | `npm test`: 85/85. start/snapshot/subscribe 및 공개 replay에서 기능별 RED→GREEN 검증. 외부 OpenSSH 경계의 주입 시험은 실제 회사 실행을 뜻하지 않는다. |
+| 공개 SDK 계약 | 통과 | 최종 `npm test`: 94/94. start/snapshot/subscribe 및 공개 replay에서 기능별 RED→GREEN 검증. 외부 OpenSSH 경계의 주입 시험은 실제 회사 실행을 뜻하지 않는다. |
 | 실제 JSON 관측 | 통과 | `--json` 실행, stdout 레코드/history 대조, 최종 JSON 파싱·SDK Schema 검증, exit 0·manifest completed·supervisor/자식 종료 확인. `--zen`을 실행 인자로 사용하지 않는다. |
 | 별도 Node 소비 프로젝트 | 통과 | `npm pack` 산출물을 저장소 밖 새 npm 프로젝트에 설치했다. 두 개의 서로 다른 SID/run에서 시작→답변→client.close→새 client 연결/list/attach→SDK Schema 결과→확인된 stop→진단 반출→raw replay의 이벤트/snapshot 일치를 검사했다. |
-| 같은 대화 재개 | 통과 | 첫 SID를 유지한 새 run에서 `RESUME_NEW_RUN` 답변을 받았다. 이전 result를 비우고 종료된 이전 run과 새 run을 구분했다. 새 실행의 stop/childrenVerified도 확인했다. JSON 모드 재개는 공개 API에서 `unsupported-json-resume`로 거부한다. |
-| 노출된 think | 합성 시험 통과 | mixed/think-only/think-only 갱신/가려진 marker/부분 history 및 진단 왕복을 검증했다. 실제 두 세션에서는 thinking 부분이 0개였다. 모델의 실제 think 출력 수신 성공을 주장하지 않는다. |
+| 같은 대화 재개 | 통과 | 첫 SID를 유지한 새 run에서 `RESUME_NEW_RUN` 답변을 받았다. 이전 result를 비우고 종료된 이전 run과 새 run을 구분했다. 별도 client로 이전 run에 attach해 새 답변을 반환하지 않는 unconfirmed 상태도 확인했다. 새 실행의 stop/childrenVerified를 확인했다. JSON 모드 재개는 공개 API에서 `unsupported-json-resume`로 거부한다. |
+| 노출된 think | 실제·합성 통과 | 별도 실제 CLI 시험에서 노출된 thinking 1개를 SDK로 수신하고 98개 raw 관측의 진단 재생·이벤트/snapshot 일치와 브라우저 표시를 확인했다. 최종 두 세션에는 thinking이 0개였다. mixed/think-only 갱신/가려진 marker/부분 history는 합성 시험으로 검증했다. 모델 내부의 비공개 추론은 검증 대상이 아니다. |
 | JSON/Schema 오류 | 통과 | 부분 출력 pending, invalid-json, schema-mismatch, interrupted, unconfirmed를 구분한다. 객체/배열/원시값·한글, nested/type/required/enum/additionalProperties/local ref 및 실행 전 Schema 거부를 공개 API로 검사했다. |
 | 브라우저 | 통과 | 합성 think/가려진 marker, 펼침 유지, 세션 전환, JSON 문법 오류, Schema 위치 오류를 실제 Chrome에서 조작했다. 실제 JSON 모드 요청의 ready/value와 CLI 종료도 확인했다. 실제 수집 묶음의 검토→새 사본 반출→공개 재생 비교를 수행했다. |
 | 진단 반출 | 통과 | adapterVersion 2. 요청 계약과 raw 관측에서 Schema 결과를 다시 계산한다. JSON 패킷 경계에 걸친 마스크도 처리한다. 가림 사본 비교는 unavailable이며 원본을 변경하지 않는다. legacy adapter는 raw 읽기를 유지하되 현재 해석과 정확 비교 불가를 명시한다. |
 | 네이티브 Schema 생성 강제 | 미지원 경계 확인 | `validation:"native"`는 실행 전 거부한다. SDK 결과 검증을 네이티브 constrained generation으로 보고하지 않는다. |
 | 회사 프로필 | 미검증 | 사용자 선언 `zen:false/jsonOutput:true`와 help/실행 파일 검증을 분리한다. 선언이나 `--json` 존재만으로 질문 응답·재개·네이티브 Schema 조작을 허용하지 않는다. |
 
-실제 SID/run/요청·중단 근거는 [actual-sessions.json](evidence/content/actual-sessions.json)에 저장했다. 원시 진단은 인증자료를 제외하는 SDK collector로 로컬 Temp에만 저장했다. 공개 근거에는 제어된 시험 답변만 포함했다. 인증 설정 사본은 격리 시험 데이터 디렉터리에만 사용하고 수용 종료 후 제거한다.
+실제 SID/run/요청·중단 근거는 [actual-sessions.json](evidence/content/actual-sessions.json)에 저장했다. 원시 진단은 인증자료를 제외하는 SDK collector로 로컬 Temp에만 저장했다. 공개 근거에는 제어된 시험 답변만 포함했다. 수용 종료 후 격리 시험 인증 설정 사본을 제거했다. 소유한 20개 run의 PID/startTime/bootId를 대조한 정리 검사에서 실행 중인 CLI·supervisor·관측된 자식은 0개였다.
 
-화면: [실제 JSON](evidence/content/actual-json.png), [think 합성](evidence/content/think-json.png), [Schema 불일치](evidence/content/schema-mismatch.png), [JSON 문법 실패](evidence/content/json-invalid.png), [native 실행 전 거부](evidence/content/native-rejected.png), [진단 반출·재생](evidence/content/diagnostic-export.png).
+화면: [실제 think·Schema 결과](evidence/content/actual-think.png), [실제 JSON](evidence/content/actual-json.png), [think 합성](evidence/content/think-json.png), [Schema 불일치](evidence/content/schema-mismatch.png), [JSON 문법 실패](evidence/content/json-invalid.png), [native 실행 전 거부](evidence/content/native-rejected.png), [진단 반출·재생](evidence/content/diagnostic-export.png).
+
+`c257f7f`를 기준으로 Standards·Spec 리뷰를 각각 수행했다. Standards의 결함 2건과 중복 개선 2건, Spec의 지적 5건을 수정했고 최종 코드 `04996c8`에서 미해결 지적은 없다. 실행 식별자와 프롬프트 digest/supersededBy binding, 오래된 완료 근거·출력 오류·관측 누락의 성공 무효화, JSON escaping을 해석하는 가림 반출, Schema 참조 확장 비용 제한을 회귀 시험으로 확인했다.
 
 재현용 소비 예제는 [structured.mjs](../examples/node/structured.mjs)다. 패키지를 별도 프로젝트에 설치한 뒤 `CLINE_SDK_HOST`, `CLINE_SDK_CLI_PATH`, `CLINE_SDK_REMOTE_ROOT`, `CLINE_SDK_WORKSPACE`, `CLINE_SDK_DATA_DIR`, `CLINE_SDK_EVIDENCE_DIR`를 준비해 실행한다. 인증은 CLI의 격리 dataDir에 별도로 준비한다. 두 세션의 대화/구독/결과 식별자와 중단 근거를 assert하며 자동 복구 요청이나 재시도를 하지 않는다.
 

@@ -4,8 +4,8 @@
   "sessions": [
     {
       "tag": "first",
-      "sessionId": "1791561178269_a7axg",
-      "executionId": "run-378aba6c-5bc4-463b-b042-6760d8053ee3",
+      "sessionId": "1791562408150_z6nf2",
+      "executionId": "run-13fb88ee-2412-4f60-8b1f-736d484c2cce",
       "requestId": "request-first",
       "value": {
         "sessionTag": "first",
@@ -18,18 +18,18 @@
       "beforeCloseAlive": true,
       "reconnectedSameExecution": true,
       "stop": {
-        "executionId": "run-378aba6c-5bc4-463b-b042-6760d8053ee3",
+        "executionId": "run-13fb88ee-2412-4f60-8b1f-736d484c2cce",
         "requestId": "stop-first",
         "state": "confirmed",
         "childrenVerified": true,
-        "trackedCount": 2,
+        "trackedCount": 1,
         "remaining": [],
         "reason": null,
-        "observedAt": "2026-10-09T15:53:05.267402+00:00",
+        "observedAt": "2026-10-09T16:13:34.740972+00:00",
         "targets": [
           {
-            "pid": 303266,
-            "startTime": "1918630",
+            "pid": 321056,
+            "startTime": "2041714",
             "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
           }
         ]
@@ -39,8 +39,8 @@
     },
     {
       "tag": "second",
-      "sessionId": "1791561192011_brjil",
-      "executionId": "run-6dc1a73e-e7e6-4b43-84b0-b2308024806e",
+      "sessionId": "1791562421185_u7g1w",
+      "executionId": "run-60bfb5d6-ab30-4eb3-b59a-b23812477705",
       "requestId": "request-second",
       "value": {
         "sessionTag": "second",
@@ -53,18 +53,18 @@
       "beforeCloseAlive": true,
       "reconnectedSameExecution": true,
       "stop": {
-        "executionId": "run-6dc1a73e-e7e6-4b43-84b0-b2308024806e",
+        "executionId": "run-60bfb5d6-ab30-4eb3-b59a-b23812477705",
         "requestId": "stop-second",
         "state": "confirmed",
         "childrenVerified": true,
-        "trackedCount": 1,
+        "trackedCount": 3,
         "remaining": [],
         "reason": null,
-        "observedAt": "2026-10-09T15:53:18.686910+00:00",
+        "observedAt": "2026-10-09T16:13:47.704690+00:00",
         "targets": [
           {
-            "pid": 304014,
-            "startTime": "1919999",
+            "pid": 321804,
+            "startTime": "2043027",
             "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
           }
         ]
@@ -74,34 +74,42 @@
     }
   ],
   "resume": {
-    "sessionId": "1791561178269_a7axg",
-    "previousExecutionId": "run-378aba6c-5bc4-463b-b042-6760d8053ee3",
-    "executionId": "run-7fb4075b-ed96-4293-9276-06988a046ced",
+    "sessionId": "1791562408150_z6nf2",
+    "previousExecutionId": "run-13fb88ee-2412-4f60-8b1f-736d484c2cce",
+    "executionId": "run-4c057ec8-88c6-40c1-8a63-cfa15c4e74d4",
     "oldResultCleared": true,
     "newAnswer": "RESUME_NEW_RUN",
     "stop": {
-      "executionId": "run-7fb4075b-ed96-4293-9276-06988a046ced",
+      "executionId": "run-4c057ec8-88c6-40c1-8a63-cfa15c4e74d4",
       "requestId": "stop-resume",
       "state": "confirmed",
       "childrenVerified": true,
-      "trackedCount": 1,
+      "trackedCount": 2,
       "remaining": [],
       "reason": null,
-      "observedAt": "2026-10-09T15:53:39.329875+00:00",
+      "observedAt": "2026-10-09T16:14:06.545747+00:00",
       "targets": [
         {
-          "pid": 304932,
-          "startTime": "1921770",
+          "pid": 322701,
+          "startTime": "2044562",
           "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
         }
       ]
-    }
+    },
+    "oldExecutionRejectsNewAnswer": true
   },
   "cli": {
     "version": "3.0.69",
     "sha256": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032"
   },
   "validationBoundary": "packed SDK public start/snapshot/subscribe/list/attach/stop/resume; exported raw observations replayed and event/snapshot compared",
+  "actualThink": {
+    "sessionId": "1791561994597_9jbuu",
+    "executionId": "run-46e76378-5bd0-42f9-937e-00c6e40f11ed",
+    "exposedParts": 1,
+    "diagnosticMatches": true,
+    "source": "Separate actual public CLI trial; exported 98 raw observations replayed through public SDK and browser; opaque fields excluded"
+  },
   "browserJson": {
     "sessionId": "1791561221268_ko42n",
     "executionId": "run-99a9eb95-50ff-4081-b81b-9da65a0f0513",
