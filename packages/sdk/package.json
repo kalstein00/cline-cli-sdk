@@ -9,7 +9,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "remote"
   ],
   "engines": {
     "node": ">=22"

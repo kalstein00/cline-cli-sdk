@@ -2,12 +2,15 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { createClient } from "@cline-cli-sdk/sdk";
 
-const client = createClient({ mode: "replay" });
+let client = createClient({ mode: "replay" });
+let preflight = null;
 const streams = new Set();
-client.subscribe((event) => {
-  for (const stream of streams)
-    stream.write(`data: ${JSON.stringify(event)}\n\n`);
-});
+const watch = () =>
+  client.subscribe((event) => {
+    for (const stream of streams)
+      stream.write(`data: ${JSON.stringify(event)}\n\n`);
+  });
+watch();
 const fixtures = ["message", "question", "unsupported"];
 const json = (response, status, value) => {
   response.writeHead(status, {
@@ -32,6 +35,7 @@ const server = createServer(async (request, response) => {
       json(response, 200, {
         snapshot: client.snapshot(),
         capabilities: client.capabilities(),
+        preflight,
       });
       return;
     }
@@ -46,7 +50,12 @@ const server = createServer(async (request, response) => {
       request.on("close", () => streams.delete(response));
       return;
     }
-    if (request.method === "POST" && url.pathname === "/api/replay") {
+    if (
+      request.method === "POST" &&
+      ["/api/replay", "/api/connect", "/api/start", "/api/refresh"].includes(
+        url.pathname,
+      )
+    ) {
       const origin = request.headers.origin;
       if (
         (origin &&
@@ -60,12 +69,55 @@ const server = createServer(async (request, response) => {
       let body = "";
       for await (const chunk of request) {
         body += chunk;
-        if (body.length > 1024) {
+        if (body.length > 128000) {
           json(response, 413, { error: "request-too-large" });
           return;
         }
       }
-      const { fixture } = JSON.parse(body);
+      const input = JSON.parse(body);
+      if (url.pathname === "/api/connect") {
+        client.close();
+        client = createClient({
+          mode: "live",
+          connection: {
+            host: input.host,
+            cliPath: input.cliPath || undefined,
+            remoteRoot: input.remoteRoot || undefined,
+            identityFile: input.identityFile || undefined,
+          },
+        });
+        watch();
+        preflight = await client.connect();
+        json(response, 200, {
+          snapshot: client.snapshot(),
+          capabilities: client.capabilities(),
+          preflight,
+        });
+        return;
+      }
+      if (url.pathname === "/api/start") {
+        const snapshot = await client.start({
+          cwd: input.cwd,
+          prompt: input.prompt,
+          dataDir: input.dataDir || undefined,
+        });
+        json(response, 200, {
+          snapshot,
+          capabilities: client.capabilities(),
+          preflight,
+        });
+        return;
+      }
+      if (url.pathname === "/api/refresh") {
+        const snapshot = await client.refresh();
+        json(response, 200, {
+          snapshot,
+          capabilities: client.capabilities(),
+          preflight,
+        });
+        return;
+      }
+      const { fixture } = input;
       if (!fixtures.includes(fixture)) {
         json(response, 400, { error: "unknown-fixture" });
         return;
@@ -76,6 +128,10 @@ const server = createServer(async (request, response) => {
           "utf8",
         ),
       );
+      client.close();
+      client = createClient({ mode: "replay" });
+      watch();
+      preflight = null;
       await client.openReplay(recording);
       await client.replayAll();
       json(response, 200, {
@@ -93,7 +149,7 @@ const server = createServer(async (request, response) => {
   }
 });
 server.listen(port, "127.0.0.1", () =>
-  console.log(`Replay example: http://127.0.0.1:${port}`),
+  console.log(`Cline SDK example: http://127.0.0.1:${port}`),
 );
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
