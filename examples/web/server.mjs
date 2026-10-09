@@ -63,6 +63,7 @@ const server = createServer(async (request, response) => {
         "/api/disconnect",
         "/api/managed",
         "/api/attach",
+        "/api/reconfirm",
       ].includes(url.pathname)
     ) {
       const origin = request.headers.origin;
@@ -152,6 +153,16 @@ const server = createServer(async (request, response) => {
           snapshot,
           capabilities: client.capabilities(),
           preflight,
+        });
+        return;
+      }
+      if (url.pathname === "/api/reconfirm") {
+        const snapshot = await client.reconfirmDelivery();
+        json(response, 200, {
+          snapshot,
+          capabilities: client.capabilities(),
+          preflight,
+          managedExecutions,
         });
         return;
       }
