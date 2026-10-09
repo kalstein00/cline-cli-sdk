@@ -61,6 +61,14 @@ export function compareDiagnostic(
   events: SdkEvent[],
   snapshot: Snapshot,
 ) {
+  if (bundle.metadata.export?.replayImpact?.comparison === "unavailable")
+    return {
+      matches: false,
+      eventDifferences: null,
+      snapshotMatches: null,
+      available: false,
+      reason: bundle.metadata.export.replayImpact.reason,
+    };
   let eventDifferences = 0;
   for (
     let i = 0;
@@ -90,6 +98,7 @@ export function createDiagnosticCollector() {
   let journalBytes = 0;
   let reserve = 2048;
   let finalized = true;
+  let stopping: Promise<DiagnosticStatus> | null = null;
   const fail = (error: unknown) => {
     status.state = "failed";
     status.truncated = true;
@@ -133,6 +142,7 @@ export function createDiagnosticCollector() {
         );
       status = { ...initial(), ...limits, state: "collecting" };
       finalized = false;
+      stopping = null;
       lastSnapshot = null;
       queue = Promise.resolve();
       startedAt = new Date().toISOString();
@@ -316,39 +326,44 @@ export function createDiagnosticCollector() {
       });
     },
     async stop() {
-      if (status.state === "inactive") return structuredClone(status);
-      if (status.state === "collecting") status.state = "stopped";
-      await queue;
-      if (status.path)
-        try {
-          const stoppedAt = new Date().toISOString();
-          let manifest = JSON.stringify({
-            ...header,
-            stoppedAt,
-            status: { ...status, path: undefined },
-          });
-          manifestBytes = Buffer.byteLength(manifest);
-          if (journalBytes + manifestBytes > status.maxBytes)
-            throw Object.assign(new Error("metadata-limit"), {
-              code: "metadata-limit",
-            });
-          status.bytes = journalBytes + manifestBytes;
-          for (let n = 0; n < 3; n++) {
-            manifest = JSON.stringify({
+      if (finalized) return structuredClone(status);
+      if (stopping) return stopping;
+      stopping = (async () => {
+        if (status.state === "inactive") return structuredClone(status);
+        if (status.state === "collecting") status.state = "stopped";
+        await queue;
+        if (status.path)
+          try {
+            const stoppedAt = new Date().toISOString();
+            let manifest = JSON.stringify({
               ...header,
               stoppedAt,
               status: { ...status, path: undefined },
             });
-            status.bytes = journalBytes + Buffer.byteLength(manifest);
+            manifestBytes = Buffer.byteLength(manifest);
+            if (journalBytes + manifestBytes > status.maxBytes)
+              throw Object.assign(new Error("metadata-limit"), {
+                code: "metadata-limit",
+              });
+            status.bytes = journalBytes + manifestBytes;
+            for (let n = 0; n < 3; n++) {
+              manifest = JSON.stringify({
+                ...header,
+                stoppedAt,
+                status: { ...status, path: undefined },
+              });
+              status.bytes = journalBytes + Buffer.byteLength(manifest);
+            }
+            await writeFile(join(status.path, "manifest.json"), manifest, {
+              mode: 0o600,
+            });
+          } catch (error) {
+            fail(error);
           }
-          await writeFile(join(status.path, "manifest.json"), manifest, {
-            mode: 0o600,
-          });
-        } catch (error) {
-          fail(error);
-        }
-      finalized = true;
-      return structuredClone(status);
+        finalized = true;
+        return structuredClone(status);
+      })();
+      return stopping;
     },
   };
 }
@@ -379,16 +394,31 @@ export async function readDiagnostic(path: string): Promise<DiagnosticBundle> {
   metadata.status.bytes =
     Buffer.byteLength(content) + (await stat(manifestPath)).size;
   let truncated = !!metadata.status.truncated || !metadata.stoppedAt;
-  for (const line of content.split("\n")) {
-    if (!line) continue;
+  const lines = content.split("\n").filter(Boolean);
+  for (const [index, line] of lines.entries()) {
     let entry;
     try {
       entry = JSON.parse(line);
     } catch {
+      if (index !== lines.length - 1)
+        throw new SdkError(
+          "diagnostic-hash-mismatch",
+          "Malformed content occurs before the recording tail.",
+        );
       truncated = true;
       break;
     }
-    if (entry.sha256 !== sha(JSON.stringify(entry.observation)))
+    if (
+      entry.sha256 !== sha(JSON.stringify(entry.observation)) ||
+      (entry.integritySha256 &&
+        entry.integritySha256 !==
+          sha(
+            JSON.stringify({
+              observation: entry.observation,
+              comparison: entry.comparison,
+            }),
+          ))
+    )
       throw new SdkError(
         "diagnostic-hash-mismatch",
         "A raw observation changed after collection.",
@@ -396,6 +426,22 @@ export async function readDiagnostic(path: string): Promise<DiagnosticBundle> {
     observations.push(entry.observation);
     events.push(...entry.comparison.events);
     lastSnapshot = entry.comparison.snapshot;
+  }
+  if (
+    metadata.export?.journalSha256 &&
+    metadata.export.journalSha256 !== sha(content)
+  ) {
+    if (
+      (truncated ||
+        Buffer.byteLength(content) < metadata.export.journalBytes) &&
+      observations.length < metadata.export.observations
+    )
+      truncated = true;
+    else
+      throw new SdkError(
+        "diagnostic-hash-mismatch",
+        "Exported recording or comparison content changed.",
+      );
   }
   return {
     recording: {

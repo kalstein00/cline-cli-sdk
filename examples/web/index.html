@@ -170,8 +170,7 @@
         /></label>
         <label
           >요청<textarea id="prompt">
-Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
-          >
+Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
         </label>
         <button id="start" disabled>작업 시작</button>
         <label
@@ -212,11 +211,51 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       <button id="diagnosticStart" disabled>진단 시작</button>
       <button id="diagnosticStop" disabled>진단 종료·저장</button>
       <pre id="diagnosticStatus">
-평상시: 로컬 원시 기록을 저장하지 않습니다.</pre
-      >
+평상시: 로컬 원시 기록을 저장하지 않습니다.</pre>
       <label>열 기록 경로<input id="diagnosticPath" /></label>
       <button id="diagnosticReplay">기록 열기·오프라인 비교</button>
       <pre id="diagnosticComparison">아직 비교하지 않았습니다.</pre>
+      <h2>반출 사본 검토</h2>
+      <p>
+        인증 설정·키 파일은 수집 대상에서 제외됩니다. 대화·도구 인자·원시 출력의
+        비밀은 내용을 검토해 직접 선택하세요. 자동 업로드는 없습니다.
+      </p>
+      <button id="diagnosticReview">포함 항목 검토</button>
+      <pre id="reviewSummary">기록 경로를 입력한 뒤 검토하세요.</pre>
+      <details>
+        <summary>기록 메타데이터 · 변환 이력</summary>
+        <pre id="reviewMetadata"></pre>
+      </details>
+      <label
+        >검토할 관측 번호 (0부터)<input
+          id="reviewIndex"
+          type="number"
+          min="0"
+          value="0"
+      /></label>
+      <button id="reviewItem">관측 내용 열기</button>
+      <button id="reviewPrevious">이전 관측</button
+      ><button id="reviewNext">다음 관측</button>
+      <p id="reviewPageLabel"></p>
+      <pre id="reviewContent" style="max-height: 360px; overflow: auto"></pre>
+      <button id="reviewPageNext">다음 내용 페이지</button>
+      <label
+        >가릴 원문 (한 줄에 하나)<textarea
+          id="exportMasks"
+          rows="3"
+          placeholder="직접 검토한 민감 문자열"
+        ></textarea>
+      </label>
+      <button id="exportPreview">가림 계획 확인</button>
+      <pre id="exportPlan">가림은 원본에 적용하지 않습니다.</pre>
+      <label
+        >새 로컬 사본 디렉터리<input
+          id="exportDestination"
+          placeholder="존재하지 않는 새 디렉터리의 절대 경로"
+      /></label>
+      <button id="diagnosticExport">검토한 사본 내보내기</button>
+      <pre id="exportResult"></pre>
+      <p id="reviewError" role="alert" class="warning" hidden></p>
     </section>
     <section>
       <h2>관리 세션 복구</h2>
@@ -342,6 +381,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       )
         s = current;
       if (capabilities) capability = capabilities;
+      reviewControls();
       if (diagnosticDirectory && !element("diagnosticDirectory").value)
         element("diagnosticDirectory").value = diagnosticDirectory;
       element("diagnosticStart").disabled =
@@ -653,6 +693,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           mutations.delete(action);
           busy = mutations.size > 0;
           element("connect").disabled = busy;
+          reviewControls();
           element("stop").disabled = stopDisabled(current);
           document
             .querySelectorAll("[data-fixture]")
@@ -660,6 +701,171 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         }
       }
     }
+    let reviewed = null,
+      reviewPage = null,
+      reviewBusy = false,
+      plannedMasks = null;
+    const reviewButtons = [
+      "diagnosticReview",
+      "reviewItem",
+      "reviewPrevious",
+      "reviewNext",
+      "reviewPageNext",
+      "exportPreview",
+      "diagnosticExport",
+    ];
+    function reviewControls() {
+      for (const id of reviewButtons)
+        element(id).disabled =
+          reviewBusy || busy || (id !== "diagnosticReview" && !reviewed);
+      element("reviewPrevious").disabled ||=
+        Number(element("reviewIndex").value) <= 0;
+      element("reviewNext").disabled ||=
+        Number(element("reviewIndex").value) >= (reviewed?.items ?? 0) - 1;
+      element("reviewPageNext").disabled ||=
+        reviewPage?.nextOffset === null || !reviewPage;
+      element("diagnosticExport").disabled ||=
+        plannedMasks === null || reviewed?.replay.state === "blocked";
+    }
+    async function reviewCall(action, body) {
+      reviewBusy = true;
+      reviewControls();
+      element("reviewError").hidden = true;
+      try {
+        const r = await fetch("/api/diagnostics/" + action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const result = await r.json();
+        if (!r.ok) throw Error(result.message ?? result.error);
+        return result;
+      } catch (error) {
+        element("reviewError").textContent = error.message;
+        element("reviewError").hidden = false;
+        throw error;
+      } finally {
+        reviewBusy = false;
+        reviewControls();
+      }
+    }
+    function showReview(review) {
+      reviewed = review;
+      reviewPage = null;
+      plannedMasks = null;
+      element("reviewSummary").textContent = JSON.stringify(
+        {
+          path: review.path,
+          bundleId: review.bundleId,
+          bytes: review.bytes,
+          items: review.items,
+          included: review.included,
+          integrity: review.integrity,
+          replay: review.replay,
+          credentials: review.credentials,
+        },
+        null,
+        2,
+      );
+      element("reviewMetadata").textContent = JSON.stringify(
+        review.metadata,
+        null,
+        2,
+      );
+      element("reviewIndex").max = Math.max(0, review.items - 1);
+      element("reviewIndex").value = "0";
+      element("reviewContent").textContent = "";
+      element("exportPlan").textContent =
+        "가림 계획을 확인하세요. 빈 목록은 원문 사본입니다.";
+      reviewControls();
+    }
+    async function openReviewItem(index, offset = 0) {
+      if (!reviewed) return;
+      const { page } = await reviewCall("content", {
+        path: reviewed.path,
+        reviewToken: reviewed.reviewToken,
+        index,
+        offset,
+        maxCharacters: 4096,
+      });
+      reviewPage = page;
+      element("reviewIndex").value = String(index);
+      element("reviewContent").textContent = page.content;
+      element("reviewPageLabel").textContent =
+        `관측 ${index + 1}/${reviewed.items} · ${page.kind} · 문자 ${offset}–${Math.min(offset + 4096, page.totalCharacters)}/${page.totalCharacters}`;
+      reviewControls();
+    }
+    const selectedMasks = () =>
+      element("exportMasks")
+        .value.split("\n")
+        .filter((s) => s.length > 0);
+    element("diagnosticReview").onclick = async () => {
+      reviewed = null;
+      plannedMasks = null;
+      reviewControls();
+      try {
+        const { review } = await reviewCall("review", {
+          path: element("diagnosticPath").value,
+        });
+        showReview(review);
+        if (review.items) await openReviewItem(0);
+      } catch {
+        element("reviewSummary").textContent =
+          "열기 실패 · 이 자료의 재생 및 반출 제한을 확인하세요.";
+      }
+    };
+    element("reviewItem").onclick = () =>
+      openReviewItem(Number(element("reviewIndex").value)).catch(() => {});
+    element("reviewPrevious").onclick = () =>
+      openReviewItem(Number(element("reviewIndex").value) - 1).catch(() => {});
+    element("reviewNext").onclick = () =>
+      openReviewItem(Number(element("reviewIndex").value) + 1).catch(() => {});
+    element("reviewPageNext").onclick = () =>
+      openReviewItem(reviewPage.index, reviewPage.nextOffset).catch(() => {});
+    element("exportMasks").oninput = () => {
+      plannedMasks = null;
+      reviewControls();
+    };
+    element("exportPreview").onclick = async () => {
+      try {
+        const masks = selectedMasks();
+        const { preview } = await reviewCall("preview-export", {
+          path: reviewed.path,
+          reviewToken: reviewed.reviewToken,
+          masks,
+        });
+        plannedMasks = masks;
+        element("exportPlan").textContent = JSON.stringify(preview, null, 2);
+        reviewControls();
+      } catch {
+        plannedMasks = null;
+        reviewControls();
+      }
+    };
+    element("diagnosticExport").onclick = async () => {
+      try {
+        const { exported } = await reviewCall("export", {
+          path: reviewed.path,
+          reviewToken: reviewed.reviewToken,
+          masks: plannedMasks,
+          destination: element("exportDestination").value,
+        });
+        element("exportResult").textContent = JSON.stringify(
+          {
+            path: exported.path,
+            bundleId: exported.bundleId,
+            source: exported.metadata.export.source,
+            integrity: exported.integrity,
+            replayImpact: exported.metadata.export.replayImpact,
+          },
+          null,
+          2,
+        );
+        element("diagnosticPath").value = exported.path;
+        showReview(exported);
+      } catch {}
+    };
+    reviewControls();
     const diagnosticOptions = () => ({
       directory: element("diagnosticDirectory").value,
       maxBytes: Number(element("diagnosticLimit").value) * 1024 * 1024,

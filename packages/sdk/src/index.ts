@@ -2,6 +2,17 @@ import { createReducer, type Client } from "./reducer.js";
 import { createLiveClient, type LiveClient, type LiveOptions } from "./live.js";
 export { SdkError } from "./reducer.js";
 export { readDiagnostic, compareDiagnostic } from "./diagnostics.js";
+export {
+  reviewDiagnostic,
+  inspectDiagnostic,
+  previewDiagnosticExport,
+  exportDiagnostic,
+} from "./export.js";
+export type {
+  DiagnosticReview,
+  DiagnosticContentPage,
+  DiagnosticExportOptions,
+} from "./export.js";
 export type {
   DiagnosticOptions,
   DiagnosticStatus,
