@@ -836,6 +836,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             "request-conflict",
             "This request ID is already bound to a different response.",
           );
+        if (
+          state.response?.requestId === request.requestId &&
+          ["delivered", "not-submitted"].includes(state.response.state)
+        )
+          return structuredClone(state.response);
         return existing.promise;
       }
       const durable = remoteRequests.find(
@@ -1079,6 +1084,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                 createHash("sha256").update(request.answer).digest("hex"),
             );
           } else {
+            writeAttempted = true;
             const accepted = await helper({
               ...envelope,
               modalHash,

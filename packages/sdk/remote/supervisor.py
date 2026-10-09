@@ -361,8 +361,10 @@ def handle(request):
             if prior:
                 if prior['binding'] != binding:
                     raise ValueError('Request identity conflict')
-                if step_index is None:
+                if step_index is None and prior['state'] != 'reserved':
                     return dict(requestId=request_id, state=prior['state'], reason=prior.get('reason'))
+                if prior.get('resolution'):
+                    return dict(requestId=request_id, state=prior['state'], reason='request-already-resolved')
                 previous = prior.get('steps', {}).get(str(step_index)) if step_index is not None else None
                 if previous:
                     if previous['digest'] != hashlib.sha256(payload).hexdigest() or previous['inputType'] != input_type:
@@ -453,6 +455,8 @@ def handle(request):
             requests = json.loads((run / 'requests.json').read_text())
         except FileNotFoundError:
             requests = {}
+        if not isinstance(requests, dict) or any(not isinstance(value, dict) or value.get('state') not in ('reserved', 'queued', 'written', 'rejected') or not isinstance(value.get('binding'), dict) or value.get('resolution') not in (None, 'delivered', 'not-submitted') for value in requests.values()):
+            raise ValueError('Response control metadata is incomplete; inputs remain blocked')
         modal = modal_witness(meta)
         return dict(executionId=meta['executionId'], sessionId=sid, observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal,
                     gap=cursor < buffer['first'] - 1, history=history, historyError=history_error, screen=screen, phase=phase,

@@ -267,3 +267,62 @@ test("fault-injected loss after CLI accepts an approval resolves on the same-too
   assert.equal(writes, 1);
   restarted.close();
 });
+test("an explicitly reconfirmed response replaces its cached transport error without submitting again", async (t) => {
+  const record = await fixture();
+  let position = 18,
+    writes = 0,
+    ledger = [];
+  boundary(t, (r) => {
+    if (!r.action) return pinned;
+    if (r.action === "start")
+      return { executionId: r.executionId, remoteRoot: "/fixture/control" };
+    if (r.action === "status") return observed(r, record, position, ledger);
+    if (r.action === "reserve-response") {
+      ledger = [
+        {
+          requestId: r.requestId,
+          state: "reserved",
+          binding: Object.fromEntries(
+            [
+              "sessionId",
+              "executionId",
+              "interactionId",
+              "revision",
+              "toolId",
+              "kind",
+              "answerDigest",
+            ].map((k) => [k, r[k]]),
+          ),
+        },
+      ];
+      return { state: "reserved" };
+    }
+    if (r.action === "respond") {
+      writes++;
+      ledger[0].state = "written";
+      position = 30;
+      return {
+        error: "ssh-failed",
+        message: "fault injection: delivered CLI result not acknowledged",
+      };
+    }
+    if (r.action === "settle-response") {
+      ledger[0].resolution = r.resolution;
+      return { settled: true };
+    }
+    throw Error("unexpected action " + r.action);
+  });
+  const c = fresh();
+  await c.connect();
+  await c.start({ cwd: "/fixture/work", prompt: "controlled" });
+  await c.refresh();
+  const req = response(c, "cached-error");
+  await assert.rejects(c.respond(req), { code: "ssh-failed" });
+  await c.connect();
+  const s = await c.reconfirmDelivery();
+  assert.equal(s.response.state, "delivered");
+  const receipt = await c.respond(req);
+  assert.equal(receipt.state, "delivered");
+  assert.equal(writes, 1);
+  c.close();
+});
