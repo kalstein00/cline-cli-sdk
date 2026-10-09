@@ -142,6 +142,7 @@ const server = createServer(async (request, response) => {
         const snapshot = await client.start({
           cwd: input.cwd,
           prompt: input.prompt,
+          terminalMode: input.terminalMode || "tui",
           dataDir: input.dataDir || undefined,
           retryLimit:
             input.retryLimit === undefined
