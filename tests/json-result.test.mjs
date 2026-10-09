@@ -61,3 +61,15 @@ test('changed partial history waits for fresh process evidence instead of prior 
   const input=recording([history(1,[{id:'answer',role:'assistant',content:[{type:'text',text:'{}'}]}]),ended(2),history(3,[{id:'answer',role:'assistant',content:[{type:'text',text:'{"partial":'}]}]),{...ended(4),alive:true,exitCode:null,manifestStatus:'running',supervisorAlive:true}]);input.resultRequest={type:'json',requestId:'changed',baselineMessageIds:[]};
   const client=createClient({mode:'replay'});const events=[];client.subscribe(e=>events.push(e));await client.openReplay(input);await client.replayAll();assert.equal(client.snapshot().result.state,'pending');assert.equal(events.filter(e=>e.type==='result.changed').some(e=>e.payload.state==='invalid-json'),false);client.close();
 });
+
+test('identical prompts in later turns cannot satisfy an earlier result request',async()=>{
+  const input=recording([history(1,[{id:'old-user',role:'user',content:[{type:'text',text:'same request'}]},{id:'old-answer',role:'assistant',content:[{type:'text',text:'{"old":true}'}]},{id:'new-user',role:'user',content:[{type:'text',text:'same request'}]},{id:'new-answer',role:'assistant',content:[{type:'text',text:'{"new":true}'}]}]),ended(2)]);
+  input.resultRequest={type:'json',requestId:'old-request',baselineMessageIds:[],promptDigest:createHash('sha256').update('same request').digest('hex')};
+  const client=createClient({mode:'replay'});await client.openReplay(input);await client.replayAll();assert.equal(client.snapshot().result.state,'unconfirmed');assert.equal(client.snapshot().result.value,undefined);client.close();
+});
+
+test('superseding execution evidence blocks results even if history was compacted to one matching turn',async()=>{
+  const input=recording([history(1,[{id:'new-user',role:'user',content:[{type:'text',text:'same request'}]},{id:'new-answer',role:'assistant',content:[{type:'text',text:'{"new":true}'}]}]),ended(2),{kind:'binding',seq:3,observedAt:'2026-10-09T10:00:00Z',sessionId:'content-session',supersededBy:'run-00000000-0000-0000-0000-000000000002'}]);
+  input.resultRequest={type:'json',requestId:'old-request',baselineMessageIds:[],promptDigest:createHash('sha256').update('same request').digest('hex')};
+  const client=createClient({mode:'replay'});await client.openReplay(input);await client.replayAll();assert.equal(client.snapshot().result.state,'unconfirmed');assert.equal(client.snapshot().result.value,undefined);client.close();
+});

@@ -74,6 +74,7 @@ export interface ResumeRequest {
   prompt: string;
 }
 export interface ManagedExecution {
+  supersededBy?:string;
   resultRequest?:ResultRequest;
   outputMode?: "terminal" | "json";
   terminalMode?: "readline" | "tui";
@@ -420,6 +421,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           seq: ++sequence,
           observedAt: new Date().toISOString(),
           sessionId: result.sessionId,
+          ...(result.supersededBy?{supersededBy:result.supersededBy}:{}),
         });
       }
       phaseSupported = !!result.management?.phaseSupported;
@@ -888,7 +890,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           sessionId: found.sessionId,
           executionId,
           cliHash: found.cliHash ?? report.cliHash,
-          resultRequest:found.resultRequest ?? undefined,
+          resultRequest:found.resultRequest ? {...found.resultRequest,...(found.supersededBy?{supersededBy:found.supersededBy}:{})} : undefined,
         });
       }
       fullSynchronization = true;

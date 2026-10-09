@@ -4,7 +4,7 @@ import type {ValidateFunction} from "ajv";
 import {createHash} from "node:crypto";
 
 export interface ResultFormat {type:"json";requestId:string;schema?:JsonSchema;validation?:"sdk"|"native"}
-export interface ResultRequest extends ResultFormat {baselineMessageIds:string[];promptDigest?:string}
+export interface ResultRequest extends ResultFormat {baselineMessageIds:string[];promptDigest?:string;supersededBy?:string}
 const validators=new WeakMap<ResultRequest,ValidateFunction>();
 export interface StructuredResult {
   type:"json";
@@ -32,6 +32,11 @@ export function prepareResult(format:ResultFormat|undefined,baselineMessageIds:s
     if(typeof promptDigest!=="string" || !/^[a-f0-9]{64}$/.test(promptDigest)) throw new SdkError("invalid-result-format","Invalid result prompt binding.");
     request.promptDigest=promptDigest;
   }
+  const supersededBy=(format as ResultRequest).supersededBy;
+  if(supersededBy!==undefined) {
+    if(typeof supersededBy!=="string" || !/^run-[a-f0-9-]{36}$/.test(supersededBy)) throw new SdkError("invalid-result-format","Invalid superseding execution binding.");
+    request.supersededBy=supersededBy;
+  }
   if(format.schema!==undefined) {
     const compiled=schemaValidator(format.schema);request.schema=compiled.schema;request.validation="sdk";validators.set(request,compiled.validate);
   }
@@ -46,12 +51,17 @@ export function resultPrompt(prompt:string,request:ResultRequest|undefined):stri
 
 export function structuredResult(request:ResultRequest,snapshot:Snapshot,historySeq=0):StructuredResult {
   const base:StructuredResult={type:"json",requestId:request.requestId,sessionId:snapshot.sessionId,executionId:snapshot.executionId,state:"pending",validation:request.schema!==undefined?"sdk-schema":"json"};
+  if(request.supersededBy) return {...base,state:"unconfirmed",errors:[{path:"",keyword:"binding",message:"This execution was superseded by another managed run."}]};
   let lastUser=-1;
   for(let index=snapshot.messages.length-1;index>=0;index--) if(snapshot.messages[index].role==="user" && !snapshot.messages[index].isToolResult) {lastUser=index;break;}
   if(request.promptDigest) {
-    let prompt=snapshot.messages[lastUser]?.text;
-    if(prompt?.startsWith('<user_input mode="act">') && prompt.endsWith('</user_input>')) prompt=prompt.slice(23,-13);
-    if(prompt===undefined || createHash("sha256").update(prompt).digest("hex")!==request.promptDigest) return {...base,state: snapshot.messages.length?"unconfirmed":"pending"};
+    const matches=snapshot.messages.filter(message=>{
+      if(message.role!=="user" || message.isToolResult || request.baselineMessageIds.includes(message.id)) return false;
+      let prompt=message.text;
+      if(prompt.startsWith('<user_input mode="act">') && prompt.endsWith('</user_input>')) prompt=prompt.slice(23,-13);
+      return createHash("sha256").update(prompt).digest("hex")===request.promptDigest;
+    });
+    if(matches.length!==1 || matches[0].id!==snapshot.messages[lastUser]?.id) return {...base,state: snapshot.messages.length?"unconfirmed":"pending"};
   }
   const candidate=snapshot.messages.slice(lastUser+1).reverse().find(message=>message.role==="assistant" && message.text && !message.hasToolCalls && !request.baselineMessageIds.includes(message.id));
   if(candidate) {base.messageId=candidate.id;base.rawText=candidate.text;}

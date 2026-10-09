@@ -301,7 +301,7 @@ def handle(request):
                 executions.append(dict(executionId=candidate.name, remoteRoot=str(root), sessionId=sid,
                     alive=bool(same_boot and expected and actual == expected),
                     identityConfirmed=bool(same_boot and expected and (actual is None or actual == expected)),
-                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), cliHash=meta.get('cliHash'), resultRequest=meta.get('resultRequest')))
+                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), cliHash=meta.get('cliHash'), resultRequest=meta.get('resultRequest'), supersededBy=meta.get('resumedBy')))
             except (OSError, ValueError, KeyError, TypeError):
                 continue
         return dict(executions=executions)
@@ -591,7 +591,7 @@ def handle(request):
                 pass
         modal = modal_witness(meta)
         composer = composer_witness(meta)
-        return dict(executionId=meta['executionId'], sessionId=sid, observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal, composerHash=composer['sha256'] if composer else None, composerPane=composer, resume=meta.get('resume'),
+        return dict(executionId=meta['executionId'], sessionId=sid, supersededBy=meta.get('resumedBy'), observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal, composerHash=composer['sha256'] if composer else None, composerPane=composer, resume=meta.get('resume'),
                     gap=cursor < buffer['first'] - 1, history=history, historyError=history_error, screen=screen, phase=phase,
                     process=dict(kind='process', identity=expected, alive=alive, identityConfirmed=confirmed,
                                  exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else meta.get('ownedManifestStatus'),

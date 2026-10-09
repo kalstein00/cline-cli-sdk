@@ -75,6 +75,7 @@ export interface DiagnosticExportOptions {
   maxBytes?: number;
 }
 const protectedKeys = new Set([
+  "supersededBy",
   "index", "previousSha256", "rowFormat", "journalBytes", "integrityLimitation",
   "id",
   "bundleId",

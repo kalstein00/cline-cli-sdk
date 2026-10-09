@@ -76,8 +76,11 @@ try {
   const stop=await resumed.stop({executionId:resumedId,requestId:'stop-resume'});
   assert.equal(stop.state,'confirmed');assert.equal(stop.childrenVerified,true);
   resumeReport={sessionId:final.sessionId,previousExecutionId:report[0].executionId,executionId:resumedId,oldResultCleared:true,newAnswer:'RESUME_NEW_RUN',stop};
-  await resumed.attach(report[0].executionId);
-  assert.equal(resumed.snapshot().result.state,'unconfirmed');assert.equal(resumed.snapshot().result.value,undefined);
+  const old=createClient({mode:'live',connection});
+  try {
+    await old.connect();await old.attach(report[0].executionId);
+    assert.equal(old.snapshot().result.state,'unconfirmed');assert.equal(old.snapshot().result.value,undefined);
+  } finally {old.close();}
   resumeReport.oldExecutionRejectsNewAnswer=true;
 } finally {
   if(resumedId && !['stopped','completed','failed'].includes(resumed.snapshot().execution)) await resumed.stop({executionId:resumedId,requestId:'cleanup-resume'});

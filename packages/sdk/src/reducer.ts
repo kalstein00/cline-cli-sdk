@@ -169,6 +169,7 @@ export interface BindingObservation {
   observedAt: string;
   sessionId: string | null;
   executionId?: string;
+  supersededBy?:string;
 }
 export interface PhaseObservation {
   kind: "phase";
@@ -997,6 +998,7 @@ export function createReducer(options: {
   ) => {
     observationEvents = [];
     if (obs.kind === "binding") {
+      if(obs.supersededBy && resultRequest) resultRequest.supersededBy=obs.supersededBy;
       const next = {
         sessionId: obs.sessionId,
         ...(obs.executionId ? { executionId: obs.executionId } : {}),
