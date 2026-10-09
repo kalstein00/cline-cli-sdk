@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-readline"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "content-mismatch-session",
+  "executionId": "content-mismatch-run",
+  "observations": [
+    {
+      "kind": "history",
+      "seq": 1,
+      "observedAt": "2026-10-09T10:00:00Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJjb250ZW50LW1pc21hdGNoLXNlc3Npb24iLCJtZXNzYWdlcyI6W3siaWQiOiJjb250ZW50LWFuc3dlciIsInJvbGUiOiJhc3Npc3RhbnQiLCJjb250ZW50IjpbeyJ0eXBlIjoidGhpbmtpbmciLCJ0aGlua2luZyI6IlN5bnRoZXRpYyBleHBvc2VkIHRoaW5rLiDtlZzquIAgPHNjcmlwdD4gaXMgZGlzcGxheWVkIGFzIHBsYWluIHRleHQuIn0seyJ0eXBlIjoidGV4dCIsInRleHQiOiJ7XCJzdGF0dXNcIjpcIndyb25nXCIsXCJpdGVtc1wiOlsxLDJdLFwibm90ZVwiOlwi7ZWc6riAXCJ9In0seyJ0eXBlIjoicmVkYWN0ZWRfdGhpbmtpbmcifV19XX0="
+    },
+    {
+      "kind": "process",
+      "seq": 2,
+      "observedAt": "2026-10-09T10:00:00Z",
+      "identity": {
+        "pid": 42,
+        "startTime": "100",
+        "bootId": "boot"
+      },
+      "alive": false,
+      "identityConfirmed": true,
+      "exitCode": 0,
+      "manifestStatus": "completed",
+      "children": [],
+      "childrenVerified": true,
+      "supervisorAlive": false
+    }
+  ],
+  "provenance": {
+    "source": "controlled content fixture",
+    "sourceSha256": "synthetic",
+    "review": "No credentials; synthetic SDK contract probe, not company evidence",
+    "transformations": [
+      "synthetic content"
+    ],
+    "complete": false,
+    "truncated": false
+  },
+  "resultRequest": {
+    "type": "json",
+    "requestId": "content-mismatch",
+    "baselineMessageIds": [],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "ok"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "items",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "validation": "sdk"
+  }
+}

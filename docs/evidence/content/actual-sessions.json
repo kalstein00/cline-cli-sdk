@@ -1,0 +1,117 @@
+{
+  "passed": true,
+  "source": "actual pinned public CLI; packed independent consumer",
+  "sessions": [
+    {
+      "tag": "first",
+      "sessionId": "1791561178269_a7axg",
+      "executionId": "run-378aba6c-5bc4-463b-b042-6760d8053ee3",
+      "requestId": "request-first",
+      "value": {
+        "sessionTag": "first",
+        "items": [
+          1,
+          2
+        ],
+        "note": "한글"
+      },
+      "beforeCloseAlive": true,
+      "reconnectedSameExecution": true,
+      "stop": {
+        "executionId": "run-378aba6c-5bc4-463b-b042-6760d8053ee3",
+        "requestId": "stop-first",
+        "state": "confirmed",
+        "childrenVerified": true,
+        "trackedCount": 2,
+        "remaining": [],
+        "reason": null,
+        "observedAt": "2026-10-09T15:53:05.267402+00:00",
+        "targets": [
+          {
+            "pid": 303266,
+            "startTime": "1918630",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          }
+        ]
+      },
+      "diagnosticMatches": true,
+      "thinkingParts": 0
+    },
+    {
+      "tag": "second",
+      "sessionId": "1791561192011_brjil",
+      "executionId": "run-6dc1a73e-e7e6-4b43-84b0-b2308024806e",
+      "requestId": "request-second",
+      "value": {
+        "sessionTag": "second",
+        "items": [
+          1,
+          2
+        ],
+        "note": "한글"
+      },
+      "beforeCloseAlive": true,
+      "reconnectedSameExecution": true,
+      "stop": {
+        "executionId": "run-6dc1a73e-e7e6-4b43-84b0-b2308024806e",
+        "requestId": "stop-second",
+        "state": "confirmed",
+        "childrenVerified": true,
+        "trackedCount": 1,
+        "remaining": [],
+        "reason": null,
+        "observedAt": "2026-10-09T15:53:18.686910+00:00",
+        "targets": [
+          {
+            "pid": 304014,
+            "startTime": "1919999",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          }
+        ]
+      },
+      "diagnosticMatches": true,
+      "thinkingParts": 0
+    }
+  ],
+  "resume": {
+    "sessionId": "1791561178269_a7axg",
+    "previousExecutionId": "run-378aba6c-5bc4-463b-b042-6760d8053ee3",
+    "executionId": "run-7fb4075b-ed96-4293-9276-06988a046ced",
+    "oldResultCleared": true,
+    "newAnswer": "RESUME_NEW_RUN",
+    "stop": {
+      "executionId": "run-7fb4075b-ed96-4293-9276-06988a046ced",
+      "requestId": "stop-resume",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 1,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-09T15:53:39.329875+00:00",
+      "targets": [
+        {
+          "pid": 304932,
+          "startTime": "1921770",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    }
+  },
+  "cli": {
+    "version": "3.0.69",
+    "sha256": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032"
+  },
+  "validationBoundary": "packed SDK public start/snapshot/subscribe/list/attach/stop/resume; exported raw observations replayed and event/snapshot compared",
+  "browserJson": {
+    "sessionId": "1791561221268_ko42n",
+    "executionId": "run-99a9eb95-50ff-4081-b81b-9da65a0f0513",
+    "resultState": "ready",
+    "validation": "sdk-schema",
+    "value": {
+      "status": "ok"
+    },
+    "execution": "completed",
+    "childrenVerified": true,
+    "supervisorAlive": false
+  }
+}

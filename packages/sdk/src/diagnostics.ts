@@ -62,6 +62,7 @@ export function compareDiagnostic(
   events: SdkEvent[],
   snapshot: Snapshot,
 ) {
+  if(bundle.metadata.adapterVersion!==2) return {matches:false,available:false,eventDifferences:null,snapshotMatches:null,reason:"Legacy/unknown adapter interpretation; raw replay remains available, exact current comparison is unavailable."};
   if (bundle.metadata.integrityVerdict?.state === "limited")
     return { matches: false, eventDifferences: null, snapshotMatches: null, available: false,
       reason: bundle.metadata.integrityVerdict.reason };
@@ -165,7 +166,7 @@ export function createDiagnosticCollector() {
         format: "cline-cli-sdk-diagnostic",
         schemaVersion: 2,
         sdkVersion: "0.1.0",
-        adapterVersion: 1,
+        adapterVersion: 2,
         ownerPid: process.pid,
         startedAt,
         limits,

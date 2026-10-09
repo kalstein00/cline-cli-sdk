@@ -14,3 +14,7 @@ JSON 결과는 resultFormat:{type:"json",requestId:"consumer-request-1"}으로 �
 resultFormat에 schema와 validation:"sdk"를 지정하면 SDK가 JSON Schema를 프롬프트에 전달하고 최종 답변을 검증한다. 스키마 통과 결과만 ready/value를 제공하며 실패는 schema-mismatch/errors로 반환한다. validation:"native"는 검증된 네이티브 생성 경로가 없어 원격 실행 전에 unsupported-native-schema로 거부한다. 자동 수정/재요청이나 SDK 검증 모드로의 자동 전환은 없다.
 
 Schema는 draft 2020-12의 엄격 검증을 사용한다([Ajv JSON Schema](https://ajv.js.org/json-schema.html), [strict mode](https://ajv.js.org/strict-mode.html)). 제한은 64 KiB·2048 JSON 값·깊이 32다. 객체/배열/type/required/enum/const/additionalProperties 및 중첩·합성 규칙과 해석 가능한 비재귀 로컬 JSON pointer 참조를 지원한다. 원격/미해결/재귀 참조, 다른 draft, $id/$async/$dynamicRef/$recursiveRef, 정규식 pattern/patternProperties 및 미등록 format·알 수 없는 키워드는 실행 전에 거부한다. 기본값 주입·타입 강제 변환·추가 속성 삭제를 하지 않는다. structuredResults capability는 SDK의 JSON/Schema 검증 지원과 nativeSchema:false를 별도로 표시한다. 스키마 요청 계약은 관리 실행의 제한된 원격 제어 메타데이터에 보존하여 재연결 때 재사용하며 대화 원문/결과는 CLI 기록에서 읽는다.
+
+이미 확정된 답변의 결과는 같은 run을 중단해도 보존한다. 현재성이 깨지면 unconfirmed로 바뀌며 새 실행/같은 세션 재개는 이전 result를 초기화한다. 현재 resume는 새로운 resultFormat을 받지 않으므로 JSON/Schema 계약이 필요한 새 작업은 start로 요청한다.
+
+수용 범위·실제 두 세션·진단 왕복·회사 체크리스트는 [content-acceptance.md](content-acceptance.md)에 기록했다.

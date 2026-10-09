@@ -44,8 +44,10 @@ export function structuredResult(request:ResultRequest,snapshot:Snapshot):Struct
   for(let index=snapshot.messages.length-1;index>=0;index--) if(snapshot.messages[index].role==="user" && !snapshot.messages[index].isToolResult) {lastUser=index;break;}
   const candidate=snapshot.messages.slice(lastUser+1).reverse().find(message=>message.role==="assistant" && message.text && !message.hasToolCalls && !request.baselineMessageIds.includes(message.id));
   if(candidate) {base.messageId=candidate.id;base.rawText=candidate.text;}
-  if(snapshot.execution==="failed" || snapshot.execution==="stopped") return {...base,state:"interrupted"};
   if(!snapshot.historySync.current || snapshot.jsonOutput?.state==="incomplete" || snapshot.jsonOutput?.state==="unsupported") return {...base,state:"unconfirmed"};
+  const previous=snapshot.result;
+  if(previous && ["ready","invalid-json","schema-mismatch"].includes(previous.state) && previous.requestId===request.requestId && previous.executionId===snapshot.executionId && previous.sessionId===snapshot.sessionId && previous.messageId===candidate?.id && previous.rawText===candidate?.text) return structuredClone(previous);
+  if(snapshot.execution==="failed" || snapshot.execution==="stopped") return {...base,state:"interrupted"};
   const process=snapshot.executionEvidence;
   const jsonFinal=snapshot.jsonOutput?.state==="completed" && candidate?.text===snapshot.jsonOutput.finalText;
   const idleAnswer=process?.alive && process.manifestStatus==="idle" && !!snapshot.composer && !snapshot.interaction;

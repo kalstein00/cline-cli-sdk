@@ -20,7 +20,7 @@ export function jsonOutputParser() {
   const record=(raw:unknown)=>{
     if (!raw || typeof raw!=="object" || Array.isArray(raw)) {fault("Invalid JSON record envelope.");return;}
     const value=raw as Record<string,any>;
-    const unsafe=state.state==="incomplete" || state.state==="unsupported";
+    const unsafe=state.state==="incomplete" || state.state==="unsupported" || state.state==="failed";
     if(value.type==="run_result") {
       if(typeof value.text!=="string" || typeof value.finishReason!=="string") {fault("Invalid run_result.");return;}
       state={...state,lastEvent:value.type,finalText:value.text,state:unsafe?state.state:value.finishReason==="completed"?"completed":"failed"};
@@ -37,10 +37,10 @@ export function jsonOutputParser() {
         else if(event.contentType==="tool") {
           if(event.toolName==="ask_question") state={...state,state:"unsupported",warning:"JSON questions have no verified response path."};
         } else fault("Unsupported content event.");
-      } else if(event.type==="error" && !event.recoverable) state={...state,state:"failed",warning:"CLI reported a non-recoverable agent error."};
+      } else if(event.type==="error" && !event.recoverable) state={...state,state:unsafe?state.state:"failed",warning:state.warning??"CLI reported a non-recoverable agent error."};
       else if(!["content_end","done","error","notice","iteration_start","iteration_end","usage"].includes(event.type)) fault("Unsupported agent event: "+event.type);
     } else if(["run_start","hook_event","team_event","team_restored","run_abort_requested"].includes(value.type)) state={...state,lastEvent:value.type};
-    else if(value.type==="run_aborted") state={...state,state:"failed",lastEvent:value.type};
+    else if(value.type==="run_aborted") state={...state,state:unsafe?state.state:"failed",lastEvent:value.type};
     else fault("Unsupported JSON record: "+String(value.type));
   };
   return {

@@ -213,6 +213,7 @@ test("unimplemented approval screens and unknown CLI profiles block all remote i
     { code: "replay-read-only" },
   );
   assert.deepEqual(client.capabilities(), {
+    structuredResults: { json: true, schemaValidation: true, nativeSchema: false },
     replay: true,
     live: false,
     responses: false,

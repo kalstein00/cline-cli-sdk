@@ -27,7 +27,7 @@ const watch = () =>
       stream.write(`data: ${JSON.stringify(event)}\n\n`);
   });
 watch();
-const fixtures = ["message", "question", "unsupported"];
+const fixtures = ["message", "question", "unsupported", "content", "content-mismatch", "content-invalid"];
 const json = (response, status, value) => {
   if (value.snapshot) {
     value.diagnostics = client.diagnostics?.() ?? lastDiagnostics;

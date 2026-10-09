@@ -41,5 +41,12 @@ test('consumer starts a JSON managed execution and cannot submit unverified JSON
   assert.equal(client.capabilities().responses,false);
   assert.equal(client.capabilities().resume,false);
   await assert.rejects(client.respond({}),{code:'unsupported-json-input'});
+  await assert.rejects(client.resume({executionId:client.snapshot().executionId,requestId:'json-resume',prompt:'again'}),{code:'unsupported-json-resume'});
   client.close();
+});
+
+test('a terminal agent error cannot be overwritten by a later success record',async()=>{
+  const stream=JSON.stringify({type:'agent_event',event:{type:'error',recoverable:false}})+'\n'+JSON.stringify({type:'run_result',finishReason:'completed',text:'FINAL'})+'\n';
+  const input=recording([{kind:'json-output',channel:'stdout',seq:1,observedAt:'2026-10-09T10:00:00Z',dataBase64:Buffer.from(stream).toString('base64')}]);input.cli.profile='cline-3.0.69-json';
+  const client=createClient({mode:'replay'});await client.openReplay(input);await client.replayAll();assert.equal(client.snapshot().jsonOutput.state,'failed');client.close();
 });

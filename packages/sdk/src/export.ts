@@ -186,9 +186,11 @@ function transform(data: Awaited<ReturnType<typeof load>>, masks: string[]) {
   };
   const entries = structuredClone(data.entries.filter((e) => !e.__malformed)),
     streams = new Map<string, { o: any; b: Buffer }[]>();
+  let streamExecution="unbound";
   for (const e of entries) {
     e.observation = walk(e.observation);
     const o = e.observation;
+    if((o.kind==="initialize" || o.kind==="binding") && o.executionId) streamExecution=o.executionId;
     if (typeof o.dataBase64 === "string") {
       const b = Buffer.from(o.dataBase64, "base64");
       if (o.kind === "history") {
@@ -203,8 +205,8 @@ function transform(data: Awaited<ReturnType<typeof load>>, masks: string[]) {
         }
       } else {
         const key =
-          o.kind === "pty"
-            ? `pty:${o.source ?? "packet"}`
+          o.kind === "json-output" ? `json:${streamExecution}:${o.channel}` : o.kind === "pty"
+            ? `pty:${streamExecution}:${o.source ?? "packet"}`
             : `input:${o.binding?.requestId ?? o.requestId ?? o.seq}`;
         const list = streams.get(key) ?? [];
         list.push({ o, b });

@@ -18,6 +18,14 @@ test('consumer receives a parsed final JSON value only after a confirmed answer 
   client.close();
 });
 
+test('stopping the process after a confirmed answer preserves that final result',async()=>{
+  const stopped={...ended(3),exitCode:-15,manifestStatus:'cancelled',stop:{executionId:'content-run',requestId:'stop-1',state:'confirmed',childrenVerified:true,trackedCount:1,remaining:[],reason:null,observedAt:'2026-10-09T10:00:00Z'}};
+  const requested={kind:'execution-action',seq:3,observedAt:'2026-10-09T10:00:00Z',action:'stop',operation:'requested',executionId:'content-run',requestId:'stop-1'};
+  const input=recording([history(1,[{id:'answer',role:'assistant',content:[{type:'text',text:'{"ok":true}'}]}]),ended(2),requested,{...stopped,seq:4}]);input.resultRequest={type:'json',requestId:'answer-1',baselineMessageIds:[]};
+  const client=createClient({mode:'replay'});await client.openReplay(input);await client.replayAll();
+  assert.equal(client.snapshot().execution,'stopped');assert.equal(client.snapshot().result.state,'ready');assert.deepEqual(client.snapshot().result.value,{ok:true});client.close();
+});
+
 test('tool progress and baseline answers cannot satisfy the current JSON result request',async()=>{
   for(const [content,baselineMessageIds] of [ [[{type:'text',text:'{"old":true}'}],['answer']], [[{type:'text',text:'{"tool":true}'},{type:'tool_use',id:'tool-1',name:'read_file',input:{}}],[]] ]) {
     const input=recording([history(1,[{id:'answer',role:'assistant',content}]),ended(2)]);
@@ -42,3 +50,4 @@ test('start exposes JSON result state to the same live public API used by consum
   await client.start({cwd:'/work',prompt:'Return null',resultFormat:{type:'json',requestId:'live-result'}});
   assert.equal(client.snapshot().result.requestId,'live-result');assert.equal(client.snapshot().result.state,'pending');client.close();
 });
+
