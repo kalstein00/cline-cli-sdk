@@ -1,10 +1,21 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { createClient } from "@cline-cli-sdk/sdk";
+import {
+  createClient,
+  readDiagnostic,
+  compareDiagnostic,
+} from "@cline-cli-sdk/sdk";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 let client = createClient({ mode: "replay" });
 let preflight = null;
 let managedExecutions = [];
+let lastDiagnostics = null;
+let diagnosticComparison = null;
+const diagnosticDirectory =
+  process.env.CLINE_SDK_DIAGNOSTIC_DIR ??
+  join(tmpdir(), "cline-cli-sdk-diagnostics");
 const streams = new Set();
 const watch = () =>
   client.subscribe((event) => {
@@ -14,6 +25,11 @@ const watch = () =>
 watch();
 const fixtures = ["message", "question", "unsupported"];
 const json = (response, status, value) => {
+  if (value.snapshot) {
+    value.diagnostics = client.diagnostics?.() ?? lastDiagnostics;
+    value.diagnosticComparison = diagnosticComparison;
+    value.diagnosticDirectory = diagnosticDirectory;
+  }
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
@@ -64,6 +80,9 @@ const server = createServer(async (request, response) => {
         "/api/disconnect",
         "/api/managed",
         "/api/attach",
+        "/api/diagnostics/start",
+        "/api/diagnostics/stop",
+        "/api/diagnostics/replay",
       ].includes(url.pathname)
     ) {
       const origin = request.headers.origin;
@@ -86,6 +105,7 @@ const server = createServer(async (request, response) => {
       }
       const input = JSON.parse(body);
       if (url.pathname === "/api/connect") {
+        await client.stopDiagnostics?.();
         client.close();
         client = createClient({
           mode: "live",
@@ -97,10 +117,59 @@ const server = createServer(async (request, response) => {
           },
         });
         watch();
+        diagnosticComparison = null;
+        if (input.diagnostics)
+          lastDiagnostics = await client.startDiagnostics(input.diagnostics);
         preflight = await client.connect();
         managedExecutions = preflight.ready
           ? await client.listManagedExecutions()
           : [];
+        json(response, 200, {
+          snapshot: client.snapshot(),
+          capabilities: client.capabilities(),
+          preflight,
+          managedExecutions,
+        });
+        return;
+      }
+      if (url.pathname === "/api/diagnostics/start") {
+        lastDiagnostics = await client.startDiagnostics(input);
+        diagnosticComparison = null;
+        json(response, 200, {
+          snapshot: client.snapshot(),
+          capabilities: client.capabilities(),
+          preflight,
+          managedExecutions,
+        });
+        return;
+      }
+      if (url.pathname === "/api/diagnostics/stop") {
+        lastDiagnostics = await client.stopDiagnostics();
+        json(response, 200, {
+          snapshot: client.snapshot(),
+          capabilities: client.capabilities(),
+          preflight,
+          managedExecutions,
+        });
+        return;
+      }
+      if (url.pathname === "/api/diagnostics/replay") {
+        lastDiagnostics = (await client.stopDiagnostics?.()) ?? lastDiagnostics;
+        const bundle = await readDiagnostic(input.path);
+        client.close();
+        client = createClient({ mode: "replay" });
+        watch();
+        const events = [];
+        client.subscribe((e) => events.push(e));
+        preflight = null;
+        managedExecutions = [];
+        await client.openReplay(bundle.recording);
+        await client.replayAll();
+        diagnosticComparison = {
+          ...compareDiagnostic(bundle, events, client.snapshot()),
+          truncated: bundle.recording.provenance.truncated,
+          observations: bundle.recording.observations.length,
+        };
         json(response, 200, {
           snapshot: client.snapshot(),
           capabilities: client.capabilities(),
@@ -224,7 +293,8 @@ server.listen(port, "127.0.0.1", () =>
   console.log(`Cline SDK example: http://127.0.0.1:${port}`),
 );
 for (const signal of ["SIGINT", "SIGTERM"])
-  process.on(signal, () => {
+  process.on(signal, async () => {
+    await client.stopDiagnostics?.();
     client.close();
     for (const stream of streams) stream.end();
     server.close();
