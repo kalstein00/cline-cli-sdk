@@ -62,6 +62,8 @@ const result=await sdk.respond({sessionId:s.sessionId,executionId:s.executionId,
 
 ## 진단과 오프라인 비교
 
+수집 이후 [전체 내용 검토·가림 사본·로컬 반출](export.md)을 수행한다. 회사 테스트 담당자는 [회사 환경과 반출 절차](company-test.md)를 따른다. 회사 CLI 호환성은 실제 회사 재시험 근거 전까지 미검증이다.
+
 [진단 기록 계약·한도·실측](diagnostics.md)을 따른다. SDK 생성 뒤 connect 전에 시작하면 연결부터 전체 입력을 수집한다. 진행 중 시작한 기록은 앞 관측 누락을 표시하는 부분 기록이며 동일 이벤트를 완전히 대조할 수 있다고 주장하지 않는다.
 
 ```js

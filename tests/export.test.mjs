@@ -89,6 +89,36 @@ async function capture(t, directory, extras = []) {
   return saved.path;
 }
 
+test("stopped collection remains byte-identical through export, repeated stop and client close", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "cline-sdk-export-stop-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const c = createClient({
+    mode: "live",
+    connection: {
+      host: "fixture",
+      sshExecutable: "cline-sdk-missing-export-ssh",
+    },
+  });
+  await c.startDiagnostics({ directory });
+  await assert.rejects(c.connect(), { code: "ssh-unavailable" });
+  const saved = await c.stopDiagnostics(),
+    manifest = await readFile(join(saved.path, "manifest.json")),
+    journal = await readFile(join(saved.path, "observations.ndjson"));
+  const review = await reviewDiagnostic(saved.path);
+  await exportDiagnostic(saved.path, {
+    destination: join(directory, "copy"),
+    reviewToken: review.reviewToken,
+  });
+  await Promise.all([c.stopDiagnostics(), c.stopDiagnostics()]);
+  c.close();
+  await c.stopDiagnostics();
+  assert.deepEqual(await readFile(join(saved.path, "manifest.json")), manifest);
+  assert.deepEqual(
+    await readFile(join(saved.path, "observations.ndjson")),
+    journal,
+  );
+});
+
 test("consumer reviews every included raw and comparison item through finite decoded content pages before export", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "cline-sdk-export-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -129,6 +159,15 @@ test("normal local export retains semantic replay, rejects overwrite and stale r
       destination,
       reviewToken: review.reviewToken,
     });
+  assert.equal(copy.metadata.status.bytes, copy.bytes);
+  await assert.rejects(
+    exportDiagnostic(source, {
+      destination: join(dir, "over-limit"),
+      reviewToken: review.reviewToken,
+      maxBytes: 4096,
+    }),
+    { code: "diagnostic-export-limit" },
+  );
   const bundle = await readDiagnostic(copy.path),
     c = createClient({ mode: "replay" }),
     events = [];
@@ -144,6 +183,13 @@ test("normal local export retains semantic replay, rejects overwrite and stale r
   await assert.rejects(
     exportDiagnostic(source, {
       destination: source,
+      reviewToken: review.reviewToken,
+    }),
+    { code: "diagnostic-export-original" },
+  );
+  await assert.rejects(
+    exportDiagnostic(source, {
+      destination: join(source, "..copy"),
       reviewToken: review.reviewToken,
     }),
     { code: "diagnostic-export-original" },

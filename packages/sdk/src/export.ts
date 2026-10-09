@@ -166,6 +166,8 @@ const protectedKeys = new Set([
   "sourceSha256",
   "manifestSha256",
   "journalSha256",
+  "selectionSha256",
+  "integritySha256",
   "cliHash",
   "answerDigest",
   "promptDigest",
@@ -376,7 +378,7 @@ export async function exportDiagnostic(
     parent = await realpath(dirname(requested)),
     destination = join(parent, requested.split(/[\\/]/).at(-1)!);
   const inside = relative(data.root, destination);
-  if (!inside || (!inside.startsWith("..") && !isAbsolute(inside)))
+  if (!inside || (inside.split(/[\\/]/)[0] !== ".." && !isAbsolute(inside)))
     throw new SdkError(
       "diagnostic-export-original",
       "Export outside the original recording directory.",
@@ -386,10 +388,13 @@ export async function exportDiagnostic(
   const journal = changed.entries.map((e) => JSON.stringify(e) + "\n").join("");
   const masked =
     masks.length > 0 || !!data.metadata.export?.replayImpact?.masked;
+  const max = options.maxBytes ?? 16 * 1024 * 1024;
   const metadata = {
     ...changed.metadata,
     status: {
       ...changed.metadata.status,
+      maxBytes: max,
+      observations: changed.entries.length,
       truncated: review.integrity.state === "truncated",
     },
     export: {
@@ -400,6 +405,7 @@ export async function exportDiagnostic(
         manifestSha256: review.integrity.manifestSha256,
         journalSha256: review.integrity.journalSha256,
         truncated: review.integrity.state === "truncated",
+        capturedStatus: changed.metadata.status,
       },
       transformations: [
         ...(changed.metadata.export?.transformations ?? []),
@@ -435,10 +441,16 @@ export async function exportDiagnostic(
       journalSha256: sha(journal),
       journalBytes: Buffer.byteLength(journal),
       observations: changed.entries.length,
+      maxBytes: max,
     },
   };
-  const manifest = JSON.stringify(metadata),
-    max = options.maxBytes ?? 16 * 1024 * 1024;
+  let manifest = JSON.stringify(metadata);
+  for (let n = 0; n < 8; n++) {
+    const bytes = Buffer.byteLength(manifest) + Buffer.byteLength(journal);
+    if (metadata.status.bytes === bytes) break;
+    metadata.status.bytes = bytes;
+    manifest = JSON.stringify(metadata);
+  }
   if (!Number.isInteger(max) || max < 4096 || max > 256 * 1024 * 1024)
     throw new SdkError(
       "invalid-diagnostic-export-limit",
