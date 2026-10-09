@@ -84,6 +84,7 @@ const server = createServer(async (request, response) => {
         "/api/disconnect",
         "/api/managed",
         "/api/attach",
+        "/api/resume",
         "/api/diagnostics/start",
         "/api/diagnostics/stop",
         "/api/diagnostics/replay",
@@ -291,6 +292,12 @@ const server = createServer(async (request, response) => {
           capabilities: client.capabilities(),
           preflight,
         });
+        return;
+      }
+      if (url.pathname === "/api/resume") {
+        const snapshot = await client.resume(input);
+        managedExecutions = await client.listManagedExecutions();
+        json(response, 200, {snapshot, capabilities:client.capabilities(), preflight, managedExecutions});
         return;
       }
       if (url.pathname === "/api/reconfirm") {

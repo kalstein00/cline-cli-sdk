@@ -59,6 +59,11 @@ export interface StartRequest {
   dataDir?: string;
   retryLimit?: number;
 }
+export interface ResumeRequest {
+  executionId: string;
+  requestId: string;
+  prompt: string;
+}
 export interface ManagedExecution {
   terminalMode?: "readline" | "tui";
   executionId: string;
@@ -80,6 +85,7 @@ export interface LiveClient {
   attach(executionId: string): Promise<Snapshot>;
   reconfirmDelivery(): Promise<Snapshot>;
   start(request: StartRequest): Promise<Snapshot>;
+  resume(request: ResumeRequest): Promise<Snapshot>;
   refresh(): Promise<Snapshot>;
   snapshot(): Snapshot;
   subscribe(listener: (event: SdkEvent) => void): () => void;
@@ -88,6 +94,7 @@ export interface LiveClient {
     live: true;
     responses: true;
     freeText: boolean;
+    resume: boolean;
     companyCompatibility: "unverified";
   };
   respond(request: ResponseRequest): Promise<ResponseResult>;
@@ -157,6 +164,9 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let stopRequestId: string | null = null;
   let terminalMode: "readline" | "tui" = "readline";
   let modalHash: string | null = null;
+  let composerHash: string | null = null;
+  let resumeActive = false;
+  const resumes = new Map<string, { binding: string; promise: Promise<Snapshot> }>();
   const requests = new Map<
     string,
     { binding: string; promise: Promise<ResponseResult> }
@@ -346,16 +356,18 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     const ownership = await readFile(
       new URL("../remote/ownership.py", import.meta.url),
     );
+    const resumeSource = await readFile(new URL("../remote/resume.py", import.meta.url));
     if (closed || generation !== helperGeneration)
       throw new SdkError(
         "connection-interrupted",
         "The local connection was detached before this operation.",
       );
     return execute(
-      `import base64,io,json,sys;request=json.load(sys.stdin);sys.stdin=io.StringIO(json.dumps(request));exec(base64.b64decode(request['sourceBase64']))`,
+      `import base64,io,json,sys,types;request=json.load(sys.stdin);module=types.ModuleType('resume');exec(base64.b64decode(request['resumeSourceBase64']),module.__dict__);sys.modules['resume']=module;sys.stdin=io.StringIO(json.dumps(request));exec(base64.b64decode(request['sourceBase64']))`,
       {
         sourceBase64: source.toString("base64"),
         ownershipSourceBase64: ownership.toString("base64"),
+        resumeSourceBase64: resumeSource.toString("base64"),
         ...(input as object),
       },
     );
@@ -418,10 +430,18 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         terminalEvidence: {
           cursor: result.cursor,
           modalHash: result.modalHash ?? null,
+          composerHash: result.composerHash ?? null,
           gap: !!result.gap,
           fullScreen: !!result.screen,
           terminal: result.management?.terminal,
         },
+      });
+      if (result.composerPane) await reducer.ingest({
+        kind: "pty", seq: ++sequence, observedAt: new Date().toISOString(),
+        dataBase64: result.composerPane.dataBase64, source: "composer", apply: false,
+        witnessSha256: result.composerPane.sha256,
+        geometry: {rows: result.composerPane.rows, cols: result.composerPane.cols,
+          cursorX: result.composerPane.cursorX, cursorY: result.composerPane.cursorY},
       });
       for (const raw of result.observations ?? []) {
         try {
@@ -440,6 +460,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       cursor = result.cursor;
       remoteRequests = result.requests ?? [];
       modalHash = result.modalHash ?? null;
+      composerHash = result.composerHash ?? null;
       processEvidence = result.process ?? processEvidence;
       await reducer.ingest({
         kind: "file-read",
@@ -547,6 +568,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         const receipts = remoteRequests.filter(
           (receipt): receipt is DurableResponse =>
             receipt.binding?.executionId === managed!.executionId &&
+            receipt.binding?.kind !== ("composer" as string) &&
             receipt.binding?.sessionId === state.sessionId &&
             typeof receipt.binding?.answerDigest === "string",
         );
@@ -627,6 +649,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     return refreshing;
   };
   const validateResponse = (request: ResponseRequest) => {
+    if (state.resume?.state === "delivery-unknown")
+      throw new SdkError("resume-input-uncertain", "The follow-up delivery is unknown; input is blocked.");
     if (!state.historySync.current)
       throw new SdkError(
         "history-unconfirmed",
@@ -943,6 +967,122 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       state = { ...reducer.snapshot(), mode: "live" };
       return snapshot();
     },
+    resume(input) {
+      const request = structuredClone(input);
+      if (!request || typeof request.requestId !== "string" || typeof request.executionId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(request.requestId) ||
+          typeof request.prompt !== "string" || !request.prompt || request.prompt.trim() !== request.prompt ||
+          Buffer.byteLength(request.prompt) > 112 || /[\p{Cc}\p{Cs}]/u.test(request.prompt) || request.prompt.startsWith("/") || request.prompt.includes("@") ||
+          [...new Intl.Segmenter(undefined,{granularity:"grapheme"}).segment(request.prompt)].some(({segment})=>Buffer.byteLength(segment)>64))
+        return Promise.reject(new SdkError("invalid-resume", "Use printable one-row text up to 112 UTF-8 bytes without outer whitespace, slash commands or mentions."));
+      const binding = JSON.stringify([request.executionId, request.requestId, request.prompt]);
+      const previous = resumes.get(request.requestId);
+      if (previous) return previous.binding === binding ? previous.promise : Promise.reject(new SdkError("request-conflict", "Resume request identity is already bound."));
+      if (resumeActive || resumes.size >= 256)
+        return Promise.reject(new SdkError("resume-already-requested", "A resume launch has already been reserved; do not retry another identity."));
+      if (!report?.profile.supported || !report.ready)
+        return Promise.reject(new SdkError("unsupported-profile", "Resume requires the verified CLI profile."));
+      if (!managed || request.executionId !== managed.executionId)
+        return Promise.reject(new SdkError("resume-target-mismatch", "Attach the ended managed execution before resuming."));
+      const promise = (async () => {
+      await refresh();
+      if (!state.historySync.current || !state.sessionId || !["completed", "stopped"].includes(state.execution) ||
+          processEvidence?.alive !== false || !processEvidence.identityConfirmed ||
+          processEvidence.exitCode === null || processEvidence.supervisorAlive !== false ||
+          processEvidence.childrenVerified !== true || processEvidence.children?.length ||
+          (state.stop && (state.stop.state !== "confirmed" || !state.stop.childrenVerified || state.stop.remaining.length)))
+        throw new SdkError("resume-unconfirmed", "Confirm CLI, supervisor and all owned children ended before resuming.");
+      resumeActive = true;
+      const fromExecutionId = managed!.executionId;
+      const sessionId = state.sessionId;
+      const baseline = structuredClone(state.messages);
+      const executionId = "run-" + randomUUID();
+      const digest = createHash("sha256").update(request.prompt).digest("hex");
+      const receipt = {requestId: request.requestId, fromExecutionId, executionId, sessionId, state: "submitting" as const};
+      const action = (operation:"requested"|"receipt"|"fault"|"input", fields:any={}) => reducer.executionAction({
+        kind:"execution-action",seq:++sequence,observedAt:new Date().toISOString(),action:"resume",operation,
+        executionId:managed?.executionId ?? fromExecutionId,fromExecutionId,nextExecutionId:receipt.executionId,
+        requestId:request.requestId,sessionId,promptDigest:digest,...fields});
+      action("requested");
+      try {
+        const launched = await helper({ action: "resume", root: managed!.remoteRoot,
+          executionId: fromExecutionId, newExecutionId: executionId, requestId: request.requestId,
+          prompt: request.prompt, cliPath: report!.cliPath, cliHash: report!.cliHash });
+        if (!launched.executionId || launched.sessionId !== sessionId)
+          throw new SdkError("resume-target-mismatch", "Remote resume did not preserve the conversation.");
+        managed = launched;
+        terminalMode = "tui";
+        cursor = 0; historyHash = null; phase = null; pendingPhase = null;
+        processEvidence = null; observationGap = false; fullSynchronization = true;
+        stopPromise = null; stopRequestId = null;
+        await reducer.initialize({kind:"initialize",seq:++sequence,observedAt:new Date().toISOString(),
+          cli:{name:"cline",version:"3.0.69",profile:"cline-3.0.69-tui"},terminal:{rows:40,cols:120},
+          sessionId,executionId:launched.executionId,cliHash:report!.cliHash});
+        receipt.executionId=launched.executionId;
+        action("requested");
+        if (launched.executionId !== executionId) {
+          // A durable preexisting reservation is reconfirmed read-only, never continued or resubmitted.
+          await refresh();
+          const witness = await helper({action:"settle-resume",root:managed!.remoteRoot,executionId:managed!.executionId,requestId:request.requestId});
+          if (witness.state !== "delivered" || witness.executionId !== launched.executionId || witness.sessionId !== sessionId)
+            throw new SdkError("resume-input-uncertain", "The existing resume reservation has no conclusive delivery receipt.");
+          action("receipt",{receipt:witness});
+          if(reducer.snapshot().resume?.state!=="delivered") throw new SdkError("resume-input-uncertain","The stored follow-up witness is not current.");
+          resumeActive = false;
+          state={...reducer.snapshot(),mode:"live",connection:state.connection};
+          return snapshot();
+        }
+        const wait = async (condition:()=>boolean) => {
+          const deadline = Date.now() + (config.responseTimeoutMs ?? 30000);
+          while (Date.now() < deadline) {
+            await refresh();
+            if (!state.historySync.current || state.executionId !== launched.executionId || state.sessionId !== sessionId || !processEvidence?.alive || !processEvidence.identityConfirmed || observationGap)
+              throw new SdkError("resume-input-uncertain", "The resumed process/session is no longer confirmed.");
+            if (condition()) return;
+            if (state.interaction) throw new SdkError("resume-input-uncertain", "A modal owns the resumed input destination.");
+            await new Promise(ok=>setTimeout(ok,100));
+          }
+          throw new SdkError("resume-input-uncertain", "Composer echo or new user history was not confirmed.");
+        };
+        await wait(()=>state.composer?.text === "" && !!composerHash && baseline.every(m=>state.messages.some(n=>m.id===n.id&&m.text===n.text)));
+        const composerRevision=state.revision;
+        let stepIndex = 0;
+        const step = async (inputType:string, text:string, condition:()=>boolean) => {
+          const index = stepIndex++;
+          action("input",{dataBase64:Buffer.from(text).toString("base64"),inputType,stepIndex:index});
+          const queued = await helper({action:"respond",root:managed!.remoteRoot,executionId:managed!.executionId,
+            sessionId,requestId:request.requestId,interactionId:`${managed!.executionId}:composer`,revision:composerRevision,
+            kind:"composer",answerDigest:digest,stepIndex:index,inputType,dataBase64:Buffer.from(text).toString("base64"),
+            modalHash:composerHash,historyHash,processIdentity:processEvidence.identity,expectedCursor:cursor});
+          if (queued.state === "rejected") throw new SdkError("resume-input-uncertain", queued.reason ?? "Composer input rejected.");
+          await wait(()=>remoteRequests.some(r=>r.requestId===request.requestId&&r.steps?.some((s:any)=>s.index===index&&s.state==="written"))&&condition());
+        };
+        let part = "", accumulated = "";
+        const chunks:string[]=[];
+        for (const {segment} of new Intl.Segmenter(undefined,{granularity:"grapheme"}).segment(request.prompt)) {
+          if (Buffer.byteLength(part+segment)>64) {chunks.push(part);part="";}
+          part+=segment;
+        }
+        if(part)chunks.push(part);
+        for(const chunk of chunks){accumulated+=chunk;await step("composer-text",chunk,()=>state.composer?.text===accumulated);}
+        await step("composer-submit","\r",()=>state.messages.some(m=>m.role==="user"&&m.text===request.prompt&&!baseline.some(n=>n.id===m.id)));
+        const witness = await helper({action:"settle-resume",root:managed!.remoteRoot,executionId:managed!.executionId,requestId:request.requestId});
+        if(witness.state!=="delivered"||witness.executionId!==managed!.executionId||witness.sessionId!==sessionId)
+          throw new SdkError("resume-input-uncertain","The stored follow-up receipt did not match.");
+        action("receipt",{receipt:witness});
+        if(reducer.snapshot().resume?.state!=="delivered") throw new SdkError("resume-input-uncertain","The stored follow-up witness is not current.");
+        resumeActive = false;
+        state={...reducer.snapshot(),mode:"live",connection:state.connection};
+        return snapshot();
+      } catch(error) {
+        action("fault",{reason:error instanceof SdkError?error.code:"resume-input-uncertain"});
+        state={...reducer.snapshot(),mode:"live",connection:state.connection};
+        throw error;
+      }
+      })();
+      resumes.set(request.requestId,{binding,promise});
+      promise.catch(()=>{if(!resumeActive)resumes.delete(request.requestId);});
+      return promise;
+    },
     refresh,
     reconfirmDelivery: refresh,
     snapshot,
@@ -956,6 +1096,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         live: true,
         responses: true,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
+        resume: !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
+          !!state.sessionId && ["completed","stopped"].includes(state.execution) &&
+          processEvidence?.alive === false && processEvidence.identityConfirmed === true &&
+          processEvidence.supervisorAlive === false && processEvidence.childrenVerified === true &&
+          !processEvidence.children?.length && !resumeActive && !activeRequest,
         companyCompatibility: "unverified",
       };
     },
@@ -982,6 +1127,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         request.requestId,
         request.answer,
       ]);
+      if (request.executionId !== state.executionId || request.sessionId !== state.sessionId)
+        throw new SdkError("response-target-mismatch", "The response belongs to another session or execution.");
       const existing = requests.get(request.requestId);
       if (existing) {
         if (existing.binding !== binding)

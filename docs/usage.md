@@ -55,6 +55,7 @@ const result=await sdk.respond({sessionId:s.sessionId,executionId:s.executionId,
 | `listManagedExecutions()`, `attach(id)` | SDK가 시작한 실행만 조회·복원한다. [재연결](reconnect.md). |
 | `reconfirmDelivery()` | 불명 요청의 원래 receipt·도구 결과·단계를 다시 판정한다. 입력을 재전송하지 않는다. [전달 복구](delivery.md). |
 | `stop({executionId,requestId})` | 소유권을 확인한 CLI와 추적한 자식 종료를 확인한다. `confirmed/unknown` 및 대상 identity 증거를 제공한다. [중단](stop.md). |
+| `resume({executionId,requestId,prompt})` | 종료·자식 종료가 확인된 대화를 같은 SID의 새 TUI 실행으로 이어간다. 후속 요청은 printable 단일 행 UTF-8 112바이트 이내이며 composer echo·별도 Enter·새 user message로 수신을 확인한다. [재개](resume.md). |
 | `close()` | 로컬 자원을 해제한다. 원격 stop을 대신하지 않는다. |
 
 이벤트는 type·관련 식별자·revision·observationSeq·observedAt·payload를 제공한다. 메시지는 ID 기준 upsert이고 새 입력 단계는 별도 interaction ID다. 소비 앱은 구독 이벤트 뒤 최신 snapshot을 읽거나 refresh하며, 늦게 도착한 더 오래된 revision으로 화면을 덮어쓰지 않는다. 연결 불명·관측 누락·현재성 미확인은 정상 완료로 표시하지 않는다. 재생 UI는 기록 당시의 `connected`를 보여줄 수 있지만 `mode:'replay'`, `responses:false`이며 실제 연결을 만들지 않는다.
