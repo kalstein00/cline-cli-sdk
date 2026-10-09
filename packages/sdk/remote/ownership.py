@@ -71,6 +71,9 @@ class Ownership:
             changed = False
             for pid, item in current.items():
                 if pid not in owned and item['ppid'] in roots and pid != self.supervisor['pid']:
+                    expected_parent = self.supervisor if item['ppid'] == self.supervisor['pid'] else owned.get(item['ppid'])
+                    if not expected_parent or not matches(expected_parent) or not matches(item['identity']):
+                        continue
                     if len(owned) >= MAX_OWNED:
                         self.error = 'owned-process-limit'
                         raise ValueError(self.error)
@@ -95,6 +98,11 @@ class Ownership:
                         if int(child) not in current and (Path('/proc') / child).exists():
                             born = process(child)
                             if born:
+                                if born['ppid'] != pid or not matches(parent['identity']):
+                                    # Reparenting or PID reuse is not ownership.
+                                    # A later complete sweep can recover an orphan
+                                    # through its verified supervisor ancestry.
+                                    continue
                                 # A child may fork after the initial /proc directory
                                 # snapshot. Read and retain it rather than treating
                                 # this ordinary race as an inaccessible process.
