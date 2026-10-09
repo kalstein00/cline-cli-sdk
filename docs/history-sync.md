@@ -30,3 +30,27 @@ node --test tests/history-sync.test.mjs
 `fixtures/history-sync/recovery.json`의 최초 terminal/tool 자료는 검토된 공개 Cline 3.0.69의 `fixtures/interactions/choice.json`에서 가져왔다. provenance에는 원본 SHA-256과 각 변환을 기록한다. 보존할 텍스트 메시지, `history-failure`, 수정·중복 snapshot, 새 tool·PTY 질문은 명시적인 합성 자료다. 실제 운영 중 자연 발생한 부분 쓰기나 파일 교체를 관측했다는 주장은 하지 않는다. 회사 환경은 미검증이다.
 
 브라우저 검증은 실제 Windows Chrome에서 예제와 공개 live SDK를 사용하며, 외부 OpenSSH 경계를 검토된 fault 자료로 대체한다. 테스트 전용 source는 원문 관측·파일 오류만 공급하고 응답 입력은 거부한다. 실제 SSH 서버·원격 CLI 장애 재현과 구분하며 모델 실행·인증 사본이 필요 없다. 정상 → 오류 → 정상 source 전환 후 예제의 원격 기록 갱신을 호출하여 메시지·질문 유지, 경고, 응답 차단, 같은 ID 복구를 확인한다.
+
+재현용 source는 `tests/support/history-browser.mjs`다. 예제의 SDK 경로를 바꾸지 않고 외부 OpenSSH 프로세스만 대체한다. 다음 명령으로 시작하고, UI에서 host `fixture`, CLI `/fixture/cline`, 관리 경로 `/fixture/control`, cwd `/fixture/work`, terminal mode `readline`을 선택하여 연결·시작한다.
+
+```powershell
+$historyStage = Join-Path $env:TEMP 'cline-sdk-history-stage.txt'
+Set-Content -LiteralPath $historyStage -Value good -NoNewline
+node tests/support/history-browser.mjs $historyStage
+# 별도 터미널에서 stage를 바꾸고 UI의 원격 기록 갱신을 호출한다.
+Set-Content -LiteralPath $historyStage -Value partial -NoNewline
+Set-Content -LiteralPath $historyStage -Value updated -NoNewline
+```
+
+source는 `good`, `partial`, `read-failed`, `file-changed`, `missing`, `updated`를 지원한다. `updated`는 같은 ID의 메시지를 수정한다. 테스트 source의 process/PID는 합성 표식이므로 실제 원격 프로세스 생존 증거로 사용하지 않는다. source는 SDK 입력 요청을 기록·거부하며 CLI 입력을 보내지 않는다.
+
+현재 helper의 실제 Windows Node → WSL SSH 정상 읽기도 별도로 수행했다. 앞서 완료된 테스트 소유 실행 `run-b04fc08c-870c-4766-ad30-ef1a7d128843`에 읽기 전용 `attach()`를 호출하여 세션 `1791547004425_c0xok`, `historySync.current=true`, 경고 없음과 `SDK_UNCERTAIN:BLUE`를 포함한 메시지 2개를 확인했다. 새 모델 실행이나 CLI 입력·인증 사본 준비 없이 기존 원격 기록만 읽었다. 이 결과는 실제 정상 조회 근거이며 장애 주입 근거가 아니다.
+
+Windows Chrome의 장애 주입 검증은 실행 `run-702df23c-11ce-4a8d-8253-3309ad9f2d86`, 세션 `session-7f73bef4a3f1`에서 수행했다. 정상 source에서 `Choose test color.` 질문과 `Last good conversation retained`를 확인한 후 부분 JSON source로 전환하고 원격 기록 갱신을 호출했다. 같은 interaction 3과 마지막 정상 메시지를 유지하면서 revision 8의 `unknown`, 한국어 경고, 선택·자유 입력 차단을 확인했다.
+
+![부분 JSON 이후 마지막 정상 대화 유지와 경고](evidence/ticket-10-partial.jpg)
+![부분 JSON 이후 질문 유지와 응답 조작 차단](evidence/ticket-10-partial-controls.jpg)
+
+정상 `updated` source로 되돌린 뒤 명시적으로 갱신했을 때 `current=true`와 경고 해제, 같은 interaction 3·질문 revision 7의 유지, 같은 메시지 ID의 `Full requery updated the same message` 수정, 전역 revision 11의 `awaiting-input`, 선택·자유 입력 활성화를 확인했다. 브라우저 검증에서는 응답을 제출하지 않았다. 검증용 로컬 서버는 종료했으며 원격 인증·keepalive·CLI 실행을 새로 만들지 않았다.
+
+![정상 전체 재조회 후 같은 질문과 메시지 ID 복구](evidence/ticket-10-updated.jpg)

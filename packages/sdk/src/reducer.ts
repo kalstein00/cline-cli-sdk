@@ -234,7 +234,8 @@ function validateRecording(input: Recording): void {
       obs.seq <= last ||
       !Number.isFinite(Date.parse(obs.observedAt)) ||
       !["pty", "history", "process", "history-failure"].includes(obs.kind) ||
-      (obs.kind === "history-failure" && (typeof obs.reason !== "string" || !obs.reason)) ||
+      (obs.kind === "history-failure" &&
+        (typeof obs.reason !== "string" || !obs.reason)) ||
       ((obs.kind === "pty" || obs.kind === "history") &&
         (typeof obs.dataBase64 !== "string" ||
           !/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
@@ -288,9 +289,15 @@ export function createReducer(options: {
   const snapshot = () => structuredClone(state);
   const historyFailure = (obs: Observation) => {
     if (!state.historySync.current) return;
-    state.historySync = { current: false, warning: "History synchronization is temporarily unavailable; the last good conversation is preserved. Requery before responding." };
+    state.historySync = {
+      current: false,
+      warning: "History synchronization is temporarily unavailable; the last good conversation is preserved. Requery before responding.",
+    };
     state.execution = "unknown";
-    emit("state.changed", obs, { historySync: state.historySync, execution: state.execution });
+    emit("state.changed", obs, {
+      historySync: state.historySync,
+      execution: state.execution,
+    });
   };
   const emit = (type: SdkEvent["type"], obs: Observation, payload: unknown) => {
     state.revision++;
@@ -920,7 +927,8 @@ export function createReducer(options: {
         )
           state.execution = "completed";
         else state.execution = "unknown";
-        if (state.historySync.current && !obs.alive && obs.exitCode !== null) state.interaction = null;
+        if (state.historySync.current && !obs.alive && obs.exitCode !== null)
+          state.interaction = null;
         if (
           previous !== state.execution ||
           previousStop !== JSON.stringify(state.stop)
