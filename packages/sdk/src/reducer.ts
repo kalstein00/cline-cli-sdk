@@ -213,7 +213,15 @@ function validateRecording(input: Recording): void {
     last = obs.seq;
   }
 }
-export function createReducer(options: { mode: "replay" }): Reducer {
+export function createReducer(options: {
+  mode: "replay";
+  interactionIdentity?: (
+    kind: string,
+    toolId: string | undefined,
+    prompt: string,
+    choices: string[],
+  ) => string | undefined;
+}): Reducer {
   if (options.mode !== "replay")
     throw new SdkError("unsupported-mode", "Only replay is available.");
   let state: Snapshot = {
@@ -231,6 +239,14 @@ export function createReducer(options: { mode: "replay" }): Reducer {
   let recording: Recording | null = null;
   let terminal: import("@xterm/headless").Terminal | null = null;
   let interactionSerial = 0;
+  const identify = (
+    kind: string,
+    toolId: string | undefined,
+    prompt: string,
+    choices: string[],
+  ) =>
+    options.interactionIdentity?.(kind, toolId, prompt, choices) ??
+    `${state.executionId}:interaction:${++interactionSerial}`;
   let pendingTools: { id: string; name: string; input: any }[] = [];
   let results = new Map<string, { digest: string; rejected: boolean }>();
   const listeners = new Set<(event: SdkEvent) => void>();
@@ -310,7 +326,10 @@ export function createReducer(options: { mode: "replay" }): Reducer {
           )
             return;
           state.interaction = {
-            id: `${state.executionId}:interaction:${++interactionSerial}`,
+            id: identify("approval", tool.id, `Approve ${tool.name}?`, [
+              "Approve",
+              "Deny",
+            ]),
             revision: state.revision + 1,
             kind: "approval",
             state: "awaiting-response",
@@ -336,7 +355,7 @@ export function createReducer(options: { mode: "replay" }): Reducer {
         )
           return;
         state.interaction = {
-          id: `${state.executionId}:interaction:${++interactionSerial}`,
+          id: identify("unsupported", undefined, prompt, []),
           revision: state.revision + 1,
           kind: "unsupported",
           state: "unsupported",
@@ -417,7 +436,7 @@ export function createReducer(options: { mode: "replay" }): Reducer {
             return;
           }
           state.interaction = {
-            id: `${state.executionId}:interaction:${++interactionSerial}`,
+            id: identify("question", tool.id, tool.input.question, choices),
             revision: state.revision + 1,
             kind: "question",
             state: "awaiting-response",
@@ -440,7 +459,7 @@ export function createReducer(options: { mode: "replay" }): Reducer {
         )
           return;
         state.interaction = {
-          id: `${state.executionId}:interaction:${++interactionSerial}`,
+          id: identify("unsupported", undefined, prompt, []),
           revision: state.revision + 1,
           kind: "unsupported",
           state: "unsupported",
@@ -512,7 +531,7 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       )
         return;
       state.interaction = {
-        id: `${state.executionId}:interaction:${++interactionSerial}`,
+        id: identify("unsupported", undefined, prompt, []),
         revision: state.revision + 1,
         kind: "unsupported",
         state: "unsupported",
@@ -530,7 +549,12 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       )
         return;
       state.interaction = {
-        id: `${state.executionId}:interaction:${++interactionSerial}`,
+        id: identify(
+          "approval",
+          approvedTool.id,
+          `Approve ${approvedTool.name}?`,
+          ["Approve", "Deny"],
+        ),
         revision: state.revision + 1,
         kind: "approval",
         state: "awaiting-response",
@@ -612,7 +636,7 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       )
         return;
       state.interaction = {
-        id: `${state.executionId}:interaction:${++interactionSerial}`,
+        id: identify("unsupported", undefined, unresolved, []),
         revision: state.revision + 1,
         kind: "unsupported",
         state: "unsupported",
@@ -631,7 +655,12 @@ export function createReducer(options: { mode: "replay" }): Reducer {
     )
       return;
     state.interaction = {
-      id: `${state.executionId}:interaction:${++interactionSerial}`,
+      id: identify(
+        recovery ? "recovery" : "question",
+        tool?.id ?? rejectedId,
+        recovery ? prompt : firstLine,
+        choices,
+      ),
       revision: state.revision + 1,
       kind: "question",
       state: "awaiting-response",
@@ -798,16 +827,20 @@ export function createReducer(options: { mode: "replay" }): Reducer {
       }
       if (obs.kind === "process") {
         const previous = state.execution;
-        if (!obs.identityConfirmed) state.execution = "unknown";
-        else if (obs.alive)
+        if (!obs.identityConfirmed) {
+          state.execution = "unknown";
+          state.interaction = null;
+        } else if (obs.alive)
           state.execution =
             state.interaction && state.interaction.state !== "unsupported"
               ? "awaiting-input"
               : state.interaction?.state === "unsupported"
                 ? "unknown"
                 : "running";
-        else if (obs.exitCode === null) state.execution = "unknown";
-        else if (obs.manifestStatus === "cancelled" || obs.requestedStop)
+        else if (obs.exitCode === null) {
+          state.execution = "unknown";
+          state.interaction = null;
+        } else if (obs.manifestStatus === "cancelled" || obs.requestedStop)
           state.execution = "stopped";
         else if (obs.exitCode !== 0 || obs.manifestStatus === "failed")
           state.execution = "failed";

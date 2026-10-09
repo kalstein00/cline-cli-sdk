@@ -51,13 +51,21 @@ export interface StartRequest {
   retryLimit?: number;
 }
 export interface ManagedExecution {
+  terminalMode?: "readline" | "tui";
   executionId: string;
   remoteRoot: string;
   sessionId: string | null;
+  alive?: boolean;
+  identityConfirmed?: boolean;
+  terminal?: { rows: number; cols: number };
+  cliHash?: string;
 }
 export interface LiveClient {
   preflight(): Promise<PreflightReport>;
   connect(): Promise<PreflightReport>;
+  disconnect(): void;
+  listManagedExecutions(): Promise<ManagedExecution[]>;
+  attach(executionId: string): Promise<Snapshot>;
   start(request: StartRequest): Promise<Snapshot>;
   refresh(): Promise<Snapshot>;
   snapshot(): Snapshot;
@@ -94,7 +102,26 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       "invalid-response-timeout",
       "Response observation timeout must be 250–120000 milliseconds.",
     );
-  const reducer = createReducer({ mode: "replay" });
+  let phase: any = null;
+  let pendingPhase: any = null;
+  let phaseSupported = false;
+  const reducer = createReducer({
+    mode: "replay",
+    interactionIdentity(kind, toolId, prompt, choices) {
+      if (!phaseSupported) return undefined;
+      const fingerprint = createHash("sha256")
+        .update(JSON.stringify([kind, toolId, prompt, choices]))
+        .digest("hex");
+      if (phase?.active && phase.fingerprint === fingerprint) return phase.id;
+      pendingPhase = {
+        fingerprint,
+        epoch: (phase?.epoch ?? 0) + 1,
+        id: `${managed?.executionId}:phase:${(phase?.epoch ?? 0) + 1}:${fingerprint.slice(0, 16)}`,
+        active: true,
+      };
+      return pendingPhase.id;
+    },
+  });
   let state: Snapshot = { ...reducer.snapshot(), mode: "live" };
   let report: PreflightReport | null = null;
   let managed: ManagedExecution | null = null;
@@ -104,6 +131,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let refreshing: Promise<Snapshot> | null = null;
   let observationGap = false;
   let closed = false;
+  let generation = 0;
+  let fullSynchronization = false;
   let processEvidence: any = null;
   let remoteRequests: any[] = [];
   let activeRequest: string | null = null;
@@ -127,6 +156,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   const execute = async (code: string, input: unknown): Promise<any> => {
     if (closed)
       throw new SdkError("client-closed", "Create a new client after close.");
+    const operationGeneration = generation;
     const args = [
       "-o",
       "BatchMode=yes",
@@ -181,6 +211,15 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       process.on("close", (code) => {
         processes.delete(process);
         clearTimeout(deadline);
+        if (closed || operationGeneration !== generation) {
+          reject(
+            new SdkError(
+              "connection-interrupted",
+              "The local connection was detached during this operation.",
+            ),
+          );
+          return;
+        }
         if (code !== 0)
           reject(
             new SdkError("ssh-failed", stderr.trim() || `SSH exited ${code}`),
@@ -267,9 +306,15 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     return structuredClone(report!);
   };
   const helper = async (input: unknown) => {
+    const helperGeneration = generation;
     const source = await readFile(
       new URL("../remote/supervisor.py", import.meta.url),
     );
+    if (closed || generation !== helperGeneration)
+      throw new SdkError(
+        "connection-interrupted",
+        "The local connection was detached before this operation.",
+      );
     return execute(
       `import base64,io,json,sys;request=json.load(sys.stdin);sys.stdin=io.StringIO(json.dumps(request));exec(base64.b64decode(request['sourceBase64']))`,
       { sourceBase64: source.toString("base64"), ...(input as object) },
@@ -287,6 +332,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         root: managed.remoteRoot,
         executionId: managed.executionId,
         cursor,
+        fullScreen: fullSynchronization || observationGap,
       });
       if (result.executionId !== managed.executionId)
         throw new SdkError(
@@ -302,7 +348,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         managed.sessionId = result.sessionId;
         reducer.setContext({ sessionId: result.sessionId });
       }
-      for (const raw of result.observations ?? [])
+      phaseSupported = !!result.management?.phaseSupported;
+      phase = result.phase ?? phase;
+      pendingPhase = null;
+      for (const raw of result.screen ? [] : (result.observations ?? []))
         await reducer.ingest({ ...raw, seq: ++sequence });
       cursor = result.cursor;
       remoteRequests = result.requests ?? [];
@@ -322,13 +371,46 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             throw error;
         }
       }
+      if (result.screen) {
+        await reducer.ingest({
+          kind: "pty",
+          seq: ++sequence,
+          observedAt: new Date().toISOString(),
+          dataBase64: result.screen.dataBase64,
+        });
+        observationGap = false;
+        fullSynchronization = false;
+      }
       if (result.process)
         await reducer.ingest({
           ...result.process,
           seq: ++sequence,
           observedAt: new Date().toISOString(),
         });
-      observationGap ||= !!result.gap;
+      observationGap ||= !!result.gap && !result.screen;
+      if (
+        pendingPhase &&
+        !observationGap &&
+        reducer.snapshot().interaction?.id === pendingPhase.id
+      ) {
+        const persisted = await helper({
+          action: "bind-phase",
+          root: managed.remoteRoot,
+          executionId: managed.executionId,
+          fingerprint: pendingPhase.fingerprint,
+          interactionId: pendingPhase.id,
+        });
+        phase = persisted.phase;
+      } else if (!reducer.snapshot().interaction && phase?.active) {
+        phase = (
+          await helper({
+            action: "bind-phase",
+            root: managed.remoteRoot,
+            executionId: managed.executionId,
+            fingerprint: null,
+          })
+        ).phase;
+      }
       if (
         observationGap &&
         reducer.snapshot().interaction?.id !==
@@ -434,15 +516,111 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   return {
     preflight,
     async connect() {
+      if (closed)
+        throw new SdkError("client-closed", "Create a new client after close.");
+      const currentGeneration = ++generation;
       state.connection = "connecting";
       try {
         const found = await preflight();
+        if (closed || generation !== currentGeneration)
+          throw new SdkError(
+            "connection-interrupted",
+            "Connection was detached.",
+          );
         state.connection = "connected";
         return found;
       } catch (error) {
-        state.connection = "disconnected";
+        state.connection = closed ? "closed" : "disconnected";
         throw error;
       }
+    },
+    disconnect() {
+      generation++;
+      for (const process of processes) process.kill();
+      processes.clear();
+      state.connection = closed ? "closed" : "disconnected";
+      fullSynchronization = true;
+    },
+    async listManagedExecutions() {
+      if (state.connection !== "connected")
+        throw new SdkError(
+          "not-connected",
+          "Connect before listing managed executions.",
+        );
+      const result = await helper({ action: "list", root: config.remoteRoot });
+      return structuredClone(result.executions);
+    },
+    async attach(executionId) {
+      if (!report?.profile.supported || !report.ready)
+        throw new SdkError(
+          "unsupported-profile",
+          "A verified CLI profile and ready environment are required before attaching.",
+        );
+      if (!/^run-[a-f0-9-]{36}$/.test(executionId))
+        throw new SdkError(
+          "invalid-execution",
+          "Select a managed execution from the list.",
+        );
+      if (managed && managed.executionId !== executionId)
+        throw new SdkError(
+          "managed-execution-selected",
+          "This client already controls another execution.",
+        );
+      if (!managed) {
+        const runs = await this.listManagedExecutions();
+        const found = runs.find((run) => run.executionId === executionId);
+        if (!found)
+          throw new SdkError(
+            "unmanaged-execution",
+            "Only SDK-started executions can be attached.",
+          );
+        if (found.cliHash && found.cliHash !== report.cliHash)
+          throw new SdkError(
+            "unsupported-profile",
+            "The stored execution uses a different CLI fingerprint.",
+          );
+        managed = found;
+        if (
+          found.terminalMode !== undefined &&
+          !["readline", "tui"].includes(found.terminalMode)
+        )
+          throw new SdkError(
+            "unsupported-profile",
+            "The managed terminal mode is not verified.",
+          );
+        terminalMode = found.terminalMode ?? "readline";
+        cursor = 0;
+        sequence = 0;
+        historyHash = null;
+        phase = null;
+        await reducer.openReplay({
+          schemaVersion: 1,
+          cli: {
+            name: "cline",
+            version: "3.0.69",
+            profile: `cline-3.0.69-${terminalMode}`,
+          },
+          terminal: found.terminal ?? { rows: 40, cols: 120 },
+          sessionId: found.sessionId ?? executionId,
+          executionId,
+          observations: [],
+          provenance: {
+            source: "live",
+            sourceSha256: "",
+            review: "remote synchronization",
+            transformations: [],
+            complete: false,
+            truncated: false,
+          },
+        });
+        reducer.setContext({
+          mode: "live",
+          connection: "connected",
+          sessionId: found.sessionId,
+        });
+      }
+      fullSynchronization = true;
+      return refresh();
     },
     async start(request) {
       if (!report?.profile.supported)
@@ -887,6 +1065,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     },
     close() {
       closed = true;
+      generation++;
       for (const process of processes) process.kill();
       processes.clear();
       state.connection = "closed";

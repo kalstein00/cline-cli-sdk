@@ -210,6 +210,26 @@ def handle(request):
     os.umask(0o077)
     root = private(request.get('root') or '~/.local/state/cline-cli-sdk')
     action = request['action']
+    if action == 'list':
+        executions = []
+        for candidate in root.glob('run-*'):
+            try:
+                if candidate.is_symlink() or candidate.stat().st_uid != os.getuid() or candidate.stat().st_mode & 0o077:
+                    continue
+                meta = json.loads((candidate / 'meta.json').read_text())
+                if meta.get('owner') != 'cline-cli-sdk' or meta.get('executionId') != candidate.name:
+                    continue
+                expected = meta.get('identity')
+                actual = identity(expected['pid']) if expected else None
+                same_boot = meta.get('bootId') == boot_id()
+                sid, _, _ = session_files(meta)
+                executions.append(dict(executionId=candidate.name, remoteRoot=str(root), sessionId=sid,
+                    alive=bool(same_boot and expected and actual == expected),
+                    identityConfirmed=bool(same_boot and expected and (actual is None or actual == expected)),
+                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), cliHash=meta.get('cliHash')))
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+        return dict(executions=executions)
     if action == 'start':
         cwd = Path(request['cwd'])
         if not cwd.is_absolute() or not cwd.is_dir():
@@ -243,7 +263,7 @@ def handle(request):
             if type(request['retryLimit']) is not int or not 1 <= request['retryLimit'] <= 10:
                 raise ValueError('Retry limit must be an integer from 1 to 10')
             argv[-1:-1] = ['--retries', str(request['retryLimit'])]
-        meta = dict(schemaVersion=1, executionId=run_id, sessionId=None, cwd=str(cwd), dataDir=str(data), priorSessions=prior,
+        meta = dict(schemaVersion=1, owner='cline-cli-sdk', executionId=run_id, sessionId=None, cwd=str(cwd), dataDir=str(data), priorSessions=prior,
                     cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, terminal=dict(rows=40, cols=120),
                     bootId=boot_id(), tmuxSocket=socket, tmuxSession=run_id, identity=None, exitCode=None)
         # Prompt is launch-only: don't retain it in minimal control metadata after startup.
@@ -259,6 +279,24 @@ def handle(request):
     meta = json.loads((run / 'meta.json').read_text())
     if meta['executionId'] != request['executionId']:
         raise ValueError('Execution identity mismatch')
+    if action == 'bind-phase':
+        with open(run / 'phase.lock', 'a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                phase = json.loads((run / 'phase.json').read_text())
+            except FileNotFoundError:
+                phase = dict(epoch=0, active=False)
+            fingerprint = request.get('fingerprint')
+            if fingerprint is None:
+                phase['active'] = False
+            elif not phase.get('active') or phase.get('fingerprint') != fingerprint:
+                if len(fingerprint) != 64 or any(c not in '0123456789abcdef' for c in fingerprint):
+                    raise ValueError('Invalid phase fingerprint')
+                epoch = phase['epoch'] + 1
+                phase = dict(epoch=epoch, fingerprint=fingerprint, active=True,
+                    id=f"{meta['executionId']}:phase:{epoch}:{fingerprint[:16]}")
+            save(run / 'phase.json', phase)
+        return dict(phase=phase)
     if action == 'respond':
         request_id = request.get('requestId', '')
         if not request_id or len(request_id) > 128 or not all(c.isalnum() or c in '._:-' for c in request_id):
@@ -354,18 +392,37 @@ def handle(request):
         same_boot = meta['bootId'] == boot_id()
         alive = bool(same_boot and expected and actual == expected)
         confirmed = bool(same_boot and ((expected and (actual == expected or actual is None)) or (meta.get('startupFailed') and meta.get('supervisorIdentity'))))
+        screen = None
+        if alive and (request.get('fullScreen') or cursor < buffer['first'] - 1):
+            target = meta['tmuxSession'] + ':0.0'
+            try:
+                geometry = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'display-message','-p','-t',target,'#{pane_width},#{pane_height},#{cursor_x},#{cursor_y}'], timeout=5, text=True).strip()
+                cols, rows, x, y = map(int, geometry.split(','))
+                if cols != meta['terminal']['cols'] or rows != meta['terminal']['rows'] or not (0 <= x < cols and 0 <= y < rows):
+                    raise ValueError('Terminal geometry changed')
+                payload = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'capture-pane','-p','-e','-t',target],timeout=5)
+                if len(payload) > LIMIT:
+                    raise ValueError('Screen snapshot exceeded bounded read')
+                restored = b'\x1b[0m\x1b[2J\x1b[H' + b'\r\n'.join(payload.splitlines()[:rows]) + f'\x1b[{y+1};{x+1}H'.encode()
+                screen = dict(dataBase64=base64.b64encode(restored).decode(), cols=cols, rows=rows, cursorX=x, cursorY=y)
+            except (OSError, ValueError, subprocess.SubprocessError):
+                pass
+        try:
+            phase = json.loads((run / 'phase.json').read_text())
+        except FileNotFoundError:
+            phase = dict(epoch=0, active=False)
         try:
             requests = json.loads((run / 'requests.json').read_text())
         except FileNotFoundError:
             requests = {}
         modal = modal_witness(meta)
         return dict(executionId=meta['executionId'], sessionId=sid, observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal,
-                    gap=cursor < buffer['first'] - 1, history=history, historyError=history_error,
+                    gap=cursor < buffer['first'] - 1, history=history, historyError=history_error, screen=screen, phase=phase,
                     process=dict(kind='process', identity=expected, alive=alive, identityConfirmed=confirmed,
                                  exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else None,
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
-                    requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
-                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], bootId=meta['bootId']))
+                    requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
+                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), bootId=meta['bootId'], phaseSupported=True))
     raise ValueError('Unsupported supervisor action')
 
 if len(sys.argv) >= 3 and sys.argv[1] == '--serve':
