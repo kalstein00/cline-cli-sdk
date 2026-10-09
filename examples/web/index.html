@@ -506,6 +506,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
       }))
         element(id).textContent = value;
       const messages = element("messages");
+      const expandedThink = new Set([...messages.querySelectorAll('details[open]')].map(node=>node.dataset.thinkKey));
       messages.replaceChildren();
       messages.className = "";
       if (!s.messages.length) {
@@ -513,6 +514,18 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
         messages.textContent = "이 관측 구간에 메시지가 없습니다.";
       }
       for (const message of s.messages) {
+        for (const [index, part] of (message.content ?? []).entries()) {
+          if (part.type !== "thinking" && part.type !== "redacted_thinking") continue;
+          const detail = document.createElement("details");
+          detail.dataset.thinkKey = `${message.id}:${index}`;
+          detail.open = expandedThink.has(detail.dataset.thinkKey);
+          const summary = document.createElement("summary");
+          summary.textContent = part.type === "thinking" ? "think · CLI에 노출된 내용" : "think · CLI에서 가려진 내용";
+          detail.append(summary);
+          const thought = document.createElement("p"); thought.className = "text";
+          thought.textContent = part.type === "thinking" ? part.thinking : "원문 내용은 노출되지 않았습니다.";
+          detail.append(thought); messages.append(detail);
+        }
         const p = document.createElement("p");
         p.className = "text";
         p.textContent = `${message.role}: ${message.text}`;

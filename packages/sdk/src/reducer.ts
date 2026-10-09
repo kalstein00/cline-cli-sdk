@@ -2,10 +2,13 @@ import xterm from "@xterm/headless";
 import unicode11 from "@xterm/addon-unicode11";
 import { createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
+export type MessageContent = {type:"text";text:string} | {type:"thinking";thinking:string} | {type:"redacted_thinking"};
 export interface Message {
   id: string;
   role: "assistant" | "user";
   text: string;
+  /** Ordered exposed content. Optional for existing consumer message literals. */
+  content?: MessageContent[];
 }
 export interface HistoryObservation {
   kind: "history";
@@ -1338,20 +1341,23 @@ export function createReducer(options: {
               (raw: {
                 id: string;
                 role: Message["role"];
-                content: { type: string; text: string }[];
+                content: { type: string; text: string; thinking?: string }[];
               }) => {
                 if (
                   typeof raw.id !== "string" ||
                   !Array.isArray(raw.content) ||
                   raw.content.some(
                     (part) =>
-                      part.type === "text" && typeof part.text !== "string",
+                      (part.type === "text" && typeof part.text !== "string") ||
+                      (part.type === "thinking" && typeof part.thinking !== "string"),
                   )
                 )
                   throw new Error("Invalid message");
                 return {
                   id: raw.id,
                   role: raw.role,
+                  content: raw.content.filter(part=>["text","thinking","redacted_thinking"].includes(part.type)).map((part):MessageContent=>
+                    part.type === "thinking" ? {type:"thinking",thinking:part.thinking!} : part.type === "redacted_thinking" ? {type:"redacted_thinking"} : {type:"text",text:part.text}),
                   text: raw.content
                     .filter((part) => part.type === "text")
                     .map((part) => raw.role === "user" && recording!.cli.name === "cline" && recording!.cli.version === "3.0.69" && ["cline-3.0.69-readline", "cline-3.0.69-tui"].includes(recording!.cli.profile) && part.text.startsWith('<user_input mode="act">') && part.text.endsWith('</user_input>')
@@ -1375,9 +1381,9 @@ export function createReducer(options: {
         }
         pendingTools = nextTools.filter((tool) => !results.has(tool.id));
         for (const message of messages) {
-          if (!message.text) continue;
+          if (!message.text && !message.content?.length) continue;
           const old = state.messages.find((m) => m.id === message.id);
-          if (!old || old.text !== message.text || old.role !== message.role) {
+          if (!old || old.text !== message.text || old.role !== message.role || JSON.stringify(old.content) !== JSON.stringify(message.content)) {
             if (old) Object.assign(old, message);
             else state.messages.push({ ...message });
             emit("message.upsert", obs, message);

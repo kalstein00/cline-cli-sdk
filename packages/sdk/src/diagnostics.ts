@@ -172,7 +172,7 @@ export function createDiagnosticCollector() {
         exclusions: [
           "SSH configuration/key files",
           "provider/settings files",
-          "history system_prompt/provider/model/thinking/metrics fields",
+          "history system_prompt/provider/model/metrics and opaque reasoning fields",
         ],
         contentReview:
           "Conversation, tool arguments, PTY and responses can contain sensitive content; review before export.",
@@ -283,11 +283,15 @@ export function createDiagnosticCollector() {
                 role: m.role,
                 content: m.content
                   ?.filter((p: any) =>
-                    ["text", "tool_use", "tool_result"].includes(p.type),
+                    ["text", "thinking", "redacted_thinking", "tool_use", "tool_result"].includes(p.type),
                   )
                   .map((p: any) =>
                     p.type === "text"
                       ? { type: p.type, text: p.text }
+                      : p.type === "thinking"
+                        ? {type:p.type,thinking:p.thinking}
+                      : p.type === "redacted_thinking"
+                        ? {type:p.type}
                       : p.type === "tool_use"
                         ? {
                             type: p.type,

@@ -25,6 +25,7 @@ export type {
   Observation,
   Snapshot,
   Message,
+  MessageContent,
   Interaction,
   ResponseRequest,
   ResponseResult,
