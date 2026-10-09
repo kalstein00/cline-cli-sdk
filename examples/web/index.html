@@ -185,6 +185,21 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       </details>
     </section>
     <section>
+      <h2>관리 세션 복구</h2>
+      <p>
+        SDK로 시작한 실행을 선택하면 원격 기록과 현재 질문을 다시 확인합니다.
+        연결 해제 후에도 원격 작업은 계속됩니다.
+      </p>
+      <button id="disconnect" disabled>연결 해제</button>
+      <button id="managedRefresh" disabled>관리 세션 조회</button>
+      <label
+        >관리 실행<select id="managedRuns">
+          <option value="">관리 세션을 조회하세요.</option>
+        </select></label
+      >
+      <button id="attach" disabled>선택한 실행에 재연결</button>
+    </section>
+    <section>
       <h2>상호작용</h2>
       <div id="interaction" class="empty">대기 중인 질문이 없습니다.</div>
     </section>
@@ -227,8 +242,19 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     let events = [];
     let current = null;
     let busy = false;
+    let polling = false;
     let capability = {};
     let interactionViewKey;
+    const savedSettings = ["host", "cliPath", "remoteRoot", "cwd", "dataDir"];
+    try {
+      const stored = JSON.parse(
+        localStorage.getItem("cline-sdk-connection") ?? "{}",
+      );
+      for (const id of savedSettings)
+        if (typeof stored[id] === "string") element(id).value = stored[id];
+    } catch {
+      /* An unavailable browser store does not prevent connection. */
+    }
     const responseDisabled = (s) =>
       busy ||
       s.mode !== "live" ||
@@ -238,7 +264,12 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       !s.interaction?.responseKinds?.length ||
       !s.interaction?.toolId ||
       s.response?.state === "delivery-unknown";
-    function render({ snapshot: s, preflight, capabilities }) {
+    function render({
+      snapshot: s,
+      preflight,
+      capabilities,
+      managedExecutions,
+    }) {
       if (capabilities) capability = capabilities;
       current = s;
       element("start").disabled =
@@ -247,7 +278,46 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         s.mode !== "live" ||
         s.connection !== "connected" ||
         !!s.executionId;
-      element("refresh").disabled = busy || s.mode !== "live" || !s.executionId;
+      element("refresh").disabled =
+        busy ||
+        s.mode !== "live" ||
+        !s.executionId ||
+        s.connection !== "connected";
+      element("disconnect").disabled =
+        busy || s.mode !== "live" || s.connection !== "connected";
+      element("managedRefresh").disabled =
+        busy || s.mode !== "live" || s.connection !== "connected";
+      if (managedExecutions) {
+        const select = element("managedRuns");
+        const previous =
+          select.value || localStorage.getItem("cline-sdk-selected-run");
+        select.replaceChildren();
+        for (const run of managedExecutions) {
+          const option = document.createElement("option");
+          option.value = run.executionId;
+          option.textContent = `${run.sessionId ?? "세션 생성 중"} · ${run.executionId} · ${run.alive && run.identityConfirmed ? "조회 시 생존 확인" : "조회 시 종료 또는 생존 미확인"}`;
+          select.append(option);
+        }
+        if ([...select.options].some((option) => option.value === previous))
+          select.value = previous;
+      }
+      if (
+        s.executionId &&
+        ["completed", "stopped", "failed"].includes(s.execution)
+      ) {
+        const selected = [...element("managedRuns").options].find(
+          (option) => option.value === s.executionId,
+        );
+        if (selected)
+          selected.textContent = `${s.sessionId ?? "—"} · ${s.executionId} · 종료 확인 (${s.execution})`;
+      }
+      element("attach").disabled =
+        busy ||
+        s.mode !== "live" ||
+        s.connection !== "connected" ||
+        !element("managedRuns").value;
+      if (s.executionId)
+        localStorage.setItem("cline-sdk-selected-run", s.executionId);
       if (preflight)
         element("preflight").textContent = JSON.stringify(preflight, null, 2);
       for (const [id, value] of Object.entries({
@@ -355,9 +425,14 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         .join("\n");
     };
     async function invoke(action, body = {}) {
-      busy = true;
-      element("error").textContent = "";
-      document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      const background = action === "refresh";
+      if (background && (polling || busy)) return;
+      if (background) polling = true;
+      else {
+        busy = true;
+        element("error").textContent = "";
+        document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      }
       if (action === "respond")
         element("responseState").textContent = "submitting";
       try {
@@ -368,26 +443,38 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         });
         const result = await response.json();
         if (!response.ok) {
-          busy = false;
+          if (!background) busy = false;
           if (result.snapshot) render(result);
           throw new Error(result.message ?? result.error);
         }
-        busy = false;
+        if (!background) busy = false;
         render(result);
-        if (action === "start") element("setup").open = false;
+        if (action === "start" || action === "attach")
+          element("setup").open = false;
         return result;
       } catch (error) {
         element("error").textContent = error.message;
       } finally {
-        busy = false;
-        element("connect").disabled = false;
-        document
-          .querySelectorAll("[data-fixture]")
-          .forEach((button) => (button.disabled = false));
+        if (background) polling = false;
+        else {
+          busy = false;
+          element("connect").disabled = false;
+          document
+            .querySelectorAll("[data-fixture]")
+            .forEach((button) => (button.disabled = false));
+        }
       }
     }
-    element("connect").onclick = () =>
-      invoke(
+    element("connect").onclick = () => {
+      localStorage.setItem(
+        "cline-sdk-connection",
+        JSON.stringify(
+          Object.fromEntries(
+            savedSettings.map((id) => [id, element(id).value]),
+          ),
+        ),
+      );
+      return invoke(
         "connect",
         Object.fromEntries(
           ["host", "cliPath", "remoteRoot", "identityFile"].map((id) => [
@@ -396,6 +483,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           ]),
         ),
       );
+    };
     element("start").onclick = () => {
       const body = Object.fromEntries(
         ["cwd", "dataDir", "prompt"].map((id) => [id, element(id).value]),
@@ -405,10 +493,15 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       invoke("start", body);
     };
     element("refresh").onclick = () => invoke("refresh");
+    element("disconnect").onclick = () => invoke("disconnect");
+    element("managedRefresh").onclick = () => invoke("managed");
+    element("attach").onclick = () =>
+      invoke("attach", { executionId: element("managedRuns").value });
     setInterval(() => {
       if (
         !busy &&
         current?.mode === "live" &&
+        current?.connection === "connected" &&
         current?.executionId &&
         !["completed", "stopped", "failed"].includes(current.execution)
       )
