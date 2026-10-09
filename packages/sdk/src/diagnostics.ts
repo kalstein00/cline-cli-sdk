@@ -89,6 +89,7 @@ export function createDiagnosticCollector() {
   let manifestBytes = 0;
   let journalBytes = 0;
   let reserve = 2048;
+  let finalized=true;
   const fail = (error: unknown) => {
     status.state = "failed";
     status.truncated = true;
@@ -104,7 +105,7 @@ export function createDiagnosticCollector() {
       header.gaps = [...(header.gaps ?? []), reason];
     },
     async start(options: DiagnosticOptions) {
-      if (status.state === "collecting")
+      if (!finalized)
         throw new SdkError(
           "diagnostics-active",
           "Stop the current diagnostic collection first.",
@@ -131,6 +132,7 @@ export function createDiagnosticCollector() {
           "Choose a directory, 4 KiB–256 MiB, 1–50 bundles and 1–90 retention days.",
         );
       status = { ...initial(), ...limits, state: "collecting" };
+      finalized=false;
       lastSnapshot = null;
       queue = Promise.resolve();
       startedAt = new Date().toISOString();
@@ -145,6 +147,7 @@ export function createDiagnosticCollector() {
         schemaVersion: 2,
         sdkVersion: "0.1.0",
         adapterVersion: 1,
+        ownerPid:process.pid,
         startedAt,
         limits,
         exclusions: [
@@ -159,6 +162,7 @@ export function createDiagnosticCollector() {
         const root = resolve(options.directory);
         await mkdir(root, { recursive: true, mode: 0o700 });
         const owned = [];
+        let protectedCount=0;
         for (const name of await readdir(root)) {
           if (!/^cline-sdk-diag-[A-Za-z0-9]+$/.test(name)) continue;
           const path = join(root, name);
@@ -176,14 +180,20 @@ export function createDiagnosticCollector() {
             const m = JSON.parse(
               await readFile(join(path, "manifest.json"), "utf8"),
             );
-            if (m.format === header.format && m.stoppedAt)
-              owned.push({ path, time: Date.parse(m.startedAt) });
+            if(m.format!==header.format)continue;
+            let ownerAlive=false;
+            if(!m.stoppedAt) {
+              if(!Number.isInteger(m.ownerPid))ownerAlive=true;
+              else try{process.kill(m.ownerPid,0);ownerAlive=true;}catch(error){ownerAlive=(error as NodeJS.ErrnoException).code!=="ESRCH";}
+            }
+            if(ownerAlive)protectedCount++;else owned.push({ path, time: Date.parse(m.startedAt) });
           } catch {}
         }
         owned.sort((a, b) => b.time - a.time);
+        if(protectedCount>=limits.maxBundles)throw Object.assign(new Error("Active diagnostics occupy the finite bundle limit."),{code:"diagnostic-bundle-limit"});
         for (const [index, item] of owned.entries())
           if (
-            index >= limits.maxBundles - 1 ||
+            index >= limits.maxBundles - protectedCount - 1 ||
             Date.now() - item.time > limits.retentionDays * 86400000
           ) {
             if (dirname(item.path) !== root)
@@ -212,6 +222,7 @@ export function createDiagnosticCollector() {
         });
       } catch (error) {
         fail(error);
+        if(!status.path)finalized=true;
       }
       return structuredClone(status);
     },
@@ -234,7 +245,7 @@ export function createDiagnosticCollector() {
           const filtered = {
             version: original.version,
             sessionId: original.sessionId,
-            messages: original.messages?.map((m: any) => ({
+            messages: original.messages?.filter((m:any)=>m.role!=="system").map((m: any) => ({
               id: m.id,
               role: m.role,
               content: m.content
@@ -291,9 +302,10 @@ export function createDiagnosticCollector() {
       await queue;
       if (status.path)
         try {
-          const manifest = JSON.stringify({
+          const stoppedAt=new Date().toISOString();
+          let manifest = JSON.stringify({
             ...header,
-            stoppedAt: new Date().toISOString(),
+            stoppedAt,
             status: { ...status, path: undefined },
           });
           manifestBytes = Buffer.byteLength(manifest);
@@ -302,12 +314,14 @@ export function createDiagnosticCollector() {
               code: "metadata-limit",
             });
           status.bytes = journalBytes + manifestBytes;
+          for(let n=0;n<3;n++){manifest=JSON.stringify({...header,stoppedAt,status:{...status,path:undefined}});status.bytes=journalBytes+Buffer.byteLength(manifest);}
           await writeFile(join(status.path, "manifest.json"), manifest, {
             mode: 0o600,
           });
         } catch (error) {
           fail(error);
         }
+      finalized=true;
       return structuredClone(status);
     },
   };
@@ -336,7 +350,8 @@ export async function readDiagnostic(path: string): Promise<DiagnosticBundle> {
   const events: SdkEvent[] = [];
   let lastSnapshot: Snapshot | null = null;
   const content = await readFile(file, "utf8");
-  let truncated = !!metadata.status.truncated;
+  metadata.status.bytes=Buffer.byteLength(content)+(await stat(manifestPath)).size;
+  let truncated = !!metadata.status.truncated||!metadata.stoppedAt;
   for (const line of content.split("\n")) {
     if (!line) continue;
     let entry;

@@ -1003,6 +1003,8 @@ export function createReducer(options: {
       messages: [],
       interaction: null,
       response: null,
+      stop: null,
+      executionEvidence: null,
     });
     emit("state.changed", obs, {
       sessionId: obs.sessionId,
@@ -1048,7 +1050,7 @@ export function createReducer(options: {
         const b = responseBinding;
         const result = results.get(b.toolId);
         const resolved=deliveryState({...receipt,binding:b} as DurableResponse,state,result,latestProcess);
-        if(obs.final||resolved!=="delivery-unknown")next=resolved;
+        if(obs.final||receipt.resolution||(resolved!=="delivery-unknown"&&receipt.state!=="reserved"))next=resolved;
       }
     }
     if (
@@ -1381,8 +1383,12 @@ export function createReducer(options: {
       return snapshot();
     },
     async replayAll() {
-      while (recording && state.replay.position < recording.observations.length)
-        await this.nextObservation();
+      while (recording && state.replay.position < recording.observations.length) {
+        try { await this.nextObservation(); }
+        catch (error) {
+          if (recording.schemaVersion !== 2 || !(error instanceof SdkError) || error.code !== "invalid-history") throw error;
+        }
+      }
       return snapshot();
     },
     snapshot,

@@ -105,6 +105,24 @@ const server = createServer(async (request, response) => {
         }
       }
       const input = JSON.parse(body);
+      if (
+        !client.capabilities().live &&
+        [
+          "/api/start",
+          "/api/refresh",
+          "/api/attach",
+          "/api/disconnect",
+          "/api/managed",
+          "/api/stop",
+          "/api/reconfirm",
+          "/api/diagnostics/start",
+          "/api/diagnostics/stop",
+        ].includes(url.pathname)
+      )
+        throw Object.assign(
+          new Error("Offline replay cannot invoke live operations."),
+          { code: "replay-read-only" },
+        );
       if (url.pathname === "/api/connect") {
         await client.stopDiagnostics?.();
         client.close();
@@ -157,6 +175,7 @@ const server = createServer(async (request, response) => {
       if (url.pathname === "/api/diagnostics/replay") {
         lastDiagnostics = (await client.stopDiagnostics?.()) ?? lastDiagnostics;
         const bundle = await readDiagnostic(input.path);
+        lastDiagnostics={...bundle.metadata.status,path:input.path};
         client.close();
         client = createClient({ mode: "replay" });
         watch();
