@@ -22,6 +22,7 @@ export type {
   ConnectionOptions,
   PreflightReport,
   StartRequest,
+  ResumeRequest,
   ManagedExecution,
 } from "./live.js";
 export function createClient(options: { mode: "replay" }): Client;

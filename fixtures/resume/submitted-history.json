@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-tui"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "session-ca936cdc7b42",
+  "executionId": "execution-7376d6ab859c",
+  "observations": [
+    {
+      "kind": "history",
+      "seq": 92,
+      "observedAt": "2026-10-09T00:00:00Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLWNhOTM2Y2RjN2I0MiIsIm1lc3NhZ2VzIjpbeyJpZCI6Im1lc3NhZ2UtYmEwYjliNzA2MzJjIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6IlBsYW46IFJ1biB0aGUgZXhhY3QgUHl0aG9uIGNvbW1hbmQgb25jZSBmcm9tIHRoZSBjdXJyZW50IHdvcmtpbmcgZGlyZWN0b3J5LCB3aXRoIG5vIG90aGVyIHRvb2wgY2FsbHMgb3IgcmV0cmllcy4ifSx7InR5cGUiOiJ0b29sX3VzZSIsImlkIjoidG9vbC1kZWE2NDY3ZDEwYjkiLCJuYW1lIjoicnVuX2NvbW1hbmRzIiwiaW5wdXQiOnsiY29tbWFuZHMiOlsicHl0aG9uMyAtYyAnaW1wb3J0IG9zLHRpbWUscGF0aGxpYjsgcGF0aGxpYi5QYXRoKFwiY2FuY2VsLWNoaWxkLnBpZFwiKS53cml0ZV90ZXh0KHN0cihvcy5nZXRwaWQoKSkpOyBwcmludChcIkNBTkNFTF9SVU5OSU5HXCIsZmx1c2g9VHJ1ZSk7IHRpbWUuc2xlZXAoOTApOyBwcmludChcIlVORVhQRUNURURfRklOSVNIXCIpJyJdfX1dfSx7ImlkIjoibWVzc2FnZS00MjA0YjFhNGY5N2YiLCJyb2xlIjoidXNlciIsImNvbnRlbnQiOlt7InR5cGUiOiJ0b29sX3Jlc3VsdCIsInRvb2xfdXNlX2lkIjoidG9vbC1kZWE2NDY3ZDEwYjkiLCJjb250ZW50IjpbeyJxdWVyeSI6InB5dGhvbjMgLWMgJ2ltcG9ydCBvcyx0aW1lLHBhdGhsaWI7IHBhdGhsaWIuUGF0aChcImNhbmNlbC1jaGlsZC5waWRcIikud3JpdGVfdGV4dChzdHIob3MuZ2V0cGlkKCkpKTsgcHJpbnQoXCJDQU5DRUxfUlVOTklOR1wiLGZsdXNoPVRydWUpOyB0aW1lLnNsZWVwKDkwKTsgcHJpbnQoXCJVTkVYUEVDVEVEX0ZJTklTSFwiKSciLCJyZXN1bHQiOiIiLCJlcnJvciI6IkNvbW1hbmQgZmFpbGVkOiBDb21tYW5kIHdhcyBhYm9ydGVkIiwic3VjY2VzcyI6ZmFsc2V9XX1dfSx7ImlkIjoibWVzc2FnZS04NmQzMDliYzFmZWUiLCJyb2xlIjoidXNlciIsImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6Ijx1c2VyX2lucHV0IG1vZGU9XCJhY3RcIj5SZXBseSBleGFjdGx5IFJFU1VNRURfQ09ORklSTUVELiBEbyBub3QgY2FsbCBhbnkgdG9vbHMuPC91c2VyX2lucHV0PiJ9XX0seyJpZCI6Im1lc3NhZ2UtNDM1NDU3ZWUwYTlmIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6IlJFU1VNRURfQ09ORklSTUVEIn1dfV19"
+    }
+  ],
+  "provenance": {
+    "source": "20261009/logs/resume-live/frames.ndjson",
+    "sourceSha256": "a239c7e5e53e79a40bade2f90f88339b8f5a747f4a5b37fdfa64cc474378f30f",
+    "review": "Allowlisted actual controlled resume prompt retained to verify new user-message delivery; credentials/system/provider excluded.",
+    "transformations": [
+      "selected observations, original sequence and nanosecond relative timing retained",
+      "PTY output bytes and original packet boundaries unchanged",
+      "history envelopes decoded then allowlisted and reencoded; payload hash recomputed",
+      "session/message/tool IDs replaced by consistent SHA-derived pseudonyms; tool_result linkage retained",
+      "manifest PIDs replaced with pseudonymous numeric values; cannot be used as live process ownership",
+      "wall clock normalized to 2026-10-09T00:00:00Z plus source elapsed time",
+      "history user text blocks removed; user tool_result blocks retained"
+    ],
+    "complete": false,
+    "truncated": true
+  },
+  "evidence": {
+    "classification": "sanitized-observation",
+    "inputWitnesses": [
+      {
+        "seq": 31,
+        "elapsedNs": "147400464815",
+        "observedAt": "2026-10-09T00:02:27.400Z",
+        "dataBase64": "DQ==",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      }
+    ],
+    "manifestObservations": [
+      {
+        "seq": 17,
+        "elapsedNs": "155945652",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-ca936cdc7b42",
+          "pid": 7768831,
+          "status": "cancelled",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:43.909Z",
+          "ended_at": "2026-10-09T09:25:49.771Z",
+          "exit_code": 0
+        }
+      },
+      {
+        "seq": 34,
+        "elapsedNs": "147510027617",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-ca936cdc7b42",
+          "pid": 7768831,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:43.909Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 91,
+        "elapsedNs": "151984809886",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-ca936cdc7b42",
+          "pid": 7768831,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:43.909Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 93,
+        "elapsedNs": "152137315674",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-ca936cdc7b42",
+          "pid": 7768831,
+          "status": "idle",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:43.909Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 95,
+        "elapsedNs": "180369381270",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-ca936cdc7b42",
+          "pid": 7768831,
+          "status": "completed",
+          "interactive": false,
+          "started_at": "2026-10-09T09:25:43.909Z",
+          "ended_at": "2026-10-09T09:29:07.379Z",
+          "exit_code": 0
+        }
+      }
+    ],
+    "exitWitnesses": [
+      {
+        "seq": 94,
+        "kind": "observation_deadline",
+        "elapsedNs": "180067261034"
+      },
+      {
+        "seq": 96,
+        "kind": "exit",
+        "elapsedNs": "180369774179",
+        "exitCode": 0,
+        "timedOut": true
+      }
+    ],
+    "notes": [
+      "Shares session pseudonym with stopped-session.json but execution ID differs. Actual resumed assistant RESUMED_CONFIRMED appended, prior aborted tool history retained. Original recorder timed_out:true later, so natural CLI termination is not proven. User composer prompt removed; separate Enter witness seq31 retained."
+    ]
+  }
+}

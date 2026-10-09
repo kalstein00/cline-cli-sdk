@@ -67,12 +67,31 @@ def modal_witness(meta):
     payload = '\n'.join(line.rstrip() for line in lines[titles[-1]:-3]).encode('utf8')
     return dict(sha256=hashlib.sha256(payload).hexdigest(), dataBase64=base64.b64encode(result.stdout).decode(), rows=meta['terminal']['rows'], cols=meta['terminal']['cols'])
 
+def composer_witness(meta):
+    if meta.get('terminalMode') != 'tui' or not meta.get('resume'):
+        return None
+    target = meta['tmuxSession'] + ':0.0'
+    try:
+        geometry = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'display-message','-p','-t',target,'#{pane_width},#{pane_height},#{cursor_x},#{cursor_y}'], timeout=5, text=True).strip()
+        cols, rows, x, y = map(int, geometry.split(','))
+        raw = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'capture-pane','-p','-t',target], timeout=5)
+        lines = raw.decode('utf8').splitlines()
+        if (cols, rows) != (120, 40) or len(lines) != rows or y != rows-5 or x < 2:
+            return None
+        rule = lambda line: len(line.strip()) >= 20 and set(line.strip()) == {'─'}
+        if not rule(lines[-6]) or not rule(lines[-4]) or not lines[-5].startswith('❯ ') or '● Act (Tab)' not in lines[-3] or lines[-1].strip() != 'Auto-approve all disabled (Shift+Tab)':
+            return None
+        payload = json.dumps([lines[-6:], x, y], ensure_ascii=False).encode('utf8')
+        return dict(sha256=hashlib.sha256(payload).hexdigest(), dataBase64=base64.b64encode(raw).decode(), rows=rows, cols=cols, cursorX=x, cursorY=y)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
 def input_binding(run, meta, request, cursor):
     expected = meta.get('identity')
     if request.get('executionId') != meta['executionId'] or not expected or request.get('processIdentity') != expected or identity(expected['pid']) != expected:
         return 'process-identity-changed'
     if meta.get('terminalMode') == 'tui':
-        witness = modal_witness(meta)
+        witness = composer_witness(meta) if request.get('inputType', '').startswith('composer-') else modal_witness(meta)
         if not witness or not request.get('modalHash') or request['modalHash'] != witness['sha256']:
             return 'terminal-modal-changed'
     elif request.get('expectedCursor') != cursor:
@@ -107,9 +126,10 @@ def session_files(meta):
             sid = manifest['session_id']
             if sid in meta.get('priorSessions', []) and not expected:
                 continue
-            if manifest.get('pid') != (meta.get('identity') or {}).get('pid'):
+            if not expected and manifest.get('pid') != (meta.get('identity') or {}).get('pid'):
                 continue
-            return sid, manifest, sessions / sid / (sid + '.messages.json')
+            current_manifest = manifest.get('pid') == (meta.get('identity') or {}).get('pid') or (manifest.get('pid') is None and meta.get('exitCode') is not None and manifest.get('status') in ('completed','cancelled','failed'))
+            return sid, manifest if current_manifest else None, sessions / sid / (sid + '.messages.json')
         except (OSError, ValueError, KeyError):
             continue
     return None, None, None
@@ -246,6 +266,9 @@ def handle(request):
             except (OSError, ValueError, KeyError, TypeError):
                 continue
         return dict(executions=executions)
+    if action == 'resume':
+        from resume import launch_resume
+        return launch_resume(request, root, handle, identity, boot_id, save)
     if action == 'start':
         cwd = Path(request['cwd'])
         if not cwd.is_absolute() or not cwd.is_dir():
@@ -273,16 +296,19 @@ def handle(request):
         ownership.write_bytes(base64.b64decode(request['ownershipSourceBase64']))
         os.chmod(ownership, 0o600)
         socket = str(root / 'tmux.sock')
-        argv = [executable, '--data-dir', str(data), '--cwd', str(cwd), '--auto-approve', 'false', request['prompt']]
+        argv = [executable, '--data-dir', str(data), '--cwd', str(cwd), '--auto-approve', 'false']
+        resume = request.get('_resume')
+        if resume: argv += ['--id', resume['sessionId']]
+        else: argv += [request['prompt']]
         mode = request.get('terminalMode', 'readline')
         if mode not in ('readline', 'tui'):
             raise ValueError('Invalid terminal mode')
-        if mode == 'tui': argv[-1:-1] = ['--tui']
+        if mode == 'tui' and not resume: argv[-1:-1] = ['--tui']
         if request.get('retryLimit') is not None:
             if type(request['retryLimit']) is not int or not 1 <= request['retryLimit'] <= 10:
                 raise ValueError('Retry limit must be an integer from 1 to 10')
             argv[-1:-1] = ['--retries', str(request['retryLimit'])]
-        meta = dict(schemaVersion=1, owner='cline-cli-sdk', executionId=run_id, sessionId=None, cwd=str(cwd), dataDir=str(data), priorSessions=prior,
+        meta = dict(schemaVersion=1, owner='cline-cli-sdk', executionId=run_id, sessionId=resume['sessionId'] if resume else None, resume=resume, cwd=str(cwd), dataDir=str(data), priorSessions=prior,
                     cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, terminal=dict(rows=40, cols=120),
                     bootId=boot_id(), tmuxSocket=socket, tmuxSession=run_id, identity=None, exitCode=None)
         # Prompt is launch-only: don't retain it in minimal control metadata after startup.
@@ -291,13 +317,16 @@ def handle(request):
         result = subprocess.run(['tmux', '-S', socket, 'new-session', '-d', '-s', run_id, '-x', '120', '-y', '40', command], capture_output=True, text=True)
         if result.returncode:
             raise ValueError('Unable to start task-owned tmux session: ' + result.stderr.strip())
-        return dict(executionId=run_id, remoteRoot=str(root), sessionId=None)
+        return dict(executionId=run_id, remoteRoot=str(root), sessionId=meta['sessionId'], terminalMode=mode)
     run = root / request['executionId']
     if run.parent != root or not request['executionId'].startswith('run-'):
         raise ValueError('Invalid execution path')
     meta = json.loads((run / 'meta.json').read_text())
     if meta['executionId'] != request['executionId']:
         raise ValueError('Execution identity mismatch')
+    if action == 'settle-resume':
+        from resume import settle_resume
+        return settle_resume(request, run, meta, session_files)
     if action == 'stop':
         if not isinstance(request.get('requestId'), str) or not 1 <= len(request['requestId']) <= 128 or not all(c.isalnum() or c in '._:-' for c in request['requestId']):
             raise ValueError('Invalid stop request identity')
@@ -332,7 +361,13 @@ def handle(request):
         payload = base64.b64decode(request.get('dataBase64', ''), validate=True)
         input_type = request.get('inputType')
         step_index = request.get('stepIndex')
-        if input_type in ('tui-navigation', 'tui-text', 'tui-submit'):
+        if input_type in ('composer-text', 'composer-submit'):
+            valid = meta.get('terminalMode') == 'tui' and meta.get('resume') and request.get('kind') == 'composer' and type(step_index) is int and 0 <= step_index < 128 and request_id == meta['resume']['requestId']
+            if input_type == 'composer-submit': valid = valid and payload == b'\r'
+            else:
+                text = payload.decode('utf8')
+                valid = valid and 0 < len(payload) <= 64 and all(ord(c) >= 32 and ord(c) != 127 for c in text)
+        elif input_type in ('tui-navigation', 'tui-text', 'tui-submit'):
             valid = meta.get('terminalMode') == 'tui' and request.get('kind') == 'question' and type(step_index) is int and 0 <= step_index < 128
             if input_type == 'tui-navigation': valid = valid and payload in (b'\x1b[A', b'\x1b[B')
             elif input_type == 'tui-submit': valid = valid and payload == b'\r'
@@ -362,7 +397,7 @@ def handle(request):
                         raise ValueError('Response step identity conflict')
                     return dict(requestId=request_id, state=previous['state'], reason=previous.get('reason'))
                 steps = prior.get('steps', {})
-                if step_index != len(steps) or not steps or steps[str(step_index - 1)]['state'] != 'written' or steps[str(step_index - 1)]['inputType'] == 'tui-submit':
+                if step_index != len(steps) or not steps or steps[str(step_index - 1)]['state'] != 'written' or steps[str(step_index - 1)]['inputType'] in ('tui-submit', 'composer-submit'):
                     raise ValueError('Response continuation is not confirmed')
             if not prior and len(ledger) >= 256:
                 raise ValueError('Response request limit reached')
@@ -384,7 +419,7 @@ def handle(request):
                 record.update(state='rejected', reason=reason)
                 if step_index == 0: parent.update(state='rejected', reason=reason)
                 return dict(requestId=request_id, state='rejected', reason=reason)
-            frame = {key: request.get(key) for key in ('requestId', 'sessionId', 'executionId', 'interactionId', 'expectedCursor', 'historyHash', 'processIdentity', 'dataBase64', 'modalHash', 'stepIndex')}
+            frame = {key: request.get(key) for key in ('requestId', 'sessionId', 'executionId', 'interactionId', 'expectedCursor', 'historyHash', 'processIdentity', 'dataBase64', 'modalHash', 'stepIndex', 'inputType')}
             line = (json.dumps(frame) + '\n').encode('utf8')
             if len(line) > 4096:
                 raise ValueError('Input control frame exceeded atomic FIFO limit')
@@ -407,6 +442,9 @@ def handle(request):
             buffer = dict(cursor=cursor, first=cursor + 1, observations=[])
         observations = [frame for frame in buffer['observations'] if frame['seq'] > cursor and frame['kind'] == 'pty']
         sid, manifest, history_path = session_files(meta)
+        if sid and not meta.get('sessionId'):
+            meta['sessionId'] = sid
+            save(run / 'meta.json', meta)
         history = None
         history_error = None
         if history_path:
@@ -458,10 +496,12 @@ def handle(request):
             except FileNotFoundError:
                 pass
         modal = modal_witness(meta)
-        return dict(executionId=meta['executionId'], sessionId=sid, observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal,
+        composer = composer_witness(meta)
+        return dict(executionId=meta['executionId'], sessionId=sid, observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal, composerHash=composer['sha256'] if composer else None, composerPane=composer, resume=meta.get('resume'),
                     gap=cursor < buffer['first'] - 1, history=history, historyError=history_error, screen=screen, phase=phase,
                     process=dict(kind='process', identity=expected, alive=alive, identityConfirmed=confirmed,
                                  exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else None,
+                                 supervisorAlive=bool(meta.get('supervisorIdentity') and identity(meta['supervisorIdentity']['pid']) == meta['supervisorIdentity']),
                                  stop=stop_result,
                                  children=[value for value in ownership.get('owned', []) if value != expected], trackingError=ownership.get('trackingError'),
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),

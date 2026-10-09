@@ -34,6 +34,7 @@ export interface ProcessObservation {
   children?: { pid: number; startTime: string; bootId: string }[];
   trackingError?: string | null;
   childrenVerified?: boolean;
+  supervisorAlive?: boolean;
 }
 export interface StopRequest {
   executionId: string;
@@ -123,6 +124,9 @@ export interface Snapshot {
   response: ResponseResult | null;
   stop: StopResult | null;
   executionEvidence: ProcessObservation | null;
+  /** Observed focused composer; not a public terminal-input escape hatch. */
+  composer?: { mode: "tui"; text: string } | null;
+  resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" } | null;
   replay: {
     position: number;
     total: number;
@@ -191,6 +195,7 @@ interface Reducer extends Client {
         | "execution"
         | "interaction"
         | "stop"
+        | "resume"
       >
     >,
   ): Snapshot;
@@ -302,6 +307,7 @@ export function createReducer(options: {
       );
   };
   const interpretScreen = (obs: Observation) => {
+    state.composer = null;
     const lines = [];
     const buffer = terminal!.buffer.active;
     if (
@@ -501,6 +507,16 @@ export function createReducer(options: {
         state.interaction = null;
         state.execution = "unknown";
         emit("interaction.changed", obs, null);
+      }
+      const bottom = recording!.terminal.rows - 4;
+      const rule = (line: string) => /^─{20,}$/.test(line.trim());
+      if (!state.interaction && rule(visible[bottom]) &&
+          visible.at(-1)?.trim() === "Auto-approve all disabled (Shift+Tab)" &&
+          visible[bottom + 1].includes("● Act (Tab)") &&
+          buffer.cursorY === bottom - 1 && buffer.cursorX >= 2 &&
+          rule(visible[bottom - 2]) && visible[bottom - 1].startsWith("❯ ")) {
+        const text = visible[bottom - 1].slice(2);
+        state.composer = { mode: "tui", text: text === "Ask anything..." ? "" : text };
       }
       return;
     }
@@ -830,7 +846,8 @@ export function createReducer(options: {
                   role: raw.role,
                   text: raw.content
                     .filter((part) => part.type === "text")
-                    .map((part) => part.text)
+                    .map((part) => raw.role === "user" && recording!.cli.name === "cline" && recording!.cli.version === "3.0.69" && ["cline-3.0.69-readline", "cline-3.0.69-tui"].includes(recording!.cli.profile) && part.text.startsWith('<user_input mode="act">') && part.text.endsWith('</user_input>')
+                      ? part.text.slice(23,-13) : part.text)
                     .join("\n"),
                 };
               },
