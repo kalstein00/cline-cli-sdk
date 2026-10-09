@@ -86,6 +86,7 @@ export interface LiveClient {
     live: true;
     responses: true;
     freeText: boolean;
+    resume: boolean;
     companyCompatibility: "unverified";
   };
   respond(request: ResponseRequest): Promise<ResponseResult>;
@@ -466,6 +467,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         const receipts = remoteRequests.filter(
           (receipt): receipt is DurableResponse =>
             receipt.binding?.executionId === managed!.executionId &&
+            receipt.binding?.kind !== ("composer" as string) &&
             receipt.binding?.sessionId === state.sessionId &&
             typeof receipt.binding?.answerDigest === "string",
         );
@@ -541,6 +543,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     return refreshing;
   };
   const validateResponse = (request: ResponseRequest) => {
+    if (state.resume?.state === "delivery-unknown")
+      throw new SdkError("resume-input-uncertain", "The follow-up delivery is unknown; input is blocked.");
     if (state.stop)
       throw new SdkError(
         "stop-in-progress",
@@ -826,12 +830,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       const request = structuredClone(input);
       if (!request || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(request.requestId) ||
           typeof request.prompt !== "string" || !request.prompt || request.prompt.trim() !== request.prompt ||
-          Buffer.byteLength(request.prompt) > 112 || /[\p{Cc}\p{Cs}]/u.test(request.prompt) || request.prompt.startsWith("/") || request.prompt.includes("@"))
+          Buffer.byteLength(request.prompt) > 112 || /[\p{Cc}\p{Cs}]/u.test(request.prompt) || request.prompt.startsWith("/") || request.prompt.includes("@") ||
+          [...new Intl.Segmenter(undefined,{granularity:"grapheme"}).segment(request.prompt)].some(({segment})=>Buffer.byteLength(segment)>64))
         return Promise.reject(new SdkError("invalid-resume", "Use printable one-row text up to 112 UTF-8 bytes without outer whitespace, slash commands or mentions."));
       const binding = JSON.stringify([request.executionId, request.requestId, request.prompt]);
       const previous = resumes.get(request.requestId);
       if (previous) return previous.binding === binding ? previous.promise : Promise.reject(new SdkError("request-conflict", "Resume request identity is already bound."));
-      if (resumeActive || resumes.size)
+      if (resumeActive || resumes.size >= 256)
         return Promise.reject(new SdkError("resume-already-requested", "A resume launch has already been reserved; do not retry another identity."));
       if (!report?.profile.supported || !report.ready)
         return Promise.reject(new SdkError("unsupported-profile", "Resume requires the verified CLI profile."));
@@ -869,6 +874,17 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           provenance:{source:"live",sourceSha256:"",review:"managed resume",transformations:[],complete:false,truncated:false}});
         const base = {...receipt,executionId:launched.executionId};
         reducer.setContext({mode:"live",connection:"connected",resume:base});
+        if (launched.executionId !== executionId) {
+          // A durable preexisting reservation is reconfirmed read-only, never continued or resubmitted.
+          await refresh();
+          const witness = await helper({action:"settle-resume",root:managed!.remoteRoot,executionId:managed!.executionId,requestId:request.requestId});
+          if (witness.state !== "delivered" || witness.executionId !== launched.executionId || witness.sessionId !== sessionId)
+            throw new SdkError("resume-input-uncertain", "The existing resume reservation has no conclusive delivery receipt.");
+          reducer.setContext({resume:{...base,state:"delivered"}});
+          resumeActive = false;
+          state={...reducer.snapshot(),mode:"live",connection:state.connection};
+          return snapshot();
+        }
         const wait = async (condition:()=>boolean) => {
           const deadline = Date.now() + (config.responseTimeoutMs ?? 30000);
           while (Date.now() < deadline) {
@@ -905,6 +921,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         if(witness.state!=="delivered"||witness.executionId!==managed!.executionId||witness.sessionId!==sessionId)
           throw new SdkError("resume-input-uncertain","The stored follow-up receipt did not match.");
         reducer.setContext({resume:{...base,state:"delivered"}});
+        resumeActive = false;
         state={...reducer.snapshot(),mode:"live",connection:state.connection};
         return snapshot();
       } catch(error) {
@@ -930,6 +947,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         live: true,
         responses: true,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
+        resume: !!report?.profile.supported && report.ready && state.connection === "connected" &&
+          !!state.sessionId && ["completed","stopped"].includes(state.execution) &&
+          processEvidence?.alive === false && processEvidence.identityConfirmed === true &&
+          processEvidence.supervisorAlive === false && processEvidence.childrenVerified === true &&
+          !processEvidence.children?.length && !resumeActive && !activeRequest,
         companyCompatibility: "unverified",
       };
     },

@@ -37,8 +37,10 @@ def launch_resume(request, root, handle, identity, boot_id, save):
             if other.get('exitCode') is None or (expected and identity(expected['pid']) == expected) or (supervisor and identity(supervisor['pid']) == supervisor):
                 raise ValueError('This conversation has a live or pending managed execution; reconnect it')
         history = json.loads(base64.b64decode(status['history']['dataBase64']))
-        receipt = dict(binding,executionId=new_id,sessionId=sid,state='reserved',baselineMessageIds=[m['id'] for m in history['messages']])
+        receipt = dict(binding,executionId=new_id,sessionId=sid,state='reserved',baselineMessageCount=len(history['messages']),baselineLastMessageId=history['messages'][-1]['id'] if history['messages'] else None)
         save(receipt_path,receipt)  # uncertain launch reserves this identity permanently
+        meta.update(sessionId=sid, resumedBy=new_id, ownedManifestStatus=proc['manifestStatus'])
+        save(old / 'meta.json',meta)
         launched = handle(dict(request,action='start',executionId=new_id,cwd=meta['cwd'],dataDir=meta['dataDir'],terminalMode='tui',_resume=receipt))
         receipt['state']='started'
         save(receipt_path,receipt)
@@ -54,7 +56,11 @@ def settle_resume(request,run,meta,session_files):
     def text(message):
         raw='\n'.join(p['text'] for p in message['content'] if p['type']=='text')
         return raw[23:-13] if raw.startswith('<user_input mode="act">') and raw.endswith('</user_input>') else raw
-    matched=[m for m in doc['messages'] if m['role']=='user' and m['id'] not in resume['baselineMessageIds'] and hashlib.sha256(text(m).encode()).hexdigest()==resume['promptDigest']]
+    count=resume.get('baselineMessageCount',len(resume.get('baselineMessageIds',[])))
+    last=resume.get('baselineLastMessageId') or (resume.get('baselineMessageIds') or [None])[-1]
+    if len(doc['messages']) < count or (count and doc['messages'][count-1]['id'] != last):
+        return dict(state='delivery-unknown')  # rewritten/compacted history cannot silently resolve delivery
+    matched=[m for m in doc['messages'][count:] if m['role']=='user' and hashlib.sha256(text(m).encode()).hexdigest()==resume['promptDigest']]
     if len(matched)!=1:return dict(state='delivery-unknown')
     # Return raw history identity witness. The consumer still checks fresh process/session.
     return dict(state='delivered',messageId=matched[0]['id'],promptDigest=resume['promptDigest'],sessionId=sid,executionId=meta['executionId'])

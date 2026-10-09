@@ -112,6 +112,13 @@ def input_binding(run, meta, request, cursor):
 def session_files(meta):
     sessions = Path(meta['dataDir']) / 'sessions'
     expected = meta.get('sessionId')
+    if not expected:
+        try:
+            cache = json.loads((Path(meta['tmuxSocket']).parent / meta['executionId'] / 'session.json').read_bytes())
+            if cache.get('executionId') == meta['executionId'] and cache.get('identity') == meta.get('identity'):
+                expected = cache['sessionId']
+        except (OSError, ValueError, KeyError):
+            pass
     candidates = [sessions / expected / (expected + '.json')] if expected else list(sessions.glob('*/*.json'))
     def modified(path):
         try:
@@ -128,7 +135,7 @@ def session_files(meta):
                 continue
             if not expected and manifest.get('pid') != (meta.get('identity') or {}).get('pid'):
                 continue
-            current_manifest = manifest.get('pid') == (meta.get('identity') or {}).get('pid') or (manifest.get('pid') is None and meta.get('exitCode') is not None and manifest.get('status') in ('completed','cancelled','failed'))
+            current_manifest = manifest.get('pid') == (meta.get('identity') or {}).get('pid') or (manifest.get('pid') is None and not meta.get('resumedBy') and meta.get('exitCode') is not None and manifest.get('status') in ('completed','cancelled','failed'))
             return sid, manifest if current_manifest else None, sessions / sid / (sid + '.messages.json')
         except (OSError, ValueError, KeyError):
             continue
@@ -483,8 +490,11 @@ def handle(request):
         observations = [frame for frame in buffer['observations'] if frame['seq'] > cursor and frame['kind'] == 'pty']
         sid, manifest, history_path = session_files(meta)
         if sid and not meta.get('sessionId'):
-            meta['sessionId'] = sid
-            save(run / 'meta.json', meta)
+            # Keep session discovery separate from the supervisor's mutable process metadata.
+            # A concurrent final exit write must never be overwritten by a stale status read.
+            with open(run / 'session.lock', 'a') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                save(run / 'session.json', dict(sessionId=sid, executionId=meta['executionId'], identity=meta.get('identity')))
         history = None
         history_error = None
         if history_path:
@@ -542,7 +552,7 @@ def handle(request):
         return dict(executionId=meta['executionId'], sessionId=sid, observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal, composerHash=composer['sha256'] if composer else None, composerPane=composer, resume=meta.get('resume'),
                     gap=cursor < buffer['first'] - 1, history=history, historyError=history_error, screen=screen, phase=phase,
                     process=dict(kind='process', identity=expected, alive=alive, identityConfirmed=confirmed,
-                                 exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else None,
+                                 exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else meta.get('ownedManifestStatus'),
                                  supervisorAlive=bool(meta.get('supervisorIdentity') and identity(meta['supervisorIdentity']['pid']) == meta['supervisorIdentity']),
                                  stop=stop_result,
                                  children=[value for value in ownership.get('owned', []) if value != expected], trackingError=ownership.get('trackingError'),

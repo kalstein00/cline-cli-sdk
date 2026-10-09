@@ -19,6 +19,20 @@ test('resume refuses an alive CLI and a dead CLI with unknown child or stop evid
  await assert.rejects(c.resume({...req,requestId:'resume-3'}),{code:'resume-unconfirmed'});
  assert.equal(launches,1);c.close();
 });
+test('native completed and explicitly stopped resume traces preserve prior conversation, followup user text and numeric/Korean results offline',async()=>{
+ for(const [name,answer,prior] of [['native-completed-resume','2 custom identifier','RESUME_INITIAL_DONE'],['native-stopped-resume','한글 응답 가나다 😀 café','STOP_BEFORE_RESUME']]){
+ const recording=JSON.parse(await readFile(new URL(`../fixtures/resume/${name}.json`,import.meta.url)));
+ const c=createClient({mode:'replay'});await c.openReplay(recording);await c.replayAll();const s=c.snapshot();
+ assert.ok(s.messages.some(m=>m.text.includes(prior)));assert.ok(s.messages.some(m=>m.role==='user'&&m.text==='Ask ask_question: RESUME_FOLLOWUP, options RED,BLUE. Print RESUME_RESULT:<answer>. No other tools.'));
+ assert.ok(s.messages.some(m=>m.role==='assistant'&&m.text==='RESUME_RESULT:'+answer));assert.equal(s.sessionId,recording.sessionId);assert.equal(s.executionId,recording.executionId);c.close();}
+});
+test('lost composer echo after a written step keeps resume unknown and does not submit Enter or create a second execution',async(t)=>{
+ const restore=JSON.parse(await readFile(new URL('../fixtures/resume/restored-composer.json',import.meta.url)));let oldId,newId,launches=0;const writes=[];
+ const process={kind:'process',identity:{pid:42,startTime:'100',bootId:'boot'},alive:false,identityConfirmed:true,exitCode:0,manifestStatus:'completed',childrenVerified:true,children:[],supervisorAlive:false};
+ boundary(t,r=>{if(!r.action)return pinned;if(r.action==='start'){oldId=r.executionId;return {executionId:oldId,remoteRoot:'/fixture/control'};}if(r.action==='resume'){launches++;newId=r.newExecutionId;return {executionId:newId,sessionId:restore.sessionId,remoteRoot:'/fixture/control'};}if(r.action==='respond'){writes.push(r);return {state:'queued'};}if(r.action==='status')return {executionId:r.executionId,sessionId:restore.sessionId,cursor:restore.observations.at(-1).seq,composerHash:'composer',observations:restore.observations.filter(o=>o.seq>r.cursor),process:r.executionId===oldId?process:{...process,alive:true,exitCode:null,supervisorAlive:true},requests:writes.map(w=>({requestId:w.requestId,state:'written',steps:[{index:w.stepIndex,state:'written'}]}))};throw Error(r.action);});
+ const c=createClient({mode:'live',connection:{host:'fixture',responseTimeoutMs:250}});await c.connect();await c.start({cwd:'/fixture',prompt:'old'});await c.refresh();const request={executionId:oldId,requestId:'lost-echo',prompt:'controlled'};
+ await assert.rejects(c.resume(request),{code:'resume-input-uncertain'});assert.equal(c.snapshot().resume.state,'delivery-unknown');await assert.rejects(c.resume(request),{code:'resume-input-uncertain'});await assert.rejects(c.resume({...request,requestId:'retry'}),{code:'resume-already-requested'});assert.equal(launches,1);assert.equal(writes.length,1);assert.equal(writes[0].inputType,'composer-text');c.close();
+});
 test('completed managed conversation resumes once under a new run and exact restored-composer echo precedes Enter and new user history',async(t)=>{
  const fixture=async name=>JSON.parse(await readFile(new URL(`../fixtures/resume/${name}.json`,import.meta.url)));
  const restore=await fixture('restored-composer'),echo=await fixture('composer-echo'),submitted=await fixture('submitted-history');
