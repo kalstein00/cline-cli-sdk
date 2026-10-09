@@ -20,6 +20,12 @@ export interface PtyObservation {
   dataBase64: string;
   elapsedNs?: string;
 }
+export interface HistoryFailureObservation {
+  kind: "history-failure";
+  seq: number;
+  observedAt: string;
+  reason: string;
+}
 export interface ProcessObservation {
   kind: "process";
   seq: number;
@@ -54,6 +60,7 @@ export interface StopResult {
 export type Observation =
   | HistoryObservation
   | PtyObservation
+  | HistoryFailureObservation
   | ProcessObservation;
 export interface Recording {
   schemaVersion: 1;
@@ -127,6 +134,7 @@ export interface Snapshot {
   /** Observed focused composer; not a public terminal-input escape hatch. */
   composer?: { mode: "tui"; text: string } | null;
   resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" } | null;
+  historySync: { current: boolean; warning: string | null };
   replay: {
     position: number;
     total: number;
@@ -230,8 +238,10 @@ function validateRecording(input: Recording): void {
       !Number.isSafeInteger(obs.seq) ||
       obs.seq <= last ||
       !Number.isFinite(Date.parse(obs.observedAt)) ||
-      !["pty", "history", "process"].includes(obs.kind) ||
-      (obs.kind !== "process" &&
+      !["pty", "history", "process", "history-failure"].includes(obs.kind) ||
+      (obs.kind === "history-failure" &&
+        (typeof obs.reason !== "string" || !obs.reason)) ||
+      ((obs.kind === "pty" || obs.kind === "history") &&
         (typeof obs.dataBase64 !== "string" ||
           !/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
             obs.dataBase64,
@@ -264,6 +274,7 @@ export function createReducer(options: {
     response: null,
     stop: null,
     executionEvidence: null,
+    historySync: { current: true, warning: null },
     replay: { position: 0, total: 0, complete: false, truncated: false },
   };
   let recording: Recording | null = null;
@@ -281,6 +292,18 @@ export function createReducer(options: {
   let results = new Map<string, { digest: string; rejected: boolean }>();
   const listeners = new Set<(event: SdkEvent) => void>();
   const snapshot = () => structuredClone(state);
+  const historyFailure = (obs: Observation) => {
+    if (!state.historySync.current) return;
+    state.historySync = {
+      current: false,
+      warning: "History synchronization is temporarily unavailable; the last good conversation is preserved. Requery before responding.",
+    };
+    state.execution = "unknown";
+    emit("state.changed", obs, {
+      historySync: state.historySync,
+      execution: state.execution,
+    });
+  };
   const emit = (type: SdkEvent["type"], obs: Observation, payload: unknown) => {
     state.revision++;
     for (const listener of listeners)
@@ -307,6 +330,7 @@ export function createReducer(options: {
       );
   };
   const interpretScreen = (obs: Observation) => {
+    if (!state.historySync.current) return;
     state.composer = null;
     const lines = [];
     const buffer = terminal!.buffer.active;
@@ -750,6 +774,7 @@ export function createReducer(options: {
         response: null,
         stop: null,
         executionEvidence: null,
+        historySync: { current: true, warning: null },
         replay: {
           position: 0,
           total: input.observations.length,
@@ -765,6 +790,7 @@ export function createReducer(options: {
       const obs = recording.observations[state.replay.position];
       if (!obs) return snapshot();
       state.replay.position++;
+      if (obs.kind === "history-failure") historyFailure(obs);
       if (obs.kind === "pty") {
         await new Promise<void>((resolve) =>
           terminal!.write(Buffer.from(obs.dataBase64, "base64"), resolve),
@@ -853,12 +879,17 @@ export function createReducer(options: {
               },
             );
         } catch {
+          historyFailure(obs);
           throw new SdkError(
             "invalid-history",
             "History observation was incomplete or incompatible; the last valid conversation is preserved.",
           );
         }
         results = nextResults;
+        if (!state.historySync.current) {
+          state.historySync = { current: true, warning: null };
+          emit("state.changed", obs, { historySync: state.historySync });
+        }
         pendingTools = nextTools.filter((tool) => !results.has(tool.id));
         for (const message of messages) {
           if (!message.text) continue;
@@ -885,6 +916,7 @@ export function createReducer(options: {
             !obs.alive
               ? "stopped"
               : "unknown";
+        else if (!state.historySync.current) state.execution = "unknown";
         else if (!obs.identityConfirmed) {
           state.execution = "unknown";
           state.interaction = null;
@@ -912,7 +944,8 @@ export function createReducer(options: {
         )
           state.execution = "completed";
         else state.execution = "unknown";
-        if (!obs.alive && obs.exitCode !== null) state.interaction = null;
+        if (state.historySync.current && !obs.alive && obs.exitCode !== null)
+          state.interaction = null;
         if (
           previous !== state.execution ||
           previousStop !== JSON.stringify(state.stop)

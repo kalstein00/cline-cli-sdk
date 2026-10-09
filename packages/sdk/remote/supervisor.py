@@ -101,13 +101,27 @@ def input_binding(run, meta, request, cursor):
         return 'session-changed'
     if history_path:
         try:
-            if hashlib.sha256(history_path.read_bytes()).hexdigest() != request.get('historyHash'):
+            if hashlib.sha256(read_history(history_path)).hexdigest() != request.get('historyHash'):
                 return 'history-observation-changed'
-        except OSError:
+        except (OSError, ValueError):
             return 'history-unavailable'
     else:
         return 'history-unavailable'
     return None
+
+def read_history(path):
+    # Read only. A whole payload must belong to one unchanged inode and version.
+    def version(info):
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    with path.open('rb') as stream:
+        before = os.fstat(stream.fileno())
+        if before.st_size > 16 * 1024 * 1024:
+            raise ValueError('history-too-large')
+        payload = stream.read(16 * 1024 * 1024 + 1)
+        after = os.fstat(stream.fileno())
+    if version(before) != version(after) or version(after) != version(path.stat()) or len(payload) != after.st_size:
+        raise ValueError('file-changed')
+    return payload
 
 def session_files(meta):
     sessions = Path(meta['dataDir']) / 'sessions'
@@ -499,10 +513,14 @@ def handle(request):
         history_error = None
         if history_path:
             try:
-                payload = history_path.read_bytes()
+                payload = read_history(history_path)
                 history = dict(dataBase64=base64.b64encode(payload).decode(), sha256=hashlib.sha256(payload).hexdigest())
             except OSError as exc:
                 history_error = type(exc).__name__
+            except ValueError as exc:
+                history_error = str(exc)
+        elif sid or meta.get('sessionId'):
+            history_error = 'missing'
         expected = meta.get('identity')
         actual = identity(expected['pid']) if expected else None
         same_boot = meta['bootId'] == boot_id()

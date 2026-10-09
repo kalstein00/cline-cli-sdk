@@ -381,14 +381,25 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       reservationSupported = !!result.management?.responseReservation;
       phase = result.phase ?? phase;
       pendingPhase = null;
-      for (const raw of result.screen ? [] : (result.observations ?? []))
-        await reducer.ingest({ ...raw, seq: ++sequence });
+      if (
+        result.historyError ||
+        (Object.hasOwn(result, "history") && !result.history && (result.sessionId || historyHash))
+      )
+        await reducer.ingest({
+          kind: "history-failure",
+          seq: ++sequence,
+          observedAt: new Date().toISOString(),
+          reason: result.historyError || "missing",
+        });
       cursor = result.cursor;
       remoteRequests = result.requests ?? [];
       modalHash = result.modalHash ?? null;
       composerHash = result.composerHash ?? null;
       processEvidence = result.process ?? processEvidence;
-      if (result.history && result.history.sha256 !== historyHash) {
+      if (
+        result.history &&
+        (result.history.sha256 !== historyHash || !reducer.snapshot().historySync.current)
+      ) {
         try {
           await reducer.ingest({
             kind: "history",
@@ -396,7 +407,16 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             observedAt: new Date().toISOString(),
             dataBase64: result.history.dataBase64,
           });
-          historyHash = result.history.sha256;
+          if (reducer.snapshot().historySync.current)
+            historyHash = result.history.sha256;
+        } catch (error) {
+          if (!(error instanceof SdkError && error.code === "invalid-history"))
+            throw error;
+        }
+      }
+      for (const raw of result.screen ? [] : (result.observations ?? [])) {
+        try {
+          await reducer.ingest({ ...raw, seq: ++sequence });
         } catch (error) {
           if (!(error instanceof SdkError && error.code === "invalid-history"))
             throw error;
@@ -421,6 +441,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       observationGap ||= !!result.gap && !result.screen;
       if (
         pendingPhase &&
+        reducer.snapshot().historySync.current &&
         !observationGap &&
         reducer.snapshot().interaction?.id === pendingPhase.id
       ) {
@@ -545,6 +566,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   const validateResponse = (request: ResponseRequest) => {
     if (state.resume?.state === "delivery-unknown")
       throw new SdkError("resume-input-uncertain", "The follow-up delivery is unknown; input is blocked.");
+    if (!state.historySync.current)
+      throw new SdkError(
+        "history-unconfirmed",
+        "History is not current. Requery before responding.",
+      );
     if (state.stop)
       throw new SdkError(
         "stop-in-progress",
@@ -844,7 +870,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         return Promise.reject(new SdkError("resume-target-mismatch", "Attach the ended managed execution before resuming."));
       const promise = (async () => {
       await refresh();
-      if (!state.sessionId || !["completed", "stopped"].includes(state.execution) ||
+      if (!state.historySync.current || !state.sessionId || !["completed", "stopped"].includes(state.execution) ||
           processEvidence?.alive !== false || !processEvidence.identityConfirmed ||
           processEvidence.exitCode === null || processEvidence.supervisorAlive !== false ||
           processEvidence.childrenVerified !== true || processEvidence.children?.length ||
@@ -889,7 +915,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           const deadline = Date.now() + (config.responseTimeoutMs ?? 30000);
           while (Date.now() < deadline) {
             await refresh();
-            if (state.executionId !== launched.executionId || state.sessionId !== sessionId || !processEvidence?.alive || !processEvidence.identityConfirmed || observationGap)
+            if (!state.historySync.current || state.executionId !== launched.executionId || state.sessionId !== sessionId || !processEvidence?.alive || !processEvidence.identityConfirmed || observationGap)
               throw new SdkError("resume-input-uncertain", "The resumed process/session is no longer confirmed.");
             if (condition()) return;
             if (state.interaction) throw new SdkError("resume-input-uncertain", "A modal owns the resumed input destination.");
@@ -947,7 +973,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         live: true,
         responses: true,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
-        resume: !!report?.profile.supported && report.ready && state.connection === "connected" &&
+        resume: !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
           !!state.sessionId && ["completed","stopped"].includes(state.execution) &&
           processEvidence?.alive === false && processEvidence.identityConfirmed === true &&
           processEvidence.supervisorAlive === false && processEvidence.childrenVerified === true &&
