@@ -46,19 +46,29 @@ export interface PreflightReport {
   };
 }
 export interface StartRequest {
+  /** readline keeps its numeric-prefix limitation; TUI supports verified custom input. */
+  terminalMode?: "readline" | "tui";
   cwd: string;
   prompt: string;
   dataDir?: string;
   retryLimit?: number;
 }
 export interface ManagedExecution {
+  terminalMode?: "readline" | "tui";
   executionId: string;
   remoteRoot: string;
   sessionId: string | null;
+  alive?: boolean;
+  identityConfirmed?: boolean;
+  terminal?: { rows: number; cols: number };
+  cliHash?: string;
 }
 export interface LiveClient {
   preflight(): Promise<PreflightReport>;
   connect(): Promise<PreflightReport>;
+  disconnect(): void;
+  listManagedExecutions(): Promise<ManagedExecution[]>;
+  attach(executionId: string): Promise<Snapshot>;
   start(request: StartRequest): Promise<Snapshot>;
   refresh(): Promise<Snapshot>;
   snapshot(): Snapshot;
@@ -67,7 +77,7 @@ export interface LiveClient {
     replay: false;
     live: true;
     responses: true;
-    freeText: false;
+    freeText: boolean;
     companyCompatibility: "unverified";
   };
   respond(request: ResponseRequest): Promise<ResponseResult>;
@@ -96,7 +106,26 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       "invalid-response-timeout",
       "Response observation timeout must be 250–120000 milliseconds.",
     );
-  const reducer = createReducer({ mode: "replay" });
+  let phase: any = null;
+  let pendingPhase: any = null;
+  let phaseSupported = false;
+  const reducer = createReducer({
+    mode: "replay",
+    interactionIdentity(kind, toolId, prompt, choices) {
+      if (!phaseSupported) return undefined;
+      const fingerprint = createHash("sha256")
+        .update(JSON.stringify([kind, toolId, prompt, choices]))
+        .digest("hex");
+      if (phase?.active && phase.fingerprint === fingerprint) return phase.id;
+      pendingPhase = {
+        fingerprint,
+        epoch: (phase?.epoch ?? 0) + 1,
+        id: `${managed?.executionId}:phase:${(phase?.epoch ?? 0) + 1}:${fingerprint.slice(0, 16)}`,
+        active: true,
+      };
+      return pendingPhase.id;
+    },
+  });
   let state: Snapshot = { ...reducer.snapshot(), mode: "live" };
   let report: PreflightReport | null = null;
   let managed: ManagedExecution | null = null;
@@ -106,11 +135,15 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let refreshing: Promise<Snapshot> | null = null;
   let observationGap = false;
   let closed = false;
+  let generation = 0;
+  let fullSynchronization = false;
   let processEvidence: any = null;
   let remoteRequests: any[] = [];
   let activeRequest: string | null = null;
   let stopPromise: Promise<StopResult> | null = null;
   let stopRequestId: string | null = null;
+  let terminalMode: "readline" | "tui" = "readline";
+  let modalHash: string | null = null;
   const requests = new Map<
     string,
     { binding: string; promise: Promise<ResponseResult> }
@@ -129,6 +162,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   const execute = async (code: string, input: unknown): Promise<any> => {
     if (closed)
       throw new SdkError("client-closed", "Create a new client after close.");
+    const operationGeneration = generation;
     const args = [
       "-o",
       "BatchMode=yes",
@@ -183,6 +217,15 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       process.on("close", (code) => {
         processes.delete(process);
         clearTimeout(deadline);
+        if (closed || operationGeneration !== generation) {
+          reject(
+            new SdkError(
+              "connection-interrupted",
+              "The local connection was detached during this operation.",
+            ),
+          );
+          return;
+        }
         if (code !== 0)
           reject(
             new SdkError("ssh-failed", stderr.trim() || `SSH exited ${code}`),
@@ -270,12 +313,18 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     return structuredClone(report!);
   };
   const helper = async (input: unknown) => {
+    const helperGeneration = generation;
     const source = await readFile(
       new URL("../remote/supervisor.py", import.meta.url),
     );
     const ownership = await readFile(
       new URL("../remote/ownership.py", import.meta.url),
     );
+    if (closed || generation !== helperGeneration)
+      throw new SdkError(
+        "connection-interrupted",
+        "The local connection was detached before this operation.",
+      );
     return execute(
       `import base64,io,json,sys;request=json.load(sys.stdin);sys.stdin=io.StringIO(json.dumps(request));exec(base64.b64decode(request['sourceBase64']))`,
       {
@@ -297,6 +346,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         root: managed.remoteRoot,
         executionId: managed.executionId,
         cursor,
+        fullScreen: fullSynchronization || observationGap,
       });
       if (result.executionId !== managed.executionId)
         throw new SdkError(
@@ -312,10 +362,14 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         managed.sessionId = result.sessionId;
         reducer.setContext({ sessionId: result.sessionId });
       }
-      for (const raw of result.observations ?? [])
+      phaseSupported = !!result.management?.phaseSupported;
+      phase = result.phase ?? phase;
+      pendingPhase = null;
+      for (const raw of result.screen ? [] : (result.observations ?? []))
         await reducer.ingest({ ...raw, seq: ++sequence });
       cursor = result.cursor;
       remoteRequests = result.requests ?? [];
+      modalHash = result.modalHash ?? null;
       processEvidence = result.process ?? processEvidence;
       if (result.history && result.history.sha256 !== historyHash) {
         try {
@@ -331,13 +385,46 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             throw error;
         }
       }
+      if (result.screen) {
+        await reducer.ingest({
+          kind: "pty",
+          seq: ++sequence,
+          observedAt: new Date().toISOString(),
+          dataBase64: result.screen.dataBase64,
+        });
+        observationGap = false;
+        fullSynchronization = false;
+      }
       if (result.process)
         await reducer.ingest({
           ...result.process,
           seq: ++sequence,
           observedAt: new Date().toISOString(),
         });
-      observationGap ||= !!result.gap;
+      observationGap ||= !!result.gap && !result.screen;
+      if (
+        pendingPhase &&
+        !observationGap &&
+        reducer.snapshot().interaction?.id === pendingPhase.id
+      ) {
+        const persisted = await helper({
+          action: "bind-phase",
+          root: managed.remoteRoot,
+          executionId: managed.executionId,
+          fingerprint: pendingPhase.fingerprint,
+          interactionId: pendingPhase.id,
+        });
+        phase = persisted.phase;
+      } else if (!reducer.snapshot().interaction && phase?.active) {
+        phase = (
+          await helper({
+            action: "bind-phase",
+            root: managed.remoteRoot,
+            executionId: managed.executionId,
+            fingerprint: null,
+          })
+        ).phase;
+      }
       if (
         !reducer.snapshot().stop &&
         observationGap &&
@@ -414,11 +501,31 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       );
     if (
       typeof request.answer !== "string" ||
-      !interaction.choices.includes(request.answer)
+      (!interaction.choices.includes(request.answer) &&
+        !interaction.responseKinds.includes("text"))
     )
       throw new SdkError(
         "unsupported-answer",
-        "Submit one of the exact choices; free text is not supported yet.",
+        "This interaction does not support that response.",
+      );
+    if (
+      !interaction.choices.includes(request.answer) &&
+      (!request.answer ||
+        request.answer.trim() !== request.answer ||
+        /[\p{Cc}\p{Cs}]/u.test(request.answer) ||
+        Buffer.byteLength(request.answer) > 1024 ||
+        [
+          ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
+            request.answer,
+          ),
+        ].some(({ segment }) => Buffer.byteLength(segment) > 64) ||
+        (terminalMode === "readline" &&
+          Number.parseInt(request.answer, 10) >= 1 &&
+          Number.parseInt(request.answer, 10) <= interaction.choices.length))
+    )
+      throw new SdkError(
+        "unsupported-answer",
+        "Use printable text up to 1024 UTF-8 bytes without outer whitespace. Readline cannot preserve a leading choice number; start a TUI task for that answer.",
       );
     if (!processEvidence?.alive || !processEvidence.identityConfirmed)
       throw new SdkError(
@@ -429,15 +536,111 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   return {
     preflight,
     async connect() {
+      if (closed)
+        throw new SdkError("client-closed", "Create a new client after close.");
+      const currentGeneration = ++generation;
       state.connection = "connecting";
       try {
         const found = await preflight();
+        if (closed || generation !== currentGeneration)
+          throw new SdkError(
+            "connection-interrupted",
+            "Connection was detached.",
+          );
         state.connection = "connected";
         return found;
       } catch (error) {
-        state.connection = "disconnected";
+        state.connection = closed ? "closed" : "disconnected";
         throw error;
       }
+    },
+    disconnect() {
+      generation++;
+      for (const process of processes) process.kill();
+      processes.clear();
+      state.connection = closed ? "closed" : "disconnected";
+      fullSynchronization = true;
+    },
+    async listManagedExecutions() {
+      if (state.connection !== "connected")
+        throw new SdkError(
+          "not-connected",
+          "Connect before listing managed executions.",
+        );
+      const result = await helper({ action: "list", root: config.remoteRoot });
+      return structuredClone(result.executions);
+    },
+    async attach(executionId) {
+      if (!report?.profile.supported || !report.ready)
+        throw new SdkError(
+          "unsupported-profile",
+          "A verified CLI profile and ready environment are required before attaching.",
+        );
+      if (!/^run-[a-f0-9-]{36}$/.test(executionId))
+        throw new SdkError(
+          "invalid-execution",
+          "Select a managed execution from the list.",
+        );
+      if (managed && managed.executionId !== executionId)
+        throw new SdkError(
+          "managed-execution-selected",
+          "This client already controls another execution.",
+        );
+      if (!managed) {
+        const runs = await this.listManagedExecutions();
+        const found = runs.find((run) => run.executionId === executionId);
+        if (!found)
+          throw new SdkError(
+            "unmanaged-execution",
+            "Only SDK-started executions can be attached.",
+          );
+        if (found.cliHash && found.cliHash !== report.cliHash)
+          throw new SdkError(
+            "unsupported-profile",
+            "The stored execution uses a different CLI fingerprint.",
+          );
+        managed = found;
+        if (
+          found.terminalMode !== undefined &&
+          !["readline", "tui"].includes(found.terminalMode)
+        )
+          throw new SdkError(
+            "unsupported-profile",
+            "The managed terminal mode is not verified.",
+          );
+        terminalMode = found.terminalMode ?? "readline";
+        cursor = 0;
+        sequence = 0;
+        historyHash = null;
+        phase = null;
+        await reducer.openReplay({
+          schemaVersion: 1,
+          cli: {
+            name: "cline",
+            version: "3.0.69",
+            profile: `cline-3.0.69-${terminalMode}`,
+          },
+          terminal: found.terminal ?? { rows: 40, cols: 120 },
+          sessionId: found.sessionId ?? executionId,
+          executionId,
+          observations: [],
+          provenance: {
+            source: "live",
+            sourceSha256: "",
+            review: "remote synchronization",
+            transformations: [],
+            complete: false,
+            truncated: false,
+          },
+        });
+        reducer.setContext({
+          mode: "live",
+          connection: "connected",
+          sessionId: found.sessionId,
+        });
+      }
+      fullSynchronization = true;
+      return refresh();
     },
     async start(request) {
       if (!report?.profile.supported)
@@ -458,6 +661,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "This client already controls a managed execution.",
         );
       if (
+        (request.terminalMode !== undefined &&
+          !["readline", "tui"].includes(request.terminalMode)) ||
         !request.cwd.startsWith("/") ||
         !request.prompt.trim() ||
         request.prompt.length > 100000 ||
@@ -471,6 +676,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "An absolute remote directory and bounded text prompt are required.",
         );
       const executionId = "run-" + randomUUID();
+      terminalMode = request.terminalMode ?? "readline";
       // Reserve identity before the first await. An uncertain launch is never retried.
       managed = {
         executionId,
@@ -513,7 +719,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         cli: {
           name: "cline",
           version: "3.0.69",
-          profile: "cline-3.0.69-readline",
+          profile: `cline-3.0.69-${terminalMode}`,
         },
         terminal: { rows: 40, cols: 120 },
         sessionId: executionId,
@@ -548,7 +754,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         replay: false,
         live: true,
         responses: true,
-        freeText: false,
+        freeText: !!state.interaction?.responseKinds?.includes("text"),
         companyCompatibility: "unverified",
       };
     },
@@ -602,12 +808,14 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           await refresh();
           validateResponse(request);
           const interaction = structuredClone(state.interaction!);
-          const bytes =
+          const custom = !interaction.choices.includes(request.answer);
+          let bytes =
             interaction.kind === "approval"
               ? request.answer === "Approve"
                 ? "y\r"
                 : "n\r"
               : `${interaction.choices.indexOf(request.answer) + 1}\r`;
+          if (terminalMode === "tui") bytes = bytes.slice(0, -1);
           const base = {
             requestId: request.requestId,
             sessionId: request.sessionId,
@@ -622,7 +830,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             mode: "live",
           };
           sent = true;
-          const accepted = await helper({
+          const envelope = {
             action: "respond",
             root: managed!.remoteRoot,
             executionId: managed!.executionId,
@@ -638,13 +846,153 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             expectedCursor: cursor,
             historyHash,
             processIdentity: processEvidence.identity,
-            dataBase64: Buffer.from(bytes).toString("base64"),
-          });
-          if (accepted.state === "rejected")
-            throw new SdkError(
-              "input-rejected",
-              accepted.reason ?? "Remote input was rejected before write.",
+          };
+          let anyWritten = false;
+          if (custom && terminalMode === "tui") {
+            const deadline = Date.now() + (config.responseTimeoutMs ?? 30000);
+            let stepIndex = 0;
+            const step = async (
+              inputType: string,
+              text: string,
+              witness: () => boolean,
+            ) => {
+              if (
+                state.interaction?.id !== interaction.id ||
+                !processEvidence?.alive ||
+                !processEvidence.identityConfirmed ||
+                observationGap ||
+                !modalHash
+              )
+                throw new SdkError(
+                  "input-uncertain",
+                  "The current TUI destination is no longer confirmed.",
+                );
+              const accepted = await helper({
+                ...envelope,
+                inputType,
+                stepIndex,
+                modalHash,
+                expectedCursor: cursor,
+                historyHash,
+                processIdentity: processEvidence.identity,
+                dataBase64: Buffer.from(text).toString("base64"),
+              });
+              if (accepted.state === "rejected")
+                throw new SdkError(
+                  anyWritten ? "input-uncertain" : "input-rejected",
+                  accepted.reason ??
+                    "Remote TUI input was rejected before write.",
+                );
+              while (Date.now() < deadline) {
+                await refresh();
+                const receipt = remoteRequests
+                  .filter((r) => r.requestId === request.requestId)
+                  .flatMap((r) => r.steps ?? [])
+                  .find((s) => s.index === stepIndex);
+                if (receipt?.state === "rejected")
+                  throw new SdkError(
+                    anyWritten ? "input-uncertain" : "input-rejected",
+                    receipt.reason ?? "TUI step rejected before write.",
+                  );
+                if (receipt?.state === "written") anyWritten = true;
+                if (receipt?.state === "written" && witness()) {
+                  stepIndex++;
+                  return;
+                }
+                if (
+                  state.interaction?.id !== interaction.id &&
+                  inputType !== "tui-submit"
+                )
+                  throw new SdkError(
+                    "input-uncertain",
+                    "TUI phase changed before echo confirmation.",
+                  );
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+              throw new SdkError(
+                "input-uncertain",
+                "TUI echo or submission was not confirmed before the observation deadline.",
+              );
+            };
+            const selected = state.interaction?.input?.selected;
+            if (selected === null || selected === undefined)
+              throw new SdkError(
+                "input-rejected",
+                "TUI selection is not visible.",
+              );
+            if (selected !== interaction.choices.length) {
+              // Up wraps the first row directly to custom; other selections move down one at a time.
+              if (selected === 0)
+                await step(
+                  "tui-navigation",
+                  "\x1b[A",
+                  () =>
+                    state.interaction?.input?.selected ===
+                    interaction.choices.length,
+                );
+              else
+                for (
+                  let index = selected;
+                  index < interaction.choices.length;
+                  index++
+                )
+                  await step(
+                    "tui-navigation",
+                    "\x1b[B",
+                    () => state.interaction?.input?.selected === index + 1,
+                  );
+            }
+            if (state.interaction?.input?.text !== "")
+              throw new SdkError(
+                "input-uncertain",
+                "Custom composer already contains text; it will not be overwritten.",
+              );
+            let accumulated = "",
+              chunk = "";
+            const chunks: string[] = [];
+            for (const { segment } of new Intl.Segmenter(undefined, {
+              granularity: "grapheme",
+            }).segment(request.answer)) {
+              if (Buffer.byteLength(chunk + segment) > 64) {
+                chunks.push(chunk);
+                chunk = "";
+              }
+              chunk += segment;
+            }
+            if (chunk) chunks.push(chunk);
+            for (const part of chunks) {
+              accumulated += part;
+              await step(
+                "tui-text",
+                part,
+                () =>
+                  state.interaction?.input?.selected ===
+                    interaction.choices.length &&
+                  state.interaction.input.text === accumulated,
+              );
+            }
+            await step(
+              "tui-submit",
+              "\r",
+              () =>
+                reducer.toolResult(interaction.toolId!)?.digest ===
+                createHash("sha256").update(request.answer).digest("hex"),
             );
+          } else {
+            const accepted = await helper({
+              ...envelope,
+              modalHash,
+              inputType: custom ? "readline-text" : undefined,
+              dataBase64: Buffer.from(
+                custom ? request.answer + "\r" : bytes,
+              ).toString("base64"),
+            });
+            if (accepted.state === "rejected")
+              throw new SdkError(
+                "input-rejected",
+                accepted.reason ?? "Remote input was rejected before write.",
+              );
+          }
           const deadline = Date.now() + (config.responseTimeoutMs ?? 30000);
           while (Date.now() < deadline) {
             await refresh();
@@ -812,6 +1160,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     },
     close() {
       closed = true;
+      generation++;
       for (const process of processes) process.kill();
       processes.clear();
       state.connection = "closed";
