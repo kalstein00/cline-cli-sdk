@@ -232,6 +232,9 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         </select></label
       >
       <button id="attach" disabled>선택한 실행에 재연결</button>
+      <label>후속 요청 (단일 행, UTF-8 112바이트 이내)<input id="resumePrompt" value="Ask ask_question: RESUME_FOLLOWUP, options RED,BLUE. Print RESUME_RESULT:&lt;answer&gt;. No other tools." /></label>
+      <button id="resume" disabled>종료된 대화 재개</button>
+      <p id="resumeState">재개 요청 없음 · 선택한 종료 실행을 먼저 확인하세요.</p>
       <button id="reconfirm" disabled>응답 전달 상태 재확인</button>
       <p>
         전달 여부 불명에서는 응답을 다시 보내지 않습니다. 원격 기록과 수신
@@ -366,6 +369,10 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         );
       if (capabilities) capability = capabilities;
       current = s;
+      element("resume").disabled = busy || !capability.resume;
+      element("resumeState").textContent = s.resume
+        ? `${s.resume.state} · 이전 ${s.resume.fromExecutionId} → ${s.resume.executionId} · 같은 대화 ${s.resume.sessionId}`
+        : "재개 요청 없음 · CLI·supervisor·자식 종료를 확인한 대화만 재개합니다.";
       element("historyWarning").hidden = !s.historySync?.warning;
       element("historyWarning").textContent = s.historySync?.warning
         ? "기록 동기화에 일시적인 문제가 있습니다. 마지막 정상 대화와 질문을 표시하며 응답을 차단합니다. 원격 기록 갱신으로 현재성을 다시 확인하세요."
@@ -600,7 +607,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
       )
         return;
       if (
-        ["connect", "start", "attach", "replay", "diagnostics/replay"].includes(
+        ["connect", "start", "attach", "resume", "replay", "diagnostics/replay"].includes(
           action,
         )
       )
@@ -635,7 +642,7 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
           throw new Error(result.message ?? result.error);
         }
         if (generation === viewGeneration) render(result);
-        if (action === "start" || action === "attach")
+        if (action === "start" || action === "attach" || action === "resume")
           element("setup").open = false;
         return result;
       } catch (error) {
@@ -704,6 +711,11 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     element("managedRefresh").onclick = () => invoke("managed");
     element("attach").onclick = () =>
       invoke("attach", { executionId: element("managedRuns").value });
+    element("resume").onclick = () => invoke("resume", {
+      executionId: current.executionId,
+      requestId: crypto.randomUUID(),
+      prompt: element("resumePrompt").value,
+    });
     element("reconfirm").onclick = () => invoke("reconfirm");
     setInterval(() => {
       if (

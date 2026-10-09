@@ -24,7 +24,9 @@ export interface PtyObservation {
   elapsedNs?: string;
   sourceSeq?: number;
   apply?: boolean;
-  source?: "packet" | "screen" | "modal";
+  source?: "packet" | "screen" | "modal" | "composer";
+  witnessSha256?: string;
+  geometry?: { rows: number; cols: number; cursorX: number; cursorY: number };
 }
 export interface HistoryFailureObservation {
   kind: "history-failure";
@@ -46,6 +48,7 @@ export interface ProcessObservation {
   children?: { pid: number; startTime: string; bootId: string }[];
   trackingError?: string | null;
   childrenVerified?: boolean;
+  supervisorAlive?: boolean;
 }
 export interface StopRequest {
   executionId: string;
@@ -96,7 +99,10 @@ export interface ExecutionActionObservation {
   executionId: string;
   requestId: string;
   sessionId?: string | null;
-  receipt?: StopResult;
+  receipt?: StopResult | { state: string; executionId?: string; sessionId?: string; messageId?: string; promptDigest?: string };
+  nextExecutionId?: string;
+  fromExecutionId?: string;
+  promptDigest?: string;
   reason?: string;
   dataBase64?: string;
   inputType?: string;
@@ -156,6 +162,7 @@ export interface PhaseObservation {
   terminalEvidence?: {
     cursor: number;
     modalHash: string | null;
+    composerHash?: string | null;
     gap: boolean;
     fullScreen: boolean;
     terminal?: Recording["terminal"];
@@ -237,6 +244,9 @@ export interface Snapshot {
   response: ResponseResult | null;
   stop: StopResult | null;
   executionEvidence: ProcessObservation | null;
+  /** Observed focused composer; not a public terminal-input escape hatch. */
+  composer?: { mode: "tui"; text: string } | null;
+  resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" } | null;
   historySync: { current: boolean; warning: string | null };
   replay: {
     position: number;
@@ -318,6 +328,7 @@ interface Reducer extends Client {
         | "execution"
         | "interaction"
         | "stop"
+        | "resume"
       >
     >,
   ): Snapshot;
@@ -448,6 +459,8 @@ export function createReducer(options: {
     stop: null,
     executionEvidence: null,
     historySync: { current: true, warning: null },
+    composer: null,
+    resume: null,
     replay: { position: 0, total: 0, complete: false, truncated: false },
   };
   let recording: Recording | null = null;
@@ -484,6 +497,7 @@ export function createReducer(options: {
   let pendingTools: { id: string; name: string; input: any }[] = [];
   let results = new Map<string, { digest: string; rejected: boolean }>();
   let responseBinding: ResponseInputObservation["binding"] | null = null;
+  let resumeDigest: string | null = null;
   let latestProcess: ProcessObservation | null = null;
   const listeners = new Set<(event: SdkEvent) => void>();
   let observationEvents: SdkEvent[] = [];
@@ -527,6 +541,7 @@ export function createReducer(options: {
   };
   const interpretScreen = (obs: Observation) => {
     if (!state.historySync.current) return;
+    state.composer = null;
     const lines = [];
     const buffer = terminal!.buffer.active;
     if (
@@ -726,6 +741,16 @@ export function createReducer(options: {
         state.interaction = null;
         state.execution = "unknown";
         emit("interaction.changed", obs, null);
+      }
+      const bottom = recording!.terminal.rows - 4;
+      const rule = (line: string) => /^─{20,}$/.test(line.trim());
+      if (!state.interaction && rule(visible[bottom]) &&
+          visible.at(-1)?.trim() === "Auto-approve all disabled (Shift+Tab)" &&
+          visible[bottom + 1].includes("● Act (Tab)") &&
+          buffer.cursorY === bottom - 1 && buffer.cursorX >= 2 &&
+          rule(visible[bottom - 2]) && visible[bottom - 1].startsWith("❯ ")) {
+        const text = visible[bottom - 1].slice(2);
+        state.composer = { mode: "tui", text: text === "Ask anything..." ? "" : text };
       }
       return;
     }
@@ -1011,6 +1036,7 @@ export function createReducer(options: {
     phaseSupported = false;
     pendingPhase = null;
     responseBinding = null;
+    resumeDigest = null;
     latestProcess = null;
     observationEvents = [];
     Object.assign(state, {
@@ -1023,6 +1049,8 @@ export function createReducer(options: {
       stop: null,
       executionEvidence: null,
       historySync: { current: true, warning: null },
+      composer: null,
+      resume: null,
     });
     emit("state.changed", obs, {
       sessionId: obs.sessionId,
@@ -1051,9 +1079,10 @@ export function createReducer(options: {
     )
       next = obs.beforeWrite ? "not-submitted" : "delivery-unknown";
     if (obs.kind === "response-receipt") {
+      const receipts = obs.receipts.filter(r=>r.binding?.kind !== "composer");
       const receipt =
-        (obs.final ? obs.receipts.at(-1) : undefined) ??
-        obs.receipts.find((r) => r.requestId === responseBinding?.requestId) ??
+        (obs.final ? receipts.at(-1) : undefined) ??
+        receipts.find((r) => r.requestId === responseBinding?.requestId) ??
         (responseBinding
           ? {
               requestId: responseBinding.requestId,
@@ -1061,7 +1090,7 @@ export function createReducer(options: {
               state: "unobserved",
             }
           : obs.final
-            ? obs.receipts.at(-1)
+            ? receipts.at(-1)
             : undefined);
       if (receipt?.binding && (!responseBinding || obs.final))
         responseBinding = { ...receipt.binding, requestId: receipt.requestId };
@@ -1110,7 +1139,7 @@ export function createReducer(options: {
     if (obs.action === "stop") {
       state.execution = "unknown";
       state.stop =
-        obs.operation === "receipt" && obs.receipt
+        obs.operation === "receipt" && obs.receipt && "childrenVerified" in obs.receipt
           ? structuredClone(obs.receipt)
           : {
               executionId: obs.executionId,
@@ -1126,6 +1155,31 @@ export function createReducer(options: {
         execution: state.execution,
         stop: state.stop,
       });
+    }
+    if (obs.action === "resume") {
+      const previous = JSON.stringify(state.resume);
+      if (obs.operation === "requested") {
+        resumeDigest = obs.promptDigest ?? null;
+        state.resume = {
+          requestId: obs.requestId,
+          fromExecutionId: obs.fromExecutionId ?? obs.executionId,
+          executionId: obs.nextExecutionId ?? obs.executionId,
+          sessionId: obs.sessionId ?? state.sessionId ?? "unknown",
+          state: "submitting",
+        };
+      } else if (state.resume?.requestId === obs.requestId && obs.operation === "fault") {
+        state.resume.state = "delivery-unknown";
+      } else if (state.resume?.requestId === obs.requestId && obs.operation === "receipt" && obs.receipt && "messageId" in obs.receipt) {
+        const witness = obs.receipt;
+        const delivered = witness.state === "delivered" &&
+          witness.executionId === state.executionId && witness.sessionId === state.sessionId &&
+          typeof witness.promptDigest === "string" && witness.promptDigest === resumeDigest &&
+          state.historySync.current && state.messages.some(m =>
+            m.id === witness.messageId && m.role === "user" &&
+            createHash("sha256").update(m.text).digest("hex") === witness.promptDigest);
+        state.resume.state = delivered ? "delivered" : "delivery-unknown";
+      }
+      if (previous !== JSON.stringify(state.resume)) emit("state.changed",obs,{resume:state.resume});
     }
     options.observe?.(obs, observationEvents, snapshot());
     return snapshot();
@@ -1157,6 +1211,7 @@ export function createReducer(options: {
       phaseSupported = false;
       pendingPhase = null;
       responseBinding = null;
+      resumeDigest = null;
       latestProcess = null;
       terminal?.dispose();
       terminal = new xterm.Terminal({
@@ -1182,6 +1237,8 @@ export function createReducer(options: {
         stop: null,
         executionEvidence: null,
         historySync: { current: true, warning: null },
+        composer: null,
+        resume: null,
         replay: {
           position: 0,
           total: input.observations.length,
@@ -1297,7 +1354,8 @@ export function createReducer(options: {
                   role: raw.role,
                   text: raw.content
                     .filter((part) => part.type === "text")
-                    .map((part) => part.text)
+                    .map((part) => raw.role === "user" && recording!.cli.name === "cline" && recording!.cli.version === "3.0.69" && ["cline-3.0.69-readline", "cline-3.0.69-tui"].includes(recording!.cli.profile) && part.text.startsWith('<user_input mode="act">') && part.text.endsWith('</user_input>')
+                      ? part.text.slice(23,-13) : part.text)
                     .join("\n"),
                 };
               },
