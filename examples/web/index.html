@@ -232,6 +232,11 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         </select></label
       >
       <button id="attach" disabled>선택한 실행에 재연결</button>
+      <button id="reconfirm" disabled>응답 전달 상태 재확인</button>
+      <p>
+        전달 여부 불명에서는 응답을 다시 보내지 않습니다. 원격 기록과 수신
+        근거를 재확인하세요.
+      </p>
     </section>
     <section>
       <h2>상호작용</h2>
@@ -391,6 +396,11 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
         s.mode !== "live" ||
         s.connection !== "connected" ||
         !element("managedRuns").value;
+      element("reconfirm").disabled =
+        busy ||
+        s.mode !== "live" ||
+        s.connection !== "connected" ||
+        !s.executionId;
       if (s.executionId)
         localStorage.setItem("cline-sdk-selected-run", s.executionId);
       if (preflight)
@@ -625,11 +635,13 @@ Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
     element("managedRefresh").onclick = () => invoke("managed");
     element("attach").onclick = () =>
       invoke("attach", { executionId: element("managedRuns").value });
+    element("reconfirm").onclick = () => invoke("reconfirm");
     setInterval(() => {
       if (
         !busy &&
         current?.mode === "live" &&
         current?.connection === "connected" &&
+        current?.response?.state !== "delivery-unknown" &&
         current?.executionId &&
         !["completed", "stopped", "failed"].includes(current.execution)
       )

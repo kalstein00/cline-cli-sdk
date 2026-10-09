@@ -1,6 +1,7 @@
 import xterm from "@xterm/headless";
 import unicode11 from "@xterm/addon-unicode11";
 import { createHash } from "node:crypto";
+import {deliveryState,type DurableResponse} from "./delivery.js";
 export interface Message {
   id: string;
   role: "assistant" | "user";
@@ -1031,7 +1032,7 @@ export function createReducer(options: {
       next = obs.beforeWrite ? "not-submitted" : "delivery-unknown";
     if (obs.kind === "response-receipt") {
       const receipt =
-        obs.receipts.find((r) => r.requestId === responseBinding?.requestId) ??
+        (obs.final?obs.receipts.at(-1):undefined) ?? obs.receipts.find((r) => r.requestId === responseBinding?.requestId) ??
         (responseBinding
           ? {
               requestId: responseBinding.requestId,
@@ -1041,38 +1042,13 @@ export function createReducer(options: {
           : obs.final
             ? obs.receipts.at(-1)
             : undefined);
-      if (receipt?.binding && !responseBinding)
+      if (receipt?.binding && (!responseBinding||obs.final))
         responseBinding = { ...receipt.binding, requestId: receipt.requestId };
       if (receipt && responseBinding) {
         const b = responseBinding;
         const result = results.get(b.toolId);
-        const digest = (text: string) =>
-          createHash("sha256").update(text).digest("hex");
-        const confirmed =
-          b.kind === "approval"
-            ? b.answerDigest === digest("Deny")
-              ? result?.rejected
-              : b.answerDigest === digest("Approve") &&
-                ((result && !result.rejected) ||
-                  (state.interaction?.kind === "question" &&
-                    state.interaction.toolId === b.toolId &&
-                    state.interaction.id !== b.interactionId))
-            : b.kind === "question"
-              ? result?.digest === b.answerDigest
-              : receipt.state === "written" &&
-                ((latestProcess?.identityConfirmed &&
-                  !latestProcess.alive &&
-                  latestProcess.exitCode !== null) ||
-                  (state.interaction?.kind === "approval" &&
-                    state.interaction.id !== b.interactionId));
-        if (receipt.resolution) next = receipt.resolution;
-        else if (
-          receipt.state === "rejected" ||
-          (obs.final && receipt.state === "reserved")
-        )
-          next = "not-submitted";
-        else if (confirmed) next = "delivered";
-        else if (obs.final) next = "delivery-unknown";
+        const resolved=deliveryState({...receipt,binding:b} as DurableResponse,state,result,latestProcess);
+        if(obs.final||resolved!=="delivery-unknown")next=resolved;
       }
     }
     if (

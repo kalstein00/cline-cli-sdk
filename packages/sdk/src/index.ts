@@ -1,8 +1,12 @@
 import { createReducer, type Client } from "./reducer.js";
 import { createLiveClient, type LiveClient, type LiveOptions } from "./live.js";
 export { SdkError } from "./reducer.js";
-export {readDiagnostic,compareDiagnostic} from "./diagnostics.js";
-export type {DiagnosticOptions,DiagnosticStatus,DiagnosticBundle} from "./diagnostics.js";
+export { readDiagnostic, compareDiagnostic } from "./diagnostics.js";
+export type {
+  DiagnosticOptions,
+  DiagnosticStatus,
+  DiagnosticBundle,
+} from "./diagnostics.js";
 export type {
   Client,
   Recording,
