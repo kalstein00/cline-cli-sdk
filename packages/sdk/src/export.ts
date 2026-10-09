@@ -1,7 +1,8 @@
-import { readFile, stat, realpath, mkdir, writeFile } from "node:fs/promises";
+import { realpath, mkdir, writeFile } from "node:fs/promises";
 import { resolve, join, dirname, relative, isAbsolute } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { SdkError } from "./reducer.js";
+import { loadDiagnosticFile as load, protectDiagnosticRows } from "./diagnostic-file.js";
 
 const sha = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");
@@ -13,7 +14,7 @@ export interface DiagnosticReview {
   items: number;
   included: { kind: string; count: number }[];
   integrity: {
-    state: "verified" | "truncated" | "corrupt";
+    state: "verified" | "truncated" | "limited" | "corrupt";
     reason: string | null;
     manifestSha256: string;
     journalSha256: string;
@@ -26,53 +27,6 @@ export interface DiagnosticReview {
   };
   metadata: any;
 }
-async function load(path: string) {
-  const root = await realpath(resolve(path));
-  const mpath = join(root, "manifest.json"),
-    jpath = join(root, "observations.ndjson");
-  if (
-    (await stat(mpath)).size > 65536 ||
-    (await stat(jpath)).size > 256 * 1024 * 1024
-  )
-    throw new SdkError(
-      "diagnostic-read-limit",
-      "Diagnostic exceeds finite read limits.",
-    );
-  const manifest = await readFile(mpath, "utf8"),
-    journal = await readFile(jpath, "utf8");
-  let metadata;
-  try {
-    metadata = JSON.parse(manifest);
-  } catch {
-    throw new SdkError(
-      "invalid-diagnostic",
-      "Diagnostic manifest is not valid JSON.",
-    );
-  }
-  if (
-    metadata.format !== "cline-cli-sdk-diagnostic" ||
-    metadata.schemaVersion !== 2
-  )
-    throw new SdkError("invalid-diagnostic", "Unknown diagnostic format.");
-  const entries = [];
-  let malformed = false,
-    partialTail = false;
-  const lines = journal.split("\n").filter(Boolean);
-  for (const [i, line] of lines.entries())
-    try {
-      entries.push(JSON.parse(line));
-    } catch {
-      partialTail = i === lines.length - 1;
-      malformed = !partialTail;
-      entries.push({
-        observation: { kind: "unparsed" },
-        unparsedContent: line,
-        __malformed: true,
-      });
-      break;
-    }
-  return { root, manifest, journal, metadata, entries, malformed, partialTail };
-}
 function summary(data: Awaited<ReturnType<typeof load>>): DiagnosticReview {
   const included = new Map<string, number>();
   for (const e of data.entries)
@@ -80,37 +34,10 @@ function summary(data: Awaited<ReturnType<typeof load>>): DiagnosticReview {
       e.observation.kind,
       (included.get(e.observation.kind) || 0) + 1,
     );
-  const truncated =
-    !!data.metadata.status?.truncated ||
-    !data.metadata.stoppedAt ||
-    data.partialTail ||
-    (data.metadata.export?.journalBytes > Buffer.byteLength(data.journal) &&
-      data.entries.filter((e) => !e.__malformed).length <
-        data.metadata.export?.observations);
-  const corrupt =
-    data.malformed ||
-    data.entries.some(
-      (e) =>
-        !e.__malformed &&
-        (e.sha256 !== sha(JSON.stringify(e.observation)) ||
-          (e.integritySha256 &&
-            e.integritySha256 !==
-              sha(
-                JSON.stringify({
-                  observation: e.observation,
-                  comparison: e.comparison,
-                }),
-              ))),
-    ) ||
-    (!truncated &&
-      data.metadata.export?.journalSha256 &&
-      data.metadata.export.journalSha256 !== sha(data.journal));
-  const state = corrupt ? "corrupt" : truncated ? "truncated" : "verified";
-  const reason = corrupt
-    ? "diagnostic-hash-mismatch"
-    : truncated
-      ? "Recording is incomplete; only the captured prefix can be replayed."
-      : null;
+  const state = data.integrityState;
+  const corrupt = state === "corrupt";
+  const truncated = data.truncated || data.limited;
+  const reason = data.reason;
   return {
     path: data.root,
     bundleId:
@@ -148,6 +75,7 @@ export interface DiagnosticExportOptions {
   maxBytes?: number;
 }
 const protectedKeys = new Set([
+  "index", "previousSha256", "rowFormat", "journalBytes", "integrityLimitation",
   "id",
   "bundleId",
   "sessionId",
@@ -385,17 +313,20 @@ export async function exportDiagnostic(
     );
   const masks = options.masks ?? [],
     changed = transform(data, masks);
-  const journal = changed.entries.map((e) => JSON.stringify(e) + "\n").join("");
+  const protectedEntries = protectDiagnosticRows(changed.entries);
+  const journal = protectedEntries.map((e) => JSON.stringify(e) + "\n").join("");
   const masked =
     masks.length > 0 || !!data.metadata.export?.replayImpact?.masked;
   const max = options.maxBytes ?? 16 * 1024 * 1024;
   const metadata = {
     ...changed.metadata,
+    integrity: { rowFormat: "chained-v1", journalSha256: sha(journal), journalBytes: Buffer.byteLength(journal), observations: changed.entries.length },
+    integrityLimitation: data.limited || !!data.metadata.integrityLimitation,
     status: {
       ...changed.metadata.status,
       maxBytes: max,
       observations: changed.entries.length,
-      truncated: review.integrity.state === "truncated",
+      truncated: data.truncated || data.limited,
     },
     export: {
       bundleId: randomUUID(),
@@ -404,7 +335,7 @@ export async function exportDiagnostic(
         bundleId: review.bundleId,
         manifestSha256: review.integrity.manifestSha256,
         journalSha256: review.integrity.journalSha256,
-        truncated: review.integrity.state === "truncated",
+        truncated: data.truncated || data.limited,
         capturedStatus: changed.metadata.status,
       },
       transformations: [

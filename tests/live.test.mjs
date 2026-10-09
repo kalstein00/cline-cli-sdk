@@ -218,7 +218,7 @@ const pinned = {
   cliHash: "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
   bootId: "boot-1",
 };
-test("live consumer starts one managed task and sees recorded messages with witnessed completion", async (t) => {
+test("live consumer preserves legacy messages but cannot assert completion without descendant witnesses", async (t) => {
   const recording = JSON.parse(
     await readFile(
       new URL("../fixtures/live-completion.json", import.meta.url),
@@ -249,7 +249,7 @@ test("live consumer starts one managed task and sees recorded messages with witn
     client.snapshot().messages.find((m) => m.role === "assistant").text,
     "SDK_LIVE_READY",
   );
-  assert.equal(client.snapshot().execution, "completed");
+  assert.equal(client.snapshot().execution, "unknown");
   await assert.rejects(
     client.start({ cwd: "/fixture/work", prompt: "second" }),
     { code: "managed-execution-selected" },

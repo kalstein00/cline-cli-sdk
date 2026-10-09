@@ -6,7 +6,9 @@
 
 ## 형식과 해석
 
-각 로컬 디렉터리는 `manifest.json`과 `observations.ndjson`를 가진다. manifest는 format/schema 2, SDK 0.1.0, adapter version, CLI 프로필·실행 fingerprint, 터미널 크기, 시작/종료 시각, 한도·상태·누락·변환을 기록한다. 각 journal 줄의 observation은 SHA-256을 가진다. 파일 전체 SHA도 공개 read 결과에 남긴다. 해시가 바뀐 원시 관측은 diagnostic-hash-mismatch로 거부한다. 마지막 줄이 불완전하면 앞의 완전한 줄만 열고 truncated를 표시한다.
+각 로컬 디렉터리는 `manifest.json`과 `observations.ndjson`를 가진다. manifest는 format/schema 2, SDK 0.1.0, adapter version, CLI 프로필·실행 fingerprint, 터미널 크기, 시작/종료 시각, 한도·상태·누락·변환을 기록한다. 새 수집기는 raw와 comparison sidecar를 함께 순서·이전 줄 hash에 묶고, 종료 시 전체 journal SHA-256·바이트·관측 수를 확정한다. read/review/export는 같은 검증기를 쓴다. 완전한 마지막/중간 줄 삭제·순서 변경·sidecar 변조는 diagnostic-hash-mismatch/corrupt로 거부한다. truncated 플래그가 손상을 숨기지 않는다. 종료된 묶음의 실제 마지막 JSON 줄만 찢어진 경우 앞 줄의 chain과 종료 count/bytes가 맞아야 검증된 prefix로 연다.
+
+이전 raw-only 묶음은 전체 줄·순서·sidecar 무결성을 소급 보증할 수 없다. 원본은 변경하지 않고 `limited/partial`, provenance.complete false, 비교 available false로 표시한다. 이 한계는 새 사본에도 계승한다. 새 묶음의 검증된 부분 재생은 matches false이며 앞 구간만 일치하면 prefixMatches true다. 완료된 전체 묶음만 matches true가 될 수 있다. 아래 초기 실제 기록의 수치와 당시 비교 결과는 역사적 관측이며 새 무결성 보증으로 소급하지 않는다.
 
 원시 관측과 비교용 sidecar는 같은 줄의 서로 다른 필드다. replayAll은 `recording.observations`만 해석하며 비교용 events/snapshot을 읽지 않는다. 비교는 mode와 재생 위치/전체 수 같은 재생 표시 메타데이터만 제외한다. 원래 연결·실행·질문 ID·revision·시각·requestId·전달 상태와 process/stop 증거는 대조 대상이다. 원래 schema 1의 검토된 fixture는 계속 지원한다. schema 2의 strict binding은 source live와 offline에서 같다.
 
@@ -53,3 +55,17 @@ Windows Chrome에서도 별도의 실제 BLUE 응답을 delivered로 확인하�
 이 질문/응답 및 브라우저 대조는 #7/#8을 포함한 decoder에서 수행했다. 이후 #10의 historySync 필드를 추가한 decoder는 이전 비교 sidecar에 없던 필드를 차이로 표시한다. expected state를 주입하거나 차이를 제거하지 않는다. 최신 #10 통합 decoder에서도 모델·입력을 실행하지 않고 같은 소유 실행에 새 수집을 시작한 뒤 read-only attach했다. `run-96a7a94c-fc0d-46e7-be22-79594895b8a9`, session `1791548132816_6xzwp`의 stopped 상태와 historySync current true를 392관측, 380,951바이트로 수집했고 offline 이벤트 차이 0, snapshot 일치를 다시 확인했다. 원시 history-failure·부분 JSON·완전 복구·응답 receipt의 공통 decoder 대조 시험도 통과했다.
 
 `npm test`는 SDK 공개 API를 통해 수집 한도·정확한 파일 바이트 합계·활성 묶음 보호·소유 묶음 정리·사용자 파일 보존·저장 실패·sidecar 변조 독립성을 검증한다. 회사 fork의 실제 동작 재검증과 반출용 가림·내보내기는 후속 범위다.
+
+## 최종 리뷰 후 실제 읽기 전용 재검증
+
+Standards 3건(진단 판정 중복, 전달 정책 중복, 64-byte grapheme chunk 중복)과 Spec 2건(원본 완전 행 삭제/sidecar 미검출, 자식 종료 미확인의 잘못된 completed)을 고쳤다. 공개 SDK 회귀 66/66과 build가 통과했다. 기존 실제 기록은 변경하지 않았다.
+
+새 Windows Chrome→WSL 읽기 전용 재연결에서 기존 종료 실행을 조회해 새 진단 392관측·464,941바이트를 수집했다. 새 CLI 작업, 인증 설정, 모델 요청, 원격 응답 입력은 추가하지 않았다. 원본 journal은 chained-v1, 463,839바이트, 종료 count 392, SHA-256 `9d9da590ebc80e0fbb5106216c561dd8159d64e2b7765c02888c6244ef3f57ef`다. manifest SHA-256은 `32c21169e9304a4a8d5db03a953540dac5005d56f86398aad0dca370ed9ebec3`다.
+
+정상 사본 465,865바이트는 verified·392관측·matches true·이벤트 차이 0·snapshot 일치를 보였다. 선택 가림 사본 238,278바이트는 available false·matches false를 표시했다. 반출→live close→재생 후 원본 두 파일의 hash가 그대로였다. [새 정상 사본의 실제 Chrome 재생](evidence/final-diagnostic-normal.jpg).
+
+새 원본의 **별도 파일 장애 주입 사본**에서는 완전한 마지막 행 삭제와 sidecar revision 변조가 모두 corrupt/blocked·반출 비활성으로 나타났다. 마지막 20자 제거는 truncated/partial이며 391개의 검증된 prefix만 재생했다. 이는 회사/CLI의 자연 발생 장애 관측이 아니다. 회사 프로필은 계속 미검증이다.
+
+readDiagnostic의 metadata.capturedStatus는 원래 manifest 선언을 보존한다. metadata.status는 현재 파일 bytes·실제 재생 가능한 관측 수·truncated/limited 판정으로 파생하므로 UI 요약이 원본의 392/false와 torn-tail의 391/true를 혼동하지 않는다. 공개 회귀는 해당 결과와 읽기 전후 원본 바이트 불변을 함께 검사한다.
+
+최종 Chrome 재검증에서 torn-tail은 요약 391/truncated true, matches false/prefixMatches true를 함께 보였다. 이전 oxAsOl은 392/truncated true·limited·전체 비교 불가로 보였다. 정상 새 사본은 392/truncated false·verified·이벤트 차이 0을 유지했다. [새 prefix 제한 화면](evidence/final-diagnostic-prefix.jpg). 재검증 후 새 원본의 두 hash도 그대로였다.

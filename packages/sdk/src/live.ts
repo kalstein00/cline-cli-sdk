@@ -2,6 +2,7 @@ import childProcess from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { randomUUID, createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
+import { inputChunks } from "./input-chunks.js";
 import {
   createDiagnosticCollector,
   type DiagnosticOptions,
@@ -1056,13 +1057,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           if (queued.state === "rejected") throw new SdkError("resume-input-uncertain", queued.reason ?? "Composer input rejected.");
           await wait(()=>remoteRequests.some(r=>r.requestId===request.requestId&&r.steps?.some((s:any)=>s.index===index&&s.state==="written"))&&condition());
         };
-        let part = "", accumulated = "";
-        const chunks:string[]=[];
-        for (const {segment} of new Intl.Segmenter(undefined,{granularity:"grapheme"}).segment(request.prompt)) {
-          if (Buffer.byteLength(part+segment)>64) {chunks.push(part);part="";}
-          part+=segment;
-        }
-        if(part)chunks.push(part);
+        let accumulated = "";
+        const chunks = inputChunks(request.prompt);
         for(const chunk of chunks){accumulated+=chunk;await step("composer-text",chunk,()=>state.composer?.text===accumulated);}
         await step("composer-submit","\r",()=>state.messages.some(m=>m.role==="user"&&m.text===request.prompt&&!baseline.some(n=>n.id===m.id)));
         const witness = await helper({action:"settle-resume",root:managed!.remoteRoot,executionId:managed!.executionId,requestId:request.requestId});
@@ -1384,19 +1380,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                 "input-uncertain",
                 "Custom composer already contains text; it will not be overwritten.",
               );
-            let accumulated = "",
-              chunk = "";
-            const chunks: string[] = [];
-            for (const { segment } of new Intl.Segmenter(undefined, {
-              granularity: "grapheme",
-            }).segment(request.answer)) {
-              if (Buffer.byteLength(chunk + segment) > 64) {
-                chunks.push(chunk);
-                chunk = "";
-              }
-              chunk += segment;
-            }
-            if (chunk) chunks.push(chunk);
+            let accumulated = "";
+            const chunks = inputChunks(request.answer);
             for (const part of chunks) {
               accumulated += part;
               await step(
@@ -1434,38 +1419,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           const deadline = Date.now() + (config.responseTimeoutMs ?? 30000);
           while (Date.now() < deadline) {
             await refresh();
-            const result = reducer.toolResult(interaction.toolId!);
-            const current = state.interaction;
-            const written = remoteRequests.some(
-              (r) => r.requestId === request.requestId && r.state === "written",
-            );
-            const rejected = remoteRequests.find(
-              (r) =>
-                r.requestId === request.requestId && r.state === "rejected",
-            );
-            if (rejected)
-              throw new SdkError(
-                "input-rejected",
-                rejected.reason ?? "Remote input was rejected before write.",
-              );
-            const delivered =
-              interaction.kind === "approval"
-                ? (request.answer === "Deny"
-                    ? result?.rejected
-                    : !!result && !result.rejected) ||
-                  (request.answer === "Approve" &&
-                    current?.kind === "question" &&
-                    current.toolId === interaction.toolId &&
-                    current.id !== interaction.id)
-                : interaction.kind === "question"
-                  ? result?.digest ===
-                    createHash("sha256").update(request.answer).digest("hex")
-                  : written &&
-                    ((processEvidence?.identityConfirmed &&
-                      !processEvidence.alive &&
-                      processEvidence.exitCode !== null) ||
-                      (current?.kind === "approval" &&
-                        current.id !== interaction.id));
+            const receipt = remoteRequests.find(r => r.requestId === request.requestId);
+            if (receipt?.state === "rejected")
+              throw new SdkError("input-rejected", receipt.reason ?? "Remote input was rejected before write.");
+            const response = reducer.snapshot().response;
+            const delivered = response?.requestId === request.requestId &&
+              response.sessionId === request.sessionId && response.executionId === request.executionId &&
+              response.interactionId === request.interactionId && response.state === "delivered";
             if (delivered) {
               state = {
                 ...reducer.snapshot(),

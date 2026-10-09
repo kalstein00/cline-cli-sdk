@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
 import { createHash } from "node:crypto";
+import { loadDiagnosticFile, protectDiagnosticRow } from "./diagnostic-file.js";
 import {
   SdkError,
   type Recording,
@@ -61,6 +62,9 @@ export function compareDiagnostic(
   events: SdkEvent[],
   snapshot: Snapshot,
 ) {
+  if (bundle.metadata.integrityVerdict?.state === "limited")
+    return { matches: false, eventDifferences: null, snapshotMatches: null, available: false,
+      reason: bundle.metadata.integrityVerdict.reason };
   if (bundle.metadata.export?.replayImpact?.comparison === "unavailable")
     return {
       matches: false,
@@ -83,9 +87,10 @@ export function compareDiagnostic(
     JSON.stringify(projection(snapshot)) ===
     JSON.stringify(projection(bundle.comparison.snapshot));
   return {
-    matches: eventDifferences === 0 && snapshotMatches,
+    matches: bundle.recording.provenance.complete && eventDifferences === 0 && snapshotMatches,
     eventDifferences,
     snapshotMatches,
+    ...(bundle.recording.provenance.complete ? {} : { prefixMatches: eventDifferences === 0 && snapshotMatches }),
   };
 }
 export function createDiagnosticCollector() {
@@ -96,6 +101,8 @@ export function createDiagnosticCollector() {
   let startedAt = "";
   let manifestBytes = 0;
   let journalBytes = 0;
+  let journalHash = createHash("sha256");
+  let previousRowHash = "";
   let reserve = 2048;
   let finalized = true;
   let stopping: Promise<DiagnosticStatus> | null = null;
@@ -147,6 +154,8 @@ export function createDiagnosticCollector() {
       queue = Promise.resolve();
       startedAt = new Date().toISOString();
       journalBytes = 0;
+      journalHash = createHash("sha256");
+      previousRowHash = "";
       manifestBytes = 0;
       reserve = Math.min(
         65536,
@@ -304,12 +313,8 @@ export function createDiagnosticCollector() {
           );
         }
       }
-      const line =
-        JSON.stringify({
-          observation: obs,
-          sha256: sha(JSON.stringify(obs)),
-          comparison: { events, snapshot },
-        }) + "\n";
+      const row = protectDiagnosticRow({ observation: obs, comparison: { events, snapshot } }, status.observations, previousRowHash);
+      const line = JSON.stringify(row) + "\n";
       const bytes = Buffer.byteLength(line);
       if (journalBytes + bytes > status.maxBytes - reserve) {
         status.state = "limit-reached";
@@ -317,6 +322,8 @@ export function createDiagnosticCollector() {
         return;
       }
       journalBytes += bytes;
+      journalHash.update(line);
+      previousRowHash = row.integritySha256;
       status.bytes = journalBytes + manifestBytes;
       status.observations++;
       lastSnapshot = structuredClone(snapshot);
@@ -335,6 +342,7 @@ export function createDiagnosticCollector() {
         if (status.path)
           try {
             const stoppedAt = new Date().toISOString();
+            header.integrity = { rowFormat: "chained-v1", journalSha256: journalHash.copy().digest("hex"), journalBytes, observations: status.observations };
             let manifest = JSON.stringify({
               ...header,
               stoppedAt,
@@ -368,81 +376,21 @@ export function createDiagnosticCollector() {
   };
 }
 export async function readDiagnostic(path: string): Promise<DiagnosticBundle> {
-  const root = resolve(path);
-  const manifestPath = join(root, "manifest.json");
-  if ((await stat(manifestPath)).size > 65536)
-    throw new SdkError(
-      "diagnostic-read-limit",
-      "Diagnostic metadata exceeds finite read limit.",
-    );
-  const metadata = JSON.parse(await readFile(manifestPath, "utf8"));
-  if (
-    metadata.format !== "cline-cli-sdk-diagnostic" ||
-    metadata.schemaVersion !== 2
-  )
-    throw new SdkError("invalid-diagnostic", "Unknown diagnostic format.");
-  const file = join(root, "observations.ndjson");
-  if ((await stat(file)).size > 256 * 1024 * 1024)
-    throw new SdkError(
-      "diagnostic-read-limit",
-      "Diagnostic file exceeds finite read limit.",
-    );
-  const observations: Observation[] = [];
-  const events: SdkEvent[] = [];
-  let lastSnapshot: Snapshot | null = null;
-  const content = await readFile(file, "utf8");
-  metadata.status.bytes =
-    Buffer.byteLength(content) + (await stat(manifestPath)).size;
-  let truncated = !!metadata.status.truncated || !metadata.stoppedAt;
-  const lines = content.split("\n").filter(Boolean);
-  for (const [index, line] of lines.entries()) {
-    let entry;
-    try {
-      entry = JSON.parse(line);
-    } catch {
-      if (index !== lines.length - 1)
-        throw new SdkError(
-          "diagnostic-hash-mismatch",
-          "Malformed content occurs before the recording tail.",
-        );
-      truncated = true;
-      break;
-    }
-    if (
-      entry.sha256 !== sha(JSON.stringify(entry.observation)) ||
-      (entry.integritySha256 &&
-        entry.integritySha256 !==
-          sha(
-            JSON.stringify({
-              observation: entry.observation,
-              comparison: entry.comparison,
-            }),
-          ))
-    )
-      throw new SdkError(
-        "diagnostic-hash-mismatch",
-        "A raw observation changed after collection.",
-      );
-    observations.push(entry.observation);
-    events.push(...entry.comparison.events);
-    lastSnapshot = entry.comparison.snapshot;
-  }
-  if (
-    metadata.export?.journalSha256 &&
-    metadata.export.journalSha256 !== sha(content)
-  ) {
-    if (
-      (truncated ||
-        Buffer.byteLength(content) < metadata.export.journalBytes) &&
-      observations.length < metadata.export.observations
-    )
-      truncated = true;
-    else
-      throw new SdkError(
-        "diagnostic-hash-mismatch",
-        "Exported recording or comparison content changed.",
-      );
-  }
+  const data = await loadDiagnosticFile(path);
+  if (data.integrityState === "corrupt")
+    throw new SdkError("diagnostic-hash-mismatch", "Diagnostic raw/comparison content or finalized order/count changed.");
+  const metadata = data.metadata;
+  metadata.integrityVerdict = { state: data.integrityState, reason: data.reason };
+  const entries = data.entries.filter(e => !e.__malformed);
+  const observations = entries.map(e => e.observation);
+  const events = entries.flatMap(e => e.comparison.events);
+  const lastSnapshot = entries.at(-1)?.comparison.snapshot ?? null;
+  const truncated = data.truncated || data.limited || !!metadata.integrityLimitation;
+  metadata.capturedStatus = structuredClone(metadata.status);
+  metadata.status = { ...metadata.status,
+    bytes: Buffer.byteLength(data.journal) + Buffer.byteLength(data.manifest),
+    observations: observations.length, truncated };
+  const content = data.journal;
   return {
     recording: {
       schemaVersion: 2,
