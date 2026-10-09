@@ -67,6 +67,7 @@ export interface StartRequest {
   dataDir?: string;
   retryLimit?: number;
 }
+const profileFor=(mode:"terminal"|"json",terminal:"readline"|"tui")=>`cline-3.0.69-${mode==="json"?"json":terminal}`;
 export interface ResumeRequest {
   executionId: string;
   requestId: string;
@@ -763,7 +764,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
                 name: "cline",
                 version: report?.cliVersion ?? "unknown",
                 profile: report?.profile.supported
-                  ? `cline-3.0.69-${outputMode === "json" ? "json" : terminalMode}`
+                  ? profileFor(outputMode,terminalMode)
                   : "unknown",
               },
               terminal: managed.terminal ?? { rows: 40, cols: 120 },
@@ -881,7 +882,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           cli: {
             name: "cline",
             version: "3.0.69",
-            profile: `cline-3.0.69-${outputMode === "json" ? "json" : terminalMode}`,
+            profile: profileFor(outputMode,terminalMode),
           },
           terminal: found.terminal ?? { rows: 40, cols: 120 },
           sessionId: found.sessionId,
@@ -932,6 +933,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         );
       const executionId = "run-" + randomUUID();
       const resultRequest=prepareResult(request.resultFormat);
+      const prompt=resultPrompt(request.prompt,resultRequest);
+      if(resultRequest) resultRequest.promptDigest=createHash("sha256").update(prompt).digest("hex");
       terminalMode = request.terminalMode ?? "readline";
       outputMode = request.outputMode ?? "terminal";
       // Reserve identity before the first await. An uncertain launch is never retried.
@@ -950,7 +953,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           cliHash: report.cliHash,
           ...request,
           resultRequest,
-          prompt:resultPrompt(request.prompt,resultRequest),
+          prompt,
         });
       } catch (error) {
         reducer.binding({
@@ -984,7 +987,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         cli: {
           name: "cline",
           version: "3.0.69",
-          profile: `cline-3.0.69-${outputMode === "json" ? "json" : terminalMode}`,
+          profile: profileFor(outputMode,terminalMode),
         },
         terminal: { rows: 40, cols: 120 },
         sessionId: null,

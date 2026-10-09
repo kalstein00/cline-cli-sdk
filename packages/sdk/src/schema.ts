@@ -26,9 +26,11 @@ export function schemaValidator(schema:JsonSchema):{schema:JsonSchema;validate:V
     }
     return node;
   };
+  let expanded=0;
   const visit=(value:unknown,refs:Set<string>,depth:number)=>{
     if(depth>32) throw new SdkError("unsupported-schema","Schema reference depth exceeds 32.");
     if(!value || typeof value!=="object" || Array.isArray(value)) return;
+    if(++expanded>8192) throw new SdkError("unsupported-schema","Expanded schema traversal exceeds 8192 nodes.");
     const node=value as Record<string,unknown>;
     if(node.$schema!==undefined && node.$schema!=="https://json-schema.org/draft/2020-12/schema") throw new SdkError("unsupported-schema","Only JSON Schema draft 2020-12 is supported.");
     for(const keyword of ["$id","$async","$dynamicRef","$recursiveRef","pattern","patternProperties"]) if(Object.hasOwn(node,keyword)) throw new SdkError("unsupported-schema",`Unsupported schema keyword: ${keyword}`);
@@ -44,7 +46,7 @@ export function schemaValidator(schema:JsonSchema):{schema:JsonSchema;validate:V
   };
   visit(copy,new Set(),0);
   try {
-    const ajv=new Ajv2020({strict:true,allErrors:true,coerceTypes:false,useDefaults:false,removeAdditional:false});
+    const ajv=new Ajv2020({strict:true,allErrors:true,coerceTypes:false,useDefaults:false,removeAdditional:false,inlineRefs:false});
     return {schema:copy,validate:ajv.compile(copy)};
   } catch(error) {throw new SdkError("invalid-schema",String(error).slice(0,500));}
 }

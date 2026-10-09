@@ -50,3 +50,17 @@ test('a terminal agent error cannot be overwritten by a later success record',as
   const input=recording([{kind:'json-output',channel:'stdout',seq:1,observedAt:'2026-10-09T10:00:00Z',dataBase64:Buffer.from(stream).toString('base64')}]);input.cli.profile='cline-3.0.69-json';
   const client=createClient({mode:'replay'});await client.openReplay(input);await client.replayAll();assert.equal(client.snapshot().jsonOutput.state,'failed');client.close();
 });
+
+test('a gap after a final JSON result removes the successful value and emits uncertainty',async()=>{
+  const input=recording([history(1,[{id:'answer',role:'assistant',content:[{type:'text',text:'{}'}]}]),{kind:'json-output',channel:'stdout',seq:2,observedAt:'2026-10-09T10:00:00Z',dataBase64:Buffer.from('{"type":"run_result","finishReason":"completed","text":"{}"}\n').toString('base64')},{kind:'process',seq:3,observedAt:'2026-10-09T10:00:00Z',identity:{pid:42,startTime:'100',bootId:'boot'},alive:false,identityConfirmed:true,exitCode:0,manifestStatus:'completed',children:[],childrenVerified:true,supervisorAlive:false},{kind:'gap',seq:4,observedAt:'2026-10-09T10:00:00Z',reason:'dropped observations'}]);
+  input.cli.profile='cline-3.0.69-json';input.resultRequest={type:'json',requestId:'gap-result',baselineMessageIds:[]};
+  const client=createClient({mode:'replay'});const events=[];client.subscribe(e=>events.push(e));await client.openReplay(input);await client.replayAll();
+  assert.equal(client.snapshot().result.state,'unconfirmed');assert.equal(client.snapshot().result.value,undefined);assert.equal(events.filter(e=>e.type==='result.changed').at(-1).payload.state,'unconfirmed');client.close();
+});
+
+test('a late nonrecoverable agent error invalidates a ready result even before process exit',async()=>{
+  const packet=(seq,value)=>({kind:'json-output',channel:'stdout',seq,observedAt:'2026-10-09T10:00:00Z',dataBase64:Buffer.from(JSON.stringify(value)+'\n').toString('base64')});
+  const input=recording([{kind:'process',seq:1,observedAt:'2026-10-09T10:00:00Z',identity:{pid:42,startTime:'100',bootId:'boot'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:'running',children:[],childrenVerified:false,supervisorAlive:true},history(2,[{id:'answer',role:'assistant',content:[{type:'text',text:'{}'}]}]),packet(3,{type:'run_result',finishReason:'completed',text:'{}'}),packet(4,{type:'agent_event',event:{type:'error',recoverable:false}})]);
+  input.cli.profile='cline-3.0.69-json';input.resultRequest={type:'json',requestId:'late-error',baselineMessageIds:[]};
+  const client=createClient({mode:'replay'});await client.openReplay(input);await client.replayAll();assert.equal(client.snapshot().result.state,'interrupted');assert.equal(client.snapshot().result.value,undefined);client.close();
+});

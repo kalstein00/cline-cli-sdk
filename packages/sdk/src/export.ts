@@ -158,14 +158,26 @@ function transform(data: Awaited<ReturnType<typeof load>>, masks: string[]) {
     if (value && typeof value === "object")
       for (const v of Object.values(value)) guard(v);
   };
-  const walk = (value: any): any => {
-    if (typeof value === "string") return replace(value);
+  const walk = (value: any, nesting=0): any => {
+    if (typeof value === "string") {
+      let text=value;
+      if(masks.length && /^[\s]*[\[{"]/.test(value)) {
+        let decoded;
+        try {decoded=JSON.parse(value);} catch {}
+        if(decoded!==undefined && (typeof decoded==="string" || (decoded && typeof decoded==="object"))) {
+          if(nesting>=16) throw new SdkError("diagnostic-mask-json-depth","Nested JSON content exceeds the masking review limit.");
+          const changed=walk(decoded,nesting+1);
+          if(JSON.stringify(changed)!==JSON.stringify(decoded)) text=JSON.stringify(changed);
+        }
+      }
+      return replace(text);
+    }
     if (
       typeof value === "number" &&
       masks.some((s) => String(value).includes(s))
     )
       return replace(String(value));
-    if (Array.isArray(value)) return value.map(walk);
+    if (Array.isArray(value)) return value.map(v=>walk(v,nesting));
     if (value && typeof value === "object")
       return Object.fromEntries(
         Object.entries(value).map(([key, v]) => {
@@ -179,7 +191,7 @@ function transform(data: Awaited<ReturnType<typeof load>>, masks: string[]) {
               "diagnostic-mask-key",
               "Selected text occurs in a structural key; choose a different review/mask scope.",
             );
-          return [key, walk(v)];
+          return [key, walk(v,nesting)];
         }),
       );
     return value;
@@ -215,8 +227,24 @@ function transform(data: Awaited<ReturnType<typeof load>>, masks: string[]) {
     }
     if (masks.length) e.comparison = { events: [], snapshot: null };
   }
-  for (const list of streams.values()) {
-    const bytes = maskBytes(Buffer.concat(list.map((x) => x.b)), masks, counts);
+  for (const [key,list] of streams) {
+    let source=Buffer.concat(list.map((x) => x.b));
+    if(masks.length && key.startsWith("json:") && key.endsWith(":stdout")) {
+      const lines=source.toString("utf8").split("\n");
+      source=Buffer.from(lines.map((line,index)=>{
+        if(!line.trim()) return line;
+        if(index===lines.length-1) throw new SdkError("diagnostic-mask-json-incomplete","Cannot semantically mask an incomplete JSON stream; inspect the captured raw content.");
+        let decoded;
+        try {decoded=JSON.parse(line);} catch {throw new SdkError("diagnostic-mask-json-incomplete","Cannot semantically mask malformed JSON output.");}
+        const changed=walk(decoded);
+        if(JSON.stringify(changed)===JSON.stringify(decoded)) return line;
+        const encoded=JSON.stringify(changed);
+        const padding=Buffer.byteLength(line)-Buffer.byteLength(encoded);
+        if(padding<0) throw new SdkError("diagnostic-mask-json-size","This mask cannot retain JSON packet boundaries; choose the exact displayed raw text.");
+        return encoded+" ".repeat(padding);
+      }).join("\n"));
+    }
+    const bytes = maskBytes(source, masks, counts);
     let offset = 0;
     for (const item of list) {
       item.o.dataBase64 = bytes

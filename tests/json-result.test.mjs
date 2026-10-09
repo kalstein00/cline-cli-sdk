@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createClient} from '@cline-cli-sdk/sdk';
-import {history,recording} from './support/content-recording.mjs';
+import {history,recording,ended} from './support/content-recording.mjs';
 import {remote,pinned} from './support/remote.mjs';
+import {createHash} from 'node:crypto';
 
-const ended=seq=>({kind:'process',seq,observedAt:'2026-10-09T10:00:00Z',identity:{pid:42,startTime:'100',bootId:'boot'},alive:false,identityConfirmed:true,exitCode:0,manifestStatus:'completed',children:[],childrenVerified:true,supervisorAlive:false});
 test('consumer receives a parsed final JSON value only after a confirmed answer boundary',async()=>{
   const input=recording([history(1,[{id:'answer',role:'assistant',content:[{type:'thinking',thinking:'{"wrong":true}'},{type:'text',text:'{"status":"ok","items":[1,2],"note":"한글"}'}]}]),ended(2)]);
   input.resultRequest={type:'json',requestId:'result-1',baselineMessageIds:[]};
@@ -51,3 +51,13 @@ test('start exposes JSON result state to the same live public API used by consum
   assert.equal(client.snapshot().result.requestId,'live-result');assert.equal(client.snapshot().result.state,'pending');client.close();
 });
 
+test('a result bound to its user prompt cannot consume a later run in the same session',async()=>{
+  const input=recording([history(1,[{id:'old-user',role:'user',content:[{type:'text',text:'old request'}]},{id:'old-answer',role:'assistant',content:[{type:'text',text:'{"old":true}'}]},{id:'new-user',role:'user',content:[{type:'text',text:'new request'}]},{id:'new-answer',role:'assistant',content:[{type:'text',text:'{"new":true}'}]}]),ended(2)]);
+  input.resultRequest={type:'json',requestId:'old-request',baselineMessageIds:[],promptDigest:createHash('sha256').update('old request').digest('hex')};
+  const client=createClient({mode:'replay'});await client.openReplay(input);await client.replayAll();assert.equal(client.snapshot().result.state,'unconfirmed');assert.equal(client.snapshot().result.value,undefined);client.close();
+});
+
+test('changed partial history waits for fresh process evidence instead of prior completion',async()=>{
+  const input=recording([history(1,[{id:'answer',role:'assistant',content:[{type:'text',text:'{}'}]}]),ended(2),history(3,[{id:'answer',role:'assistant',content:[{type:'text',text:'{"partial":'}]}]),{...ended(4),alive:true,exitCode:null,manifestStatus:'running',supervisorAlive:true}]);input.resultRequest={type:'json',requestId:'changed',baselineMessageIds:[]};
+  const client=createClient({mode:'replay'});const events=[];client.subscribe(e=>events.push(e));await client.openReplay(input);await client.replayAll();assert.equal(client.snapshot().result.state,'pending');assert.equal(events.filter(e=>e.type==='result.changed').some(e=>e.payload.state==='invalid-json'),false);client.close();
+});

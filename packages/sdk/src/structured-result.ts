@@ -1,9 +1,10 @@
 import {SdkError, type Snapshot} from "./reducer.js";
 import {schemaValidator,type JsonSchema} from "./schema.js";
 import type {ValidateFunction} from "ajv";
+import {createHash} from "node:crypto";
 
 export interface ResultFormat {type:"json";requestId:string;schema?:JsonSchema;validation?:"sdk"|"native"}
-export interface ResultRequest extends ResultFormat {baselineMessageIds:string[]}
+export interface ResultRequest extends ResultFormat {baselineMessageIds:string[];promptDigest?:string}
 const validators=new WeakMap<ResultRequest,ValidateFunction>();
 export interface StructuredResult {
   type:"json";
@@ -26,6 +27,11 @@ export function prepareResult(format:ResultFormat|undefined,baselineMessageIds:s
   if(format.validation!==undefined && !["sdk","native"].includes(format.validation)) throw new SdkError("invalid-result-format","Unknown validation mode.");
   if(format.validation==="native") throw new SdkError("unsupported-native-schema","No verified CLI native JSON Schema generation path is available.");
   const request:ResultRequest={type:"json",requestId:format.requestId,baselineMessageIds:[...baselineMessageIds]};
+  const promptDigest=(format as ResultRequest).promptDigest;
+  if(promptDigest!==undefined) {
+    if(typeof promptDigest!=="string" || !/^[a-f0-9]{64}$/.test(promptDigest)) throw new SdkError("invalid-result-format","Invalid result prompt binding.");
+    request.promptDigest=promptDigest;
+  }
   if(format.schema!==undefined) {
     const compiled=schemaValidator(format.schema);request.schema=compiled.schema;request.validation="sdk";validators.set(request,compiled.validate);
   }
@@ -38,20 +44,26 @@ export function resultPrompt(prompt:string,request:ResultRequest|undefined):stri
     (request.schema!==undefined?"\nThe final answer must satisfy this JSON Schema (SDK validates the result):\n"+JSON.stringify(request.schema):"");
 }
 
-export function structuredResult(request:ResultRequest,snapshot:Snapshot):StructuredResult {
+export function structuredResult(request:ResultRequest,snapshot:Snapshot,historySeq=0):StructuredResult {
   const base:StructuredResult={type:"json",requestId:request.requestId,sessionId:snapshot.sessionId,executionId:snapshot.executionId,state:"pending",validation:request.schema!==undefined?"sdk-schema":"json"};
   let lastUser=-1;
   for(let index=snapshot.messages.length-1;index>=0;index--) if(snapshot.messages[index].role==="user" && !snapshot.messages[index].isToolResult) {lastUser=index;break;}
+  if(request.promptDigest) {
+    let prompt=snapshot.messages[lastUser]?.text;
+    if(prompt?.startsWith('<user_input mode="act">') && prompt.endsWith('</user_input>')) prompt=prompt.slice(23,-13);
+    if(prompt===undefined || createHash("sha256").update(prompt).digest("hex")!==request.promptDigest) return {...base,state: snapshot.messages.length?"unconfirmed":"pending"};
+  }
   const candidate=snapshot.messages.slice(lastUser+1).reverse().find(message=>message.role==="assistant" && message.text && !message.hasToolCalls && !request.baselineMessageIds.includes(message.id));
   if(candidate) {base.messageId=candidate.id;base.rawText=candidate.text;}
-  if(!snapshot.historySync.current || snapshot.jsonOutput?.state==="incomplete" || snapshot.jsonOutput?.state==="unsupported") return {...base,state:"unconfirmed"};
+  if(!snapshot.historySync.current || snapshot.jsonOutput?.state==="incomplete" || snapshot.jsonOutput?.state==="unsupported" || snapshot.interaction?.id===`${snapshot.executionId}:observation-gap`) return {...base,state:"unconfirmed"};
+  if(snapshot.jsonOutput?.state==="failed") return {...base,state:"interrupted"};
   const previous=snapshot.result;
   if(previous && ["ready","invalid-json","schema-mismatch"].includes(previous.state) && previous.requestId===request.requestId && previous.executionId===snapshot.executionId && previous.sessionId===snapshot.sessionId && previous.messageId===candidate?.id && previous.rawText===candidate?.text) return structuredClone(previous);
   if(snapshot.execution==="failed" || snapshot.execution==="stopped") return {...base,state:"interrupted"};
   const process=snapshot.executionEvidence;
   const jsonFinal=snapshot.jsonOutput?.state==="completed" && candidate?.text===snapshot.jsonOutput.finalText;
   const idleAnswer=process?.alive && process.manifestStatus==="idle" && !!snapshot.composer && !snapshot.interaction;
-  if(!candidate || !process?.identityConfirmed || !(snapshot.execution==="completed" || jsonFinal || idleAnswer)) return base;
+  if(!candidate || !process?.identityConfirmed || !(jsonFinal || (process.seq>historySeq && (snapshot.execution==="completed" || idleAnswer)))) return base;
   try {
     const value=JSON.parse(candidate.text);
     const validate=validators.get(request);

@@ -521,6 +521,7 @@ export function createReducer(options: {
   let pendingTools: { id: string; name: string; input: any }[] = [];
   let jsonParser=jsonOutputParser();
   let resultRequest:ResultRequest|undefined;
+  let resultHistorySeq=0;
   let results = new Map<string, { digest: string; rejected: boolean }>();
   let responseBinding: ResponseInputObservation["binding"] | null = null;
   let resumeDigest: string | null = null;
@@ -568,7 +569,7 @@ export function createReducer(options: {
   };
   const updateResult = (obs:Observation) => {
     if(!resultRequest) return;
-    const result=structuredResult(resultRequest,state);
+    const result=structuredResult(resultRequest,state,resultHistorySeq);
     if(JSON.stringify(result)!==JSON.stringify(state.result)) {
       state.result=result;emit("result.changed",obs,result);
     }
@@ -1030,8 +1031,10 @@ export function createReducer(options: {
       emit("state.changed", obs, {
         execution: state.execution,
         interaction: state.interaction,
+        ...(state.jsonOutput?{jsonOutput:state.jsonOutput}:{}),
       });
     }
+    updateResult(obs);
     options.observe?.(obs, observationEvents, snapshot());
     return snapshot();
   };
@@ -1075,6 +1078,7 @@ export function createReducer(options: {
     latestProcess = null;
     jsonParser=jsonOutputParser();
     resultRequest=prepareResult(obs.resultRequest,obs.resultRequest?.baselineMessageIds);
+    resultHistorySeq=0;
     observationEvents = [];
     Object.assign(state, {
       sessionId: obs.sessionId,
@@ -1256,6 +1260,7 @@ export function createReducer(options: {
       latestProcess = null;
       jsonParser=jsonOutputParser();
       resultRequest=preparedResult;
+      resultHistorySeq=0;
       terminal?.dispose();
       terminal = new xterm.Terminal({
         ...input.terminal,
@@ -1291,7 +1296,7 @@ export function createReducer(options: {
           truncated: input.provenance.truncated,
         },
       };
-      if(resultRequest) state.result=structuredResult(resultRequest,state);
+      if(resultRequest) state.result=structuredResult(resultRequest,state,resultHistorySeq);
       return snapshot();
     },
     async nextObservation() {
@@ -1434,6 +1439,7 @@ export function createReducer(options: {
           );
         }
         results = nextResults;
+        resultHistorySeq=obs.seq;
         if (!state.historySync.current) {
           state.historySync = { current: true, warning: null };
           emit("state.changed", obs, { historySync: state.historySync });
