@@ -4,7 +4,7 @@
     name="viewport"
     content="width=device-width,initial-scale=1"
   />
-  <title>Cline SDK · 기록 재생</title>
+  <title>Cline SDK · 원격 실행과 기록 재생</title>
   <style>
     body {
       margin: 0;
@@ -110,13 +110,31 @@
     #error {
       color: #aa283c;
     }
+    label {
+      display: block;
+      margin: 12px 0;
+      color: #526078;
+    }
+    input,
+    textarea {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 10px;
+      font: inherit;
+      border: 1px solid #c3cede;
+      border-radius: 6px;
+      margin-top: 5px;
+    }
+    textarea {
+      min-height: 90px;
+    }
   </style>
   <main>
-    <span class="badge">기록 재생 · 읽기 전용</span>
+    <span class="badge">공개 CLI 기준선 · 회사 호환성 미검증</span>
     <h1>Cline CLI SDK 예제</h1>
     <p>
-      검토한 공개 Cline 관측 자료를 SDK로 해석합니다. 질문·메시지의 기록 재생
-      결과이며 실제 원격 작업을 실행하지 않습니다.
+      SSH로 원격 작업을 시작하고 SDK 상태를 확인하거나 검토한 관측 자료를
+      재생합니다.
     </p>
     <nav aria-label="재생 기록">
       <button data-fixture="message">정상 메시지 재생</button
@@ -124,6 +142,38 @@
       ><button data-fixture="unsupported">미지원 화면 재생</button>
     </nav>
     <p id="error" role="alert"></p>
+    <section>
+      <h2>연결과 환경 점검</h2>
+      <label>SSH 호스트 또는 별칭<input id="host" value="wsl" /></label>
+      <label
+        >고정 CLI 절대 경로<input id="cliPath" placeholder="/path/to/cline"
+      /></label>
+      <label
+        >관리 디렉터리 (선택)<input
+          id="remoteRoot"
+          placeholder="~/.local/state/cline-cli-sdk"
+      /></label>
+      <label
+        >SSH 키 파일 경로 (선택, 기본 SSH agent)<input id="identityFile"
+      /></label>
+      <button id="connect">연결·환경 점검</button>
+      <pre id="preflight">아직 점검하지 않았습니다.</pre>
+      <label
+        >원격 작업 디렉터리<input id="cwd" placeholder="/remote/workspace"
+      /></label>
+      <label
+        >격리 CLI 데이터 디렉터리 (선택)<input
+          id="dataDir"
+          placeholder="인증을 별도로 준비한 데이터 경로"
+      /></label>
+      <label
+        >요청<textarea id="prompt">
+Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea
+        >
+      </label>
+      <button id="start" disabled>작업 시작</button>
+      <button id="refresh" disabled>현재 상태 확인</button>
+    </section>
     <section>
       <h2>현재 상태</h2>
       <dl>
@@ -163,14 +213,25 @@
   <script type="module">
     const element = (id) => document.getElementById(id);
     let events = [];
-    function render({ snapshot: s }) {
+    let current = null;
+    let busy = false;
+    function render({ snapshot: s, preflight }) {
+      current = s;
+      element("start").disabled =
+        busy || !preflight?.ready || s.mode !== "live" || !!s.executionId;
+      element("refresh").disabled = busy || s.mode !== "live" || !s.executionId;
+      if (preflight)
+        element("preflight").textContent = JSON.stringify(preflight, null, 2);
       for (const [id, value] of Object.entries({
         connection: s.connection,
         execution: s.execution,
         session: s.sessionId ?? "—",
         run: s.executionId ?? "—",
         revision: s.revision,
-        position: `${s.replay.position}/${s.replay.total} · ${s.replay.truncated ? "선택·잘림 기록" : "완전 기록"}`,
+        position:
+          s.mode === "live"
+            ? "원격 CLI 기록 · 로컬 영구 복제 없음"
+            : `${s.replay.position}/${s.replay.total} · ${s.replay.truncated ? "선택·잘림 기록" : "완전 기록"}`,
       }))
         element(id).textContent = value;
       const messages = element("messages");
@@ -211,15 +272,70 @@
       }
       interaction.append(choices);
       const note = document.createElement("p");
-      note.textContent = "재생 모드는 응답을 전송하지 않습니다.";
+      note.textContent =
+        s.mode === "replay"
+          ? "재생 모드는 응답을 전송하지 않습니다."
+          : "이 단계에서는 질문과 승인 응답을 아직 제공하지 않습니다.";
       interaction.append(note);
     }
     new EventSource("/api/events").onmessage = (event) => {
       events.push(JSON.parse(event.data));
+      if (events.length > 100) events.shift();
       element("events").textContent = events
         .map((e) => JSON.stringify(e))
         .join("\n");
     };
+    async function invoke(action, body = {}) {
+      busy = true;
+      element("error").textContent = "";
+      document
+        .querySelectorAll("#connect,#start,#refresh")
+        .forEach((b) => (b.disabled = true));
+      try {
+        const response = await fetch("/api/" + action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message ?? result.error);
+        busy = false;
+        render(result);
+        return result;
+      } catch (error) {
+        element("error").textContent = error.message;
+      } finally {
+        busy = false;
+        element("connect").disabled = false;
+      }
+    }
+    element("connect").onclick = () =>
+      invoke(
+        "connect",
+        Object.fromEntries(
+          ["host", "cliPath", "remoteRoot", "identityFile"].map((id) => [
+            id,
+            element(id).value,
+          ]),
+        ),
+      );
+    element("start").onclick = () =>
+      invoke(
+        "start",
+        Object.fromEntries(
+          ["cwd", "dataDir", "prompt"].map((id) => [id, element(id).value]),
+        ),
+      );
+    element("refresh").onclick = () => invoke("refresh");
+    setInterval(() => {
+      if (
+        !busy &&
+        current?.mode === "live" &&
+        current?.executionId &&
+        !["completed", "stopped", "failed"].includes(current.execution)
+      )
+        invoke("refresh");
+    }, 1500);
     document.querySelectorAll("[data-fixture]").forEach((button) =>
       button.addEventListener("click", async () => {
         document

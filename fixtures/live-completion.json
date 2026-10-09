@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-readline"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "fixture-live-session",
+  "executionId": "fixture-live-execution",
+  "observations": [
+    {
+      "kind": "pty",
+      "seq": 1,
+      "observedAt": "2026-10-09T10:22:41.222643+00:00",
+      "dataBase64": "U0RL"
+    },
+    {
+      "kind": "pty",
+      "seq": 2,
+      "observedAt": "2026-10-09T10:22:41.263337+00:00",
+      "dataBase64": "X0w="
+    },
+    {
+      "kind": "pty",
+      "seq": 3,
+      "observedAt": "2026-10-09T10:22:41.288721+00:00",
+      "dataBase64": "SVZF"
+    },
+    {
+      "kind": "pty",
+      "seq": 4,
+      "observedAt": "2026-10-09T10:22:41.294500+00:00",
+      "dataBase64": "X1JFQURZ"
+    },
+    {
+      "kind": "pty",
+      "seq": 5,
+      "observedAt": "2026-10-09T10:22:42.332611+00:00",
+      "dataBase64": "DQo="
+    },
+    {
+      "kind": "history",
+      "seq": 6,
+      "observedAt": "2026-10-09T10:22:42.705603+00:00",
+      "dataBase64": "eyJ2ZXJzaW9uIjogMSwgInNlc3Npb25JZCI6ICJmaXh0dXJlLWxpdmUtc2Vzc2lvbiIsICJtZXNzYWdlcyI6IFt7ImlkIjogImZpeHR1cmUtbWVzc2FnZS0wIiwgInJvbGUiOiAidXNlciIsICJjb250ZW50IjogW3sidHlwZSI6ICJ0ZXh0IiwgInRleHQiOiAiPHVzZXJfaW5wdXQgbW9kZT1cImFjdFwiPlJlcGx5IGV4YWN0bHkgU0RLX0xJVkVfUkVBRFkuIERvIG5vdCBjYWxsIGFueSB0b29scy48L3VzZXJfaW5wdXQ+In1dfSwgeyJpZCI6ICJmaXh0dXJlLW1lc3NhZ2UtMSIsICJyb2xlIjogImFzc2lzdGFudCIsICJjb250ZW50IjogW3sidHlwZSI6ICJ0ZXh0IiwgInRleHQiOiAiU0RLX0xJVkVfUkVBRFkifV19XX0="
+    },
+    {
+      "kind": "process",
+      "seq": 7,
+      "observedAt": "2026-10-09T10:22:42.705603+00:00",
+      "identity": {
+        "pid": 42,
+        "startTime": "100",
+        "bootId": "fixture-boot"
+      },
+      "identityConfirmed": true,
+      "alive": false,
+      "exitCode": 0,
+      "manifestStatus": "completed"
+    }
+  ],
+  "provenance": {
+    "source": "sanitized-observation: SDK Windows SSH WSL ticket 3 baseline",
+    "sourceSha256": "1bbb5ee6d1b5b23bfedcfc874831034f9f94760d1a25ada5733fc7dfd3d02048",
+    "review": "Controlled SDK_LIVE_READY prompt and response; no auth/settings read; terminal reviewed",
+    "transformations": [
+      "Removed system prompt and optional provider/metrics metadata",
+      "Mapped session, message and process identities consistently",
+      "Attached same-boot stopped-process and recorded-exit witness from owned supervisor"
+    ],
+    "complete": true,
+    "truncated": false
+  }
+}
