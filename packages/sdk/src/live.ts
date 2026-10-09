@@ -369,13 +369,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       reservationSupported = !!result.management?.responseReservation;
       phase = result.phase ?? phase;
       pendingPhase = null;
-      for (const raw of result.screen ? [] : (result.observations ?? []))
-        await reducer.ingest({ ...raw, seq: ++sequence });
+      if (result.historyError || (Object.hasOwn(result, "history") && !result.history && (result.sessionId || historyHash)))
+        await reducer.ingest({ kind: "history-failure", seq: ++sequence, observedAt: new Date().toISOString(), reason: result.historyError || "missing" });
       cursor = result.cursor;
       remoteRequests = result.requests ?? [];
       modalHash = result.modalHash ?? null;
       processEvidence = result.process ?? processEvidence;
-      if (result.history && result.history.sha256 !== historyHash) {
+      if (result.history && (result.history.sha256 !== historyHash || !reducer.snapshot().historySync.current)) {
         try {
           await reducer.ingest({
             kind: "history",
@@ -383,10 +383,17 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             observedAt: new Date().toISOString(),
             dataBase64: result.history.dataBase64,
           });
-          historyHash = result.history.sha256;
+          if (reducer.snapshot().historySync.current) historyHash = result.history.sha256;
         } catch (error) {
           if (!(error instanceof SdkError && error.code === "invalid-history"))
             throw error;
+        }
+      }
+      for (const raw of result.screen ? [] : (result.observations ?? [])) {
+        try {
+          await reducer.ingest({ ...raw, seq: ++sequence });
+        } catch (error) {
+          if (!(error instanceof SdkError && error.code === "invalid-history")) throw error;
         }
       }
       if (result.screen) {
@@ -408,6 +415,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       observationGap ||= !!result.gap && !result.screen;
       if (
         pendingPhase &&
+        reducer.snapshot().historySync.current &&
         !observationGap &&
         reducer.snapshot().interaction?.id === pendingPhase.id
       ) {
@@ -529,6 +537,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     return refreshing;
   };
   const validateResponse = (request: ResponseRequest) => {
+    if (!state.historySync.current)
+      throw new SdkError("history-unconfirmed", "History is not current. Requery before responding.");
     if (state.stop)
       throw new SdkError(
         "stop-in-progress",
