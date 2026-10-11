@@ -1347,13 +1347,22 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "This execution has reached its bounded response request limit.",
         );
       validateResponse(request);
+      const interactionTarget = (interaction: Snapshot["interaction"]) => JSON.stringify(interaction && [
+        interaction.id,interaction.kind,interaction.prompt,interaction.choices,
+        interaction.toolId,interaction.toolName,interaction.toolInput,interaction.responseKinds,interaction.input,
+      ]);
+      const acceptedTarget = interactionTarget(state.interaction);
       activeRequest = request.requestId;
       const promise = (async () => {
         let sent = false;
         let writeAttempted = false;
         try {
           await refresh();
-          validateResponse(request);
+          if (interactionTarget(state.interaction) !== acceptedTarget)
+            throw new SdkError("stale-interaction", "The response target changed during refresh.");
+          // The caller's revision was current at acceptance. Display-only updates
+          // during our own refresh do not revoke that same question/approval.
+          validateResponse({...request,revision:state.revision});
           const interaction = structuredClone(state.interaction!);
           const custom = !interaction.choices.includes(request.answer);
           let bytes =
@@ -1368,7 +1377,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             sessionId: request.sessionId,
             executionId: request.executionId,
             interactionId: request.interactionId,
-            revision: state.revision,
+            revision: request.revision,
           };
           const responseBinding = {
             ...base,

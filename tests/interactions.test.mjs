@@ -5,6 +5,7 @@ import { createClient } from "@cline-cli-sdk/sdk";
 import childProcess from "node:child_process";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
+import {createHash} from 'node:crypto';
 
 const fixture = async (name) =>
   JSON.parse(
@@ -307,6 +308,53 @@ function status(request, record, from, to) {
     },
   };
 }
+for(const [name,initial,complete,answer] of [['choice',18,30,'BLUE'],['approve',29,48,'Approve'],['deny',28,36,'Deny']])test(`current ${name} response survives an unrelated history update during its prewrite refresh`, async (t) => {
+  const record = await fixture(name);
+  let position = initial, changed = false, writes = 0;
+  boundary(t, (request) => {
+    if (!request.action) return pinned;
+    if (request.action === "start") return {executionId:request.executionId,remoteRoot:"/fixture/control"};
+    if (request.action === "respond") { writes++; position=complete; return {state:"queued"}; }
+    if (request.action === "status") {
+      const result=status(request,record,request.cursor,position);
+      if (changed && position===initial) {
+        const original=record.observations.filter(o=>o.kind==='history'&&o.seq<=initial).at(-1);
+        const doc=JSON.parse(Buffer.from(original.dataBase64,'base64'));
+        doc.messages.unshift({id:'unrelated-stream-update',role:'assistant',content:[{type:'text',text:'A late display update'}]});
+        const bytes=Buffer.from(JSON.stringify(doc));
+        result.observations.push({kind:'history',seq:initial+1,observedAt:new Date().toISOString(),dataBase64:bytes.toString('base64'),sha256:createHash('sha256').update(bytes).digest('hex')});
+        result.cursor=initial+1;
+      }
+      result.requests=writes?[{requestId:'history-race',state:'written'}]:[];
+      return result;
+    }
+    throw Error('unexpected action');
+  });
+  const client=createClient({mode:'live',connection:{host:'fixture'}});
+  try {
+    await client.connect();await client.start({cwd:'/fixture/work',prompt:'controlled'});await client.refresh();
+    const s=client.snapshot();changed=true;
+    const response=await client.respond({sessionId:s.sessionId,executionId:s.executionId,interactionId:s.interaction.id,revision:s.revision,requestId:'history-race',answer});
+    assert.equal(response.state,'delivered');assert.equal(writes,1);
+  } finally { client.close(); }
+});
+
+test('a question replaced during prewrite refresh is rejected without writing an answer',async t=>{
+ const record=await fixture('choice');let position=18,writes=0;
+ boundary(t,r=>{
+  if(!r.action)return pinned;
+  if(r.action==='start')return {executionId:r.executionId,remoteRoot:'/fixture/control'};
+  if(r.action==='status')return status(r,record,r.cursor,position);
+  if(r.action==='respond'){writes++;return {state:'queued'};}
+  throw Error('unexpected action');
+ });
+ const client=createClient({mode:'live',connection:{host:'fixture'}});t.after(()=>client.close());
+ await client.connect();await client.start({cwd:'/fixture',prompt:'controlled'});await client.refresh();
+ const s=client.snapshot();position=30;
+ await assert.rejects(client.respond({sessionId:s.sessionId,executionId:s.executionId,interactionId:s.interaction.id,revision:s.revision,requestId:'changed-question',answer:'BLUE'}),{code:'stale-interaction'});
+ assert.equal(writes,0);assert.equal(client.snapshot().response,null);
+});
+
 test("consumer choice response waits for same-tool result and duplicate request never repeats input", async (t) => {
   const record = await fixture("choice");
   let position = 18,

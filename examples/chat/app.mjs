@@ -110,7 +110,13 @@ function render(packet) {
     if(messages.children[index] !== node)messages.insertBefore(node,messages.children[index] ?? null);
   }
   for(const node of [...messages.children])if(!visible.has(node.dataset.messageId)){node.remove();changed=true;}
-  element('empty').hidden=!!snapshot?.messages.length;
+  const preview=element('streaming'),stream=snapshot?.streaming;
+  if(preview.hidden!==!stream?.text){preview.hidden=!stream?.text;changed=true;}
+  const previewText=preview.querySelector('.text');
+  if(previewText.textContent!==(stream?.text ?? '')){previewText.textContent=stream?.text ?? '';changed=true;}
+  preview.dataset.turnId=stream?.turnId ?? '';
+  preview.querySelector('.stream-note').textContent=stream?.truncated?'일부 미리보기입니다. 완료된 답변을 기다리고 있습니다.':'';
+  element('empty').hidden=!!snapshot?.messages.length||!!stream?.text;
   if(pending && (pending.action==='stop' ? snapshot?.stop?.requestId===pending.requestId && snapshot.execution==='stopped' && snapshot.stop.state==='confirmed' && snapshot.stop.childrenVerified : pending.action==='resume' ? snapshot?.resume?.requestId===pending.requestId && snapshot.resume.state==='delivered' : pending.action==='respond' ? snapshot?.response?.requestId===pending.requestId && snapshot.response.state==='delivered' : pending.action==='message' ? snapshot?.messageDelivery?.requestId===pending.requestId && snapshot.messageDelivery.state==='delivered' && snapshot.messages.some(m=>m.id===snapshot.messageDelivery.messageId) : snapshot?.messages.some(message=>message.role==='user'&&message.text===pending.text&&!pending.baseline.includes(message.id)))) {
     if(pending.fromComposer!==false && element('message').value===pending.text)element('message').value='';pending=null;requestError=false;
   }

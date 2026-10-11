@@ -12,6 +12,7 @@ npm run example:chat
 
 - [연결 준비, 다른 프로젝트 독립 설치와 공개 API 적용 안내](examples/chat/README.md)
 - [실제 브라우저/공개 CLI 수용과 회귀·장애 주입 결과](docs/chat-acceptance.md)
+- [SDK 생성 중 답변과 챗봇 스트리밍 표시](docs/streaming.md)
 
 후속/재개 입력은 UTF-8 112바이트의 한 줄입니다. 회사 Cline fork는 미검증이며 공개 CLI 수용과 구분합니다. npm 공개 게시와 제품 앱 통합은 수행하지 않았습니다.
 

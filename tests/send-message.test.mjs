@@ -18,26 +18,26 @@ import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
 import {readDiagnostic,compareDiagnostic} from '@cline-cli-sdk/sdk';
 
-async function controlledComposer(t,{lostEcho=false,lostSubmit=false,rejectStep,rejectReservation=false,immediateRejection=false,directory}={}) {
+async function controlledComposer(t,{lostEcho=false,lostSubmit=false,rejectStep,rejectReservation=false,immediateRejection=false,directory,text='2 한글 😀 café',cursorEcho=false}={}) {
  let eid, seq=0, composer='',submitted=0, writes=[], pending, busy=false, witness, missingLedger=false, brokenHistory=false;
- const history=[{id:'old-identical',role:'user',content:[{type:'text',text:'2 한글 😀 café'}]}];
+ const history=[{id:'old-identical',role:'user',content:[{type:'text',text}]}];
  t.mock.method(cp,'spawn',()=>{const p=new EventEmitter();p.stdout=new PassThrough();p.stderr=new PassThrough();p.stdin=new PassThrough();p.kill=()=>{};let data='';p.stdin.on('data',d=>data+=d);p.stdin.on('finish',()=>{try{const r=JSON.parse(data);let value;
  if(!r.action)value=pinned;
  else if(r.action==='start'){eid=r.executionId;value={executionId:eid,remoteRoot:'/fixture/control',terminalMode:'tui'};}
  else if(r.action==='list')value={executions:[{executionId:eid,remoteRoot:'/fixture/control',sessionId:'composer-session',terminalMode:'tui',terminal:{rows:40,cols:120},cliHash:pinned.cliHash}]};
  else if(r.action==='reserve-message'){if(rejectReservation)value={state:'rejected',fresh:false,notSubmitted:true,reason:'agent-not-idle'};else{pending={...r,baselineMessageCount:history.length,baselineLastMessageId:history.at(-1)?.id};value={state:'reserved',fresh:true};}}
- else if(r.action==='respond'){writes.push(r);const text=Buffer.from(r.dataBase64,'base64').toString();if(r.stepIndex!==rejectStep){if(r.inputType==='composer-text'&&!lostEcho)composer+=text;if(r.inputType==='composer-submit'){submitted++;composer='';if(!lostSubmit)history.push({id:'new-'+submitted,role:'user',content:[{type:'text',text:'2 한글 😀 café'}]},{id:'reply-'+submitted,role:'assistant',content:[{type:'text',text:'Controlled reply'}]});}}value={state:immediateRejection&&r.stepIndex===rejectStep?'rejected':'queued'};}
+ else if(r.action==='respond'){writes.push(r);const inputText=Buffer.from(r.dataBase64,'base64').toString();if(r.stepIndex!==rejectStep){if(r.inputType==='composer-text'&&!lostEcho)composer+=inputText;if(r.inputType==='composer-submit'){submitted++;composer='';if(!lostSubmit)history.push({id:'new-'+submitted,role:'user',content:[{type:'text',text}]},{id:'reply-'+submitted,role:'assistant',content:[{type:'text',text:'Controlled reply'}]});}}value={state:immediateRejection&&r.stepIndex===rejectStep?'rejected':'queued'};}
  else if(r.action==='settle-message'){value={state:rejectStep===0?'not-submitted':history.some(m=>m.id==='new-'+submitted)?'delivered':'delivery-unknown',executionId:eid,sessionId:'composer-session',messageId:'new-'+submitted,promptDigest:pending.answerDigest};if(['delivered','not-submitted'].includes(value.state))witness=value;}
  else if(r.action==='status'){
   const raw=Buffer.from(brokenHistory?'{':JSON.stringify({version:1,sessionId:'composer-session',messages:history}));
-  const frame='\x1b[2J\x1b[H\x1b[35;1H'+'─'.repeat(120)+'\x1b[36;1H❯ '+(composer||'Ask anything...')+'\x1b[37;1H'+'─'.repeat(120)+'\x1b[38;1H● Act (Tab)\x1b[40;1HAuto-approve all disabled (Shift+Tab)\x1b[36;3H';
+  const frame='\x1b[2J\x1b[H\x1b[35;1H'+'─'.repeat(120)+'\x1b[36;1H❯ '+(composer||'Ask anything...')+'\x1b[37;1H'+'─'.repeat(120)+'\x1b[38;1H● Act (Tab)\x1b[40;1HAuto-approve all disabled (Shift+Tab)'+`\x1b[36;${cursorEcho?3+composer.length:3}H`;
   value={executionId:eid,sessionId:'composer-session',cursor:++seq,observations:[{kind:'pty',seq,observedAt:new Date().toISOString(),dataBase64:Buffer.from(frame).toString('base64')}],composerHash:'composer-hash',history:{dataBase64:raw.toString('base64'),sha256:createHash('sha256').update(raw).digest('hex')},
    process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,supervisorAlive:true,exitCode:null,manifestStatus:busy?'running':'idle',children:[],trackingError:null},management:{phaseSupported:true,phase:{active:false},responseReservation:true,inputLedgerCurrent:!missingLedger},
    requests:pending&&!missingLedger?[{requestId:pending.requestId,state:rejectStep===0&&writes.length?'rejected':'written',binding:pending,message:true,baselineMessageCount:pending.baselineMessageCount,baselineLastMessageId:pending.baselineLastMessageId,witness,resolution:witness?.state,steps:writes.filter(w=>w.requestId===pending.requestId).map(w=>({index:w.stepIndex,state:w.stepIndex===rejectStep?'rejected':'written'}))}]:[]};
  }else throw Error('unexpected '+r.action);
  p.stdout.end(JSON.stringify(value));queueMicrotask(()=>p.emit('close',0));}catch(error){queueMicrotask(()=>p.emit('error',error));}});return p;});
  const c=createClient({mode:'live',connection:{host:'fixture',responseTimeoutMs:250}});if(directory)await c.startDiagnostics({directory});await c.connect();await c.start({cwd:'/fixture',terminalMode:'tui',prompt:'first'});await c.refresh();
- return {c,writes,setBusy:v=>busy=v,setHistoryFault:v=>brokenHistory=v,setLedgerMissing:v=>missingLedger=v,recover:()=>history.push({id:'new-'+submitted,role:'user',content:[{type:'text',text:'2 한글 😀 café'}]},{id:'reply-'+submitted,role:'assistant',content:[{type:'text',text:'Recovered reply'}]}),request:(requestId='message-1')=>({sessionId:c.snapshot().sessionId,executionId:c.snapshot().executionId,revision:c.snapshot().revision,requestId,text:'2 한글 😀 café'})};
+ return {c,writes,setBusy:v=>busy=v,setHistoryFault:v=>brokenHistory=v,setLedgerMissing:v=>missingLedger=v,recover:()=>history.push({id:'new-'+submitted,role:'user',content:[{type:'text',text}]},{id:'reply-'+submitted,role:'assistant',content:[{type:'text',text:'Recovered reply'}]}),request:(requestId='message-1')=>({sessionId:c.snapshot().sessionId,executionId:c.snapshot().executionId,revision:c.snapshot().revision,requestId,text})};
 }
 
 for(const immediateRejection of [false,true])test(`a conclusive first-step rejection (immediate=${immediateRejection}) is unsubmitted and a fresh client recovers without repeating input`,async t=>{
@@ -112,4 +112,11 @@ test('a first fresh attach with a missing ledger blocks composer and question in
  const c=createClient({mode:'live',connection:{host:'fixture'}});t.after(()=>c.close());await c.connect();await c.attach(req.executionId);assert.deepEqual(c.snapshot().inputControl,{current:false,reason:'ledger-unavailable'});assert.equal(c.capabilities().sendMessage,false);assert.equal(c.capabilities().responses,false);assert.equal(c.snapshot().messageInput.reason,'delivery-pending');const writes=control.writes.length;
  await assert.rejects(c.sendMessage({...req,requestId:'missing-ledger-bypass',revision:c.snapshot().revision}));await c.reconfirmDelivery();assert.equal(c.snapshot().inputControl.current,false);assert.equal(control.writes.length,writes);
  await assert.rejects(c.resume({executionId:req.executionId,requestId:'resume-missing-ledger',prompt:'bypass'}),{code:'input-control-unavailable'});assert.equal(control.writes.length,writes);
+});
+
+
+test('a followup chunk ending in a space confirms its exact cursor-bounded echo and submits once',async t=>{
+ const control=await controlledComposer(t,{text:'x'.repeat(63)+' '+'z',cursorEcho:true});t.after(()=>control.c.close());
+ const result=await control.c.sendMessage(control.request());assert.equal(result.state,'delivered');
+ assert.deepEqual(control.writes.map(w=>Buffer.from(w.dataBase64,'base64').toString()),['x'.repeat(63)+' ','z','\r']);
 });

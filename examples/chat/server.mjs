@@ -136,8 +136,20 @@ function mutate(action, input) {
   if(input.serverId!==serverId)throw problem('server-changed','서버가 재시작되었습니다. 현재 연결과 실행을 확인하세요.');
   if (busy) throw problem('operation-busy','진행 중인 전송이 있습니다.');
   if (requests.size >= 256) throw problem('request-limit','요청 보관 한도에 도달했습니다. 서버를 재시작하고 원격 실행을 확인하세요.');
+  const fingerprint=s=>JSON.stringify([s?.sessionId,s?.executionId,s?.interaction]);
+  const accepted=client?.snapshot();
+  const responseTarget=action==='respond' && accepted?.revision===input.revision ? fingerprint(accepted) : null;
   busy = true;
-  const promise = Promise.resolve().then(async () => {await refreshTask;return perform(action,input);}).finally(() => {busy=false;publish();});
+  const promise = Promise.resolve().then(async () => {
+    await refreshTask;
+    let prepared=input;
+    if(responseTarget!==null) {
+      const latest=client.snapshot();
+      if(fingerprint(latest)!==responseTarget)throw problem('stale-interaction','대기 중인 질문이 변경되었습니다. 현재 질문을 확인하세요.');
+      prepared={...input,revision:latest.revision};
+    }
+    return perform(action,prepared);
+  }).finally(() => {busy=false;publish();});
   requests.set(input.requestId,{binding,promise});
   return promise;
 }
@@ -188,7 +200,7 @@ const timer = setInterval(async () => {
   refreshing=true;
   refreshTask=client.refresh().catch(()=>{});
   try {await refreshTask;} finally {refreshing=false;refreshTask=null;publish();}
-},1000);
+},200);
 server.listen(port,'127.0.0.1',() => console.log(`Cline chat: http://127.0.0.1:${port}`));
 for (const signal of ['SIGINT','SIGTERM']) process.on(signal,() => {
   clearInterval(timer);unsubscribe?.();client?.close();for(const stream of streams) stream.end();server.close();

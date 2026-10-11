@@ -1,4 +1,5 @@
 import {hasCliProtocol} from "./cli-protocol.js";
+import {streamPreview} from './stream-preview.js';
 import {messageInput, type MessageInputState} from "./message-input.js";
 import {messageNotSubmitted} from "./message-evidence.js";
 import type {SendMessageRequest, MessageDelivery} from "./message.js";
@@ -259,6 +260,8 @@ export interface ResponseResult {
   revision: number;
 }
 export interface Snapshot {
+  /** Provisional TUI text; never an input or delivery witness. Final history replaces it. */
+  streaming?: import('./stream-preview.js').StreamPreview | null;
   /** This execution has already been resumed; attach this managed successor to continue. */
   supersededBy?: string;
   /** CLI initialization is distinct from a received conversational request. */
@@ -549,6 +552,8 @@ export function createReducer(options: {
   let messageDigest: string | null = null;
   let messageBaseline = new Set<string>();
   let historyIds: string[] = [];
+  let streamTurn: {id:string; executionId:string|null; baseline:string|null} | null = null;
+  let streamSettled = false;
   let latestProcess: ProcessObservation | null = null;
   const listeners = new Set<(event: SdkEvent) => void>();
   let observationEvents: SdkEvent[] = [];
@@ -604,6 +609,28 @@ export function createReducer(options: {
     const result=structuredResult(resultRequest,state,resultHistorySeq);
     if(JSON.stringify(result)!==JSON.stringify(state.result)) {
       state.result=result;emit("result.changed",obs,result);
+    }
+  };
+  const updateStreaming = (obs: Observation) => {
+    if(!terminal || !hasCliProtocol(recording?.cli,'tui'))return;
+    const b=terminal.buffer.active;
+    const lines=Array.from({length:Math.max(0,recording!.terminal.rows-6)},(_,row)=>b.getLine(b.baseY+row)?.translateToString(true) ?? '');
+    const latestFinal=state.messages.filter(m=>m.role==='assistant'&&m.text&&!m.hasToolCalls).at(-1)?.id ?? null;
+    const marker=streamPreview(lines,'candidate',null);
+    if(!marker)streamSettled=false;
+    if(streamTurn && (streamTurn.executionId!==state.executionId || streamTurn.baseline!==latestFinal)) {
+      streamTurn=null;streamSettled=true;
+    }
+    const blocked=!state.historySync.current || state.stop || state.interaction || pendingTools.length || ['stopped','completed','failed'].includes(state.execution);
+    if(blocked)streamTurn=null;
+    // The CLI may persist neither the user prompt nor the assistant until completion.
+    // Anchor the provisional turn to its bound execution and first answer frame.
+    if(!blocked && !streamSettled && !streamTurn && marker && obs.kind==='pty') {
+      streamTurn={id:`${state.executionId}:stream:${obs.seq}`,executionId:state.executionId,baseline:latestFinal};
+    }
+    const next=blocked || !streamTurn ? null : streamPreview(lines,streamTurn.id,state.streaming ?? null);
+    if(JSON.stringify(next)!==JSON.stringify(state.streaming) && (next || state.streaming!==undefined)) {
+      state.streaming=next;emit('state.changed',obs,{streaming:next});
     }
   };
   const interpretScreen = (obs: Observation) => {
@@ -835,7 +862,13 @@ export function createReducer(options: {
           visible[bottom + 1].includes("● Act (Tab)") &&
           buffer.cursorY === bottom - 1 && buffer.cursorX >= 2 &&
           rule(visible[bottom - 2]) && visible[bottom - 1].startsWith("❯ ")) {
-        const text = visible[bottom - 1].slice(2);
+        const line=buffer.getLine(buffer.baseY+bottom-1)!;
+        let end=recording!.terminal.cols;
+        while(end>2 && !line.getCell(end-1)?.getChars().trim())end--;
+        // Intermediate chunks can end in a space. trimEnd() loses that echo,
+        // while the cursor still witnesses the occupied input cells.
+        const text = visible[bottom - 1].slice(2)==='Ask anything...' ? 'Ask anything...'
+          : line.translateToString(false,2,Math.max(end,buffer.cursorX));
         state.composer = { mode: "tui", text: text === "Ask anything..." ? "" : text };
       }
       return;
@@ -1134,7 +1167,7 @@ export function createReducer(options: {
     pendingPhase = null;
     responseBinding = null;
     resumeDigest = null;
-    messageDigest = null;messageBaseline.clear();historyIds=[];
+    messageDigest = null;messageBaseline.clear();historyIds=[];streamTurn=null;streamSettled=false;
     latestProcess = null;
     jsonParser=jsonOutputParser();
     resultRequest=prepareResult(obs.resultRequest,obs.resultRequest?.baselineMessageIds);
@@ -1326,6 +1359,7 @@ export function createReducer(options: {
       if (previous !== JSON.stringify(state.resume)) emit("state.changed",obs,{resume:state.resume});
     }
     updateMessageInput(obs);
+    updateStreaming(obs);
     options.observe?.(obs, observationEvents, snapshot());
     return snapshot();
   };
@@ -1360,7 +1394,7 @@ export function createReducer(options: {
       pendingPhase = null;
       responseBinding = null;
       resumeDigest = null;
-    messageDigest = null;messageBaseline.clear();historyIds=[];
+    messageDigest = null;messageBaseline.clear();historyIds=[];streamTurn=null;streamSettled=false;
       latestProcess = null;
       jsonParser=jsonOutputParser();
       resultRequest=preparedResult;
@@ -1385,6 +1419,7 @@ export function createReducer(options: {
         connection: input.schemaVersion === 2 ? "closed" : "replay",
         execution: "unknown",
         messages: [],
+        streaming: undefined,
         startup:input.executionId && !input.sessionId ? {state:"waiting-for-session"} : undefined,
         jsonOutput:hasCliProtocol(input.cli,"json")?jsonParser.state():undefined,
         result:undefined,
@@ -1640,6 +1675,7 @@ export function createReducer(options: {
       }
       updateResult(obs);
       updateMessageInput(obs);
+      updateStreaming(obs);
       options.observe?.(obs, observationEvents, snapshot());
       return snapshot();
     },

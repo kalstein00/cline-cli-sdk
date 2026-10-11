@@ -40,6 +40,7 @@ test("public replay anchors the current TUI question and exposes exact custom ec
 import childProcess from "node:child_process";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
+import {createHash} from 'node:crypto';
 const pinned = {
   platform: "Linux",
   python: true,
@@ -66,8 +67,9 @@ function boundary(t, handler) {
     return p;
   });
 }
-test("consumer numeric custom waits for selected custom row and exact echo then separate submit and same-tool result", async (t) => {
+for(const race of [false,true])test(`consumer numeric custom confirms exact echo and same-tool result${race?' despite a prewrite history update':''}`, async (t) => {
   const record = await fixture("tui-custom-response");
+  let accepted=false;
   let position = 98,
     writes = [];
   boundary(t, (r) => {
@@ -84,8 +86,8 @@ test("consumer numeric custom waits for selected custom row and exact echo then 
             : 1487;
       return { state: "queued" };
     }
-    if (r.action === "status")
-      return {
+    if (r.action === "status") {
+      const result={
         executionId: r.executionId,
         sessionId: record.sessionId,
         cursor: position,
@@ -106,6 +108,15 @@ test("consumer numeric custom waits for selected custom row and exact echo then 
           steps: [{ index: w.stepIndex, state: "written" }],
         })),
       };
+      if(race && accepted && !writes.length) {
+        const original=record.observations.filter(o=>o.kind==='history'&&o.seq<=98).at(-1);
+        const doc=JSON.parse(Buffer.from(original.dataBase64,'base64'));
+        doc.messages.unshift({id:'late-display',role:'assistant',content:[{type:'text',text:'Late display update'}]});
+        const bytes=Buffer.from(JSON.stringify(doc));
+        result.observations.push({kind:'history',seq:99,observedAt:new Date().toISOString(),dataBase64:bytes.toString('base64'),sha256:createHash('sha256').update(bytes).digest('hex')});result.cursor=99;
+      }
+      return result;
+    }
     throw new Error("unexpected");
   });
   const client = createClient({
@@ -120,6 +131,7 @@ test("consumer numeric custom waits for selected custom row and exact echo then 
   });
   await client.refresh();
   const s = client.snapshot();
+  accepted=true;
   const request = {
     sessionId: s.sessionId,
     executionId: s.executionId,

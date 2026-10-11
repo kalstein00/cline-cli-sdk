@@ -30,6 +30,8 @@ session·execution·현재 interaction·현재 snapshot revision을 먼저 확�
 
 전송 직전 전체 원격 상태를 다시 읽는다. 원격 helper와 PTY supervisor가 모두 현재 Linux PID/starttime/boot ID, session, terminal cursor, history SHA를 대조한다. 이미 준비된 PTY 출력부터 읽고 FIFO 입력을 검사한다. 오래된 질문에 입력이 넘어가는 것을 막기 위해 관측이 바뀌었으면 쓰기 전에 거부한다.
 
+호출 시 revision은 현재 상태와 일치해야 한다. SDK 자신의 전송 직전 refresh에서 표시 기록만 바뀌었을 때는 동일한 질문 ID·종류·문구·선택지·도구 인자·입력 목적지를 재대조해 제출을 유지한다. 질문 자체가 바뀌면 쓰기 전에 `stale-interaction`으로 거부한다. 챗봇 서버가 진행 중인 읽기를 기다리는 구간도 같은 대상 재대조를 적용한다. 원격의 cursor/history/process 검증과 중복 입력 보호를 생략하지 않는다.
+
 | `snapshot.response.state` / 결과 state | 의미 |
 | --- | --- |
 | `submitting` | 대상에 묶인 요청을 예약하고 수신 근거를 확인 중. 응답 컨트롤을 잠근다. |

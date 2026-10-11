@@ -18,7 +18,7 @@
 </div><button id="connect" type="submit">연결 확인</button><p id="preflight" role="status"></p></form></details>
 <div class="session-actions"><button id="disconnect" disabled>연결 해제</button><button id="reconnect" disabled>재연결</button><button id="reconfirm" disabled>전달 상태 다시 확인</button><button id="stop" disabled>작업 중단</button><span id="stopStatus" role="status"></span></div>
 <div id="error" role="alert" hidden></div>
-<section id="timeline" aria-label="메시지 내역"><div id="empty"><h2>무엇을 도와드릴까요?</h2><p>원격 Cline에 요청을 보내고 대화로 결과를 확인하세요.</p></div><div id="messages"></div><section id="interactions" aria-label="질문과 승인"></section></section>
+<section id="timeline" aria-label="메시지 내역"><div id="empty"><h2>무엇을 도와드릴까요?</h2><p>원격 Cline에 요청을 보내고 대화로 결과를 확인하세요.</p></div><div id="messages"></div><article id="streaming" aria-label="생성 중인 답변" hidden><div class="role">Cline · 답변 생성 중</div><p class="text"></p><small class="stream-note"></small></article><section id="interactions" aria-label="질문과 승인"></section></section>
 <button id="newMessages" hidden>새 메시지 보기 ↓</button>
 <form id="composer"><div id="pending" role="status" hidden></div><label id="composerLabel" for="message">메시지</label>
 <textarea id="message" rows="2" placeholder="Cline에 요청할 내용을 입력하세요." autocomplete="off"></textarea>

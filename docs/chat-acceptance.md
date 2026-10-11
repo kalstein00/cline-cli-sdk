@@ -172,3 +172,35 @@ npm test
 실제 Chrome 4189에서 원래 EID를 기록 조회로 선택해 저장한 뒤 시험 소유 Node 서버를 재시작했다. 브라우저의 연결 확인으로 두 재개 연결을 따라 현재 EID를 복원했고, SID와 전체 14개 message ID가 동일하며 sendMessage=true/ready임을 확인했다. 원래 4174의 미전송 문장은 새 화면에 초안으로만 보존했다. 새로운 모델 요청·원격 실행은 생성하지 않았다. `evidence/chat/resume-reservation-recovery.json`/`.png`에 증거를 기록했다. 4174는 기존 SDK를 로드한 서버이므로 재시작 전에는 최신 복원 처리가 적용되지 않는다.
 
 최종 `CLINE_SDK_TEST_SSH_HOST=wsl npm test`는 **155/155 통과**, 실패·skip 0(약 90초), SDK build와 예제 서버 checkJs도 통과했다. Standards의 SSE 미제출 잠금 해제와 Spec의 개별 이전 EID 조회 보존 지적을 보완한 후 두 리뷰 모두 잔여 finding 0이다.
+
+## 승인·질문 응답과 생성 중 답변 회귀
+
+2026-10-11 응답 제출 전 SDK 자체 refresh가 표시용 history를 갱신하면, 동일한 현재 질문에도 `stale-revision`을 반환하는 경합을 공개 API에서 재현했다. 호출 당시 revision을 확인한 뒤 자체 refresh에서는 질문 ID·종류·문구·선택지·도구 인자·입력 목적지가 동일한지 대조한다. 실제 질문이 사라지거나 바뀌면 쓰기 전에 거부하며 원격 입력 보호와 불명 전달 잠금은 유지한다. 예제 서버가 이미 시작한 읽기를 기다리는 구간에도 동일 대상 확인을 적용했다. 승인·거절·선택형·숫자로 시작하는 자유 응답, 변경된 질문의 입력 차단을 공개 SDK 회귀로 검증했다.
+
+별도 실제 Chrome 4190에서 시험 소유 SID `1791726080250_ibzcj`, EID `run-aece161f-4af8-47f8-8410-119ad346363c`를 만들었다. `printf 'SDK_APPROVAL_OK\n'` 승인→RED/BLUE 질문의 BLUE 선택→같은 대화의 후속 자유 질문에 `2 browser custom identifier` 응답을 수행했다. 세 응답 모두 remote ledger의 written/delivered와 화면의 응답 전달 확인을 확인했으며 실제 모델은 BLUE 및 custom 원문을 답변했다. 사용자 4174 실행을 수정하거나 재시작하지 않았다. 회사 fork의 수용 증거는 아니다.
+
+이어서 80바이트 후속 요청을 보내다 첫 64바이트 조각이 공백으로 끝나는 문제를 재현했다. terminal 행의 trimEnd가 중간 공백을 지워 composer echo를 확인하지 못했다. 커서가 가리키는 셀까지 공백을 보존하도록 고쳤다. 공개 sendMessage 회귀는 같은 공백 경계 입력을 제출·수신 확인하고 기존 후속 시험을 포함한 13개가 통과했다. 당시 4190 화면은 이전 SDK를 로드한 상태라 전달 불명인 첫 조각을 유지한다. 자동 재전송하지 않았으며 이 화면을 수정 적용 후 성공 증거로 사용하지 않는다.
+
+TUI에서 실제로 증가하는 답변을 `Snapshot.streaming`으로 제공하고 예제의 SSE 미리보기로 표시한다. 실제 진단 기록으로 최초 응답, 동일 프롬프트의 두 번째 생성 구간, 중단 시 미리보기 제거의 공개 replay 3개가 통과했다. 최종 history는 하나의 확정 메시지로 표시한다. 상세 계약은 [streaming.md](streaming.md)를 따른다.
+
+전체 시험은 `.test-runs/20261011T134027186Z-d8be680971ae40309d6e51fede2cece2`로 백그라운드 실행을 시작했다. 이 실행 이후 공백 경계 회귀와 수정, 추가 미리보기 시험을 작성했으므로 최종 변경 전체의 성공 결과로 간주하지 않는다. 완료 이벤트 처리와 최종 변경의 전체 검증, 새 코드의 실제 스트리밍 화면 확인은 아직 남아 있다.
+
+완료 이벤트로 위 실행 결과를 확인했다. 167개 중 **164 통과, assertion 실패 0, 시간 초과 취소 3, skip 0**, 종료 코드 1이다. 세 취소는 브라우저 승인, 거절, 스트리밍 표시 시험이며 각 30초 제한에 도달했다. 공개 SDK의 승인/거절 경합·변경된 질문 차단·선택·자유 응답 회귀와 실제 SSH 시험은 통과했다. 승인/거절 시험의 잘못된 영문 버튼명을 한글 이름으로 수정했으며, 스트리밍 시험은 고정 시간 창을 없애고 소비 화면에서 각 단계를 관측한 뒤 다음 캡처 프레임을 공개 list 요청으로 진행하도록 바꿨다. 이 후속 시험 수정은 아직 재실행하지 않았으며 전체 수용 완료로 표현하지 않는다.
+
+사용자 승인 후 4190의 시험 소유 실행만 중단했다. SDK의 `stop.state=confirmed`, `childrenVerified=true`, `remaining=[]`를 확인하고 로컬 관측 연결도 해제했다. 사용자 4174 대화는 유지했다.
+
+최신 SDK를 로드한 4231에서 SID `1791727524550_k7zwb`, EID `run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12`를 검증했다. `wsl` 별칭의 ProxyCommand 경로에서 간헐적 SSH banner 교환 오류가 발생하여 재연결로 최초 답변을 복구했다. 같은 WSL SSH 서버에 `kalstein@localhost`와 기존 키를 사용한 직접 연결은 공개 SDK 연속 관측 3회가 통과했다. SSH 설정 파일을 수정하지 않았고 CLI 버전을 조회하지 않았다.
+
+이 연결에서 같은 80바이트 요청을 같은 대화에 두 차례 후속 전송하여 각각 답변과 다음 입력 준비 상태를 확인했다. 100문장 요청은 최종 history 이전에 생성 중 미리보기가 실제 Chrome에 나타났고 완료 후 미리보기를 제거하고 확정 답변으로 교체했다. 긴 요청은 history가 늦게 저장되어 sendMessage 확인 기한에 도달했으며, 뒤늦은 history/receipt로 입력 준비 상태를 복구했다. 이때 HTTP 오류 문구가 다음 입력까지 남는 표시 한계는 별도로 남아 있다.
+
+공개 SDK 진단의 비교 snapshot은 세 후속 생성 구간에서 서로 다른 길이의 미리보기 155개를 기록했다(`evidence/chat/live-stream-increments.json`). 진단은 16MiB 제한에 도달해 100문장의 최종 history 이전에 캡처를 끝냈으므로, 최종 미리보기 제거 근거는 실제 화면 및 서버 snapshot 확인으로 구분했다. `live-stream-history-recovered.png`는 완료 후 입력 준비 복구와 남은 HTTP 오류 문구를 기록한 관찰 화면이다.
+
+이어 `printf 'DENIAL_MUST_NOT_RUN\\n'` 승인 질문에서 **거절**을 클릭했다. request ID `a1d9b6b0-cc22-4615-95cc-05447a5d7807`의 SDK 응답은 `delivered`, 화면은 `응답 전달 확인`, 모델은 `The command was denied and not executed. I did not retry.`를 표시했다. 같은 SID의 후속 입력이 다시 활성화됐다. `evidence/chat/live-denial-delivered.json`과 `.png`는 이 실제 거절 결과이며, 회사 fork 호환성 증거는 아니다.
+
+검증 종료 후 이 4231 시험 실행도 SDK를 통해 중단했다. `confirmed`, `childrenVerified=true`, `remaining=[]`를 확인하고 SDK client를 닫았다. 4231 서버는 실행을 선택하지 않은 새 대화 상태로 남겼다.
+
+후속 시험 수정과 공백 경계를 포함한 전체 검증은 `.test-runs/20261011T140505253Z-c022eee343934a27b47b53584da31424`로 한 번 시작했다. 실행 감시 폴링 없이 같은 대화의 완료 이벤트를 기다리며, 이벤트 결과 확인 전까지 전체 통과로 표현하지 않는다.
+
+같은 대화의 완료 이벤트를 받아 이 실행의 결과와 로그를 읽었다. **169개 중 168 통과, 실패 1, 취소·skip 0**, 종료 코드 1, 총 약 91초다. SDK build와 브라우저의 승인·거절·선택·자유 응답 전달, SSE 스트리밍 및 확정 메시지 교체가 통과했다. 이전 실행의 세 브라우저 시간 초과는 재발하지 않았다. 유일한 실패는 `tests/wrapper-session.test.mjs`의 실제 SSH 시험이며, `ssh-failed: banner exchange: Connection to UNKNOWN port 65535: invalid format`이다. 4231 관찰 때 재현한 SSH 배너 교환 오류와 동일한 문구지만 이번 시험의 상세 네트워크 원인은 확정하지 않았다. 큐 전달 종료 코드 0, `requestAccepted=true`를 확인했으며 테스트를 자동 재실행하지 않았다. 전체 수용 결과는 실패 상태로 유지한다.
+
+두 관찰 완료 이벤트의 저장 결과도 읽었으며 관찰 스크립트를 재실행하지 않았다. 초기 연결의 `.scratch/live-stream-final-evidence.json`은 약 6분 동안 증가분 없이 최종 답변 1개만 기록해 스트리밍 성공 근거로 사용하지 않는다. 직접 SSH 연결의 결과는 `evidence/chat/live-stream-sse.json`에 보존했다. 같은 생성 구간의 미리보기가 SSE로 36회 갱신됐고, 기존 확정 답변 2개를 유지한 채 새 답변 1개가 추가됐다. 미리보기가 제거된 완료 조건으로 약 16.4초에 관찰을 끝냈다. TUI 재그리기 때문에 중간 길이는 단조 증가하지 않으며 토큰 수를 의미하지 않는다. `response-approval-question.png`는 이전 4190 시험에서 후속 입력 불명이 발생한 관찰 화면이며 수정 후 성공 증거로 사용하지 않는다.

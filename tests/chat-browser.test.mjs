@@ -28,6 +28,47 @@ async function connectedPage(t,port,fault='') {
   return page;
 }
 
+for(const [index,fault,answer] of [[0,'reply-approval','Approve'],[1,'reply-approval','Deny'],[2,'reply-choice','BLUE'],[3,'reply-text','2 custom identifier']])test(`browser delivers ${fault} ${answer} through the public SDK exactly once`,{timeout:30000},async t=>{
+ const port=4226+index,page=await connectedPage(t,port,fault);
+ await page.locator('#message').fill('Ask a controlled question');await page.locator('#send').click();
+ await page.locator('#interactions article').first().waitFor();
+ let submissions=0;page.on('request',r=>{if(r.url().endsWith('/api/respond'))submissions++;});
+ if(fault==='reply-text'){
+  await page.locator('#message').fill(answer);await page.getByRole('button',{name:'질문 응답 보내기',exact:true}).click();
+ } else {
+  await page.locator('#message').fill('preserve unrelated draft');await page.getByRole('button',{name:answer==='Approve'?'승인':answer==='Deny'?'거절':answer,exact:true}).click();
+ }
+ await page.locator('.interaction-status').filter({hasText:'응답 전달 확인'}).first().waitFor({timeout:10000});
+ const packet=await page.request.get(`http://127.0.0.1:${port}/api/state`).then(r=>r.json());
+ assert.equal(packet.snapshot.response.state,'delivered');assert.equal(submissions,1);
+ assert.equal(await page.locator('#pending').isVisible(),false);
+ assert.equal(await page.locator('#message').inputValue(),fault==='reply-text'?'':'preserve unrelated draft');
+ assert.equal(await page.locator('#error').isVisible(),false);
+});
+
+test('browser receives real recorded answer increments over SSE then shows one final answer',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4230,'streaming');
+ const started=page.waitForResponse(r=>r.url().endsWith('/api/start'));
+ await page.locator('#message').fill('Write 30 short sentences');await page.locator('#send').click();
+ await page.locator('#streaming').waitFor({state:'visible'});
+ const first=await page.locator('#streaming .text').textContent();
+ assert.match(first,/Rain/);assert.equal(await page.locator('#messages [data-role="assistant"]').count(),0);
+ await page.locator('#message').fill('keep streaming draft');
+ await started;
+ const advance=async step=>{
+   const packet=await page.request.get('http://127.0.0.1:4230/api/state').then(r=>r.json());
+   const response=await page.request.post('http://127.0.0.1:4230/api/list',{data:{serverId:packet.serverId,generation:packet.generation,requestId:`stream-stage-${step}`}});
+   assert.equal(response.ok(),true);
+ };
+ await advance(1);
+ await page.waitForFunction(length=>document.querySelector('#streaming .text').textContent.length>length,first.length);
+ await advance(2);
+ await page.locator('#messages [data-role="assistant"] .text').filter({hasText:'30.'}).waitFor();
+ assert.equal(await page.locator('#streaming').isVisible(),false);
+ assert.equal(await page.locator('#messages [data-role="assistant"]').count(),1);
+ assert.equal(await page.locator('#message').inputValue(),'keep streaming draft');
+});
+
 test('saved ancestor selection restores the existing current run once without another resume or lost draft',{timeout:30000},async t=>{
  const page=await connectedPage(t,4224,'resumed-lineage');
  await page.evaluate(()=>localStorage.setItem('cline-chat-selected','run-11111111-1111-4111-8111-111111111111'));

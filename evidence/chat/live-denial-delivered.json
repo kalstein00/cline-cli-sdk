@@ -1,0 +1,23 @@
+{
+  "observedAt": "2026-10-11T14:14:41.2246781Z",
+  "serverPort": 4231,
+  "executionId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12",
+  "sessionId": "1791727524550_k7zwb",
+  "response": {
+    "sessionId": "1791727524550_k7zwb",
+    "executionId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12",
+    "interactionId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:phase:1:faee474d0b5e4d8a",
+    "requestId": "a1d9b6b0-cc22-4615-95cc-05447a5d7807",
+    "state": "delivered",
+    "revision": 347
+  },
+  "toolResults": [],
+  "assistantConfirmation": "The command was denied and not executed. I did not retry.",
+  "nextInput": {
+    "ready": true,
+    "reason": "ready",
+    "maxBytes": 112
+  },
+  "cliVersionChecked": false,
+  "connectionPath": "Existing WSL server via direct localhost SSH; existing key and known host verification"
+}
