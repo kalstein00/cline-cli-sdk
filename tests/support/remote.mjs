@@ -4,7 +4,7 @@ import {EventEmitter} from 'node:events';
 
 export const pinned = {
   platform:'Linux',python:true,pty:true,processOwnership:true,tmux:'tmux 3.4',
-  cliPath:'/fixture/cline',cliVersion:'3.0.69',
+  cliPath:'/fixture/cline',cliVersion:'3.0.69', cliFlags:['--cwd','--data-dir','--auto-approve','--tui','--id','--json','--retries','--zen'],
   cliHash:'8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032',bootId:'boot-1',
 };
 

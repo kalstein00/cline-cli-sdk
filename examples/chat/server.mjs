@@ -79,7 +79,7 @@ async function perform(action, input) {
     try{await client.stop({executionId:input.executionId,requestId:input.requestId});}catch(error){if(['wrong-stop-target','invalid-stop-request','not-connected','execution-not-running','stop-already-requested'].includes(error.code))error.notSubmitted=true;throw error;}
   } else if(action==='resume') {
     if(!client || client.snapshot().sessionId!==input.sessionId || client.snapshot().executionId!==input.executionId || !client.capabilities().resume)throw problem('resume-unconfirmed','현재 대화의 종료가 확인되어야 재개할 수 있습니다.');
-    try{await client.resume({executionId:input.executionId,requestId:input.requestId,prompt:input.text});}catch(error){if(['invalid-resume','resume-already-requested','resume-unconfirmed','input-control-unavailable','not-connected','unsupported-json-resume'].includes(error.code))error.notSubmitted=true;throw error;}
+    try{await client.resume({executionId:input.executionId,requestId:input.requestId,prompt:input.text});}catch(error){if(['invalid-resume','resume-already-requested','resume-unconfirmed','input-control-unavailable','not-connected','unsupported-json-resume','cli-option-unavailable'].includes(error.code))error.notSubmitted=true;throw error;}
     await listExecutions();
   } else if (action === 'start') {
     if (!client || !preflight?.ready) throw problem('not-ready','연결 설정을 확인하세요.');
@@ -88,7 +88,7 @@ async function perform(action, input) {
     try {await client.start({cwd:input.cwd,dataDir:input.dataDir || undefined,prompt:input.prompt,terminalMode:'tui'});}
     catch(error) {
       // Only documented pre-launch validation errors prove no remote write occurred.
-      if(['invalid-task','unsupported-profile','prerequisites-unavailable','not-connected'].includes(error.code)) {
+      if(['invalid-task','unsupported-profile','prerequisites-unavailable','not-connected','cli-option-unavailable'].includes(error.code)) {
         launchReserved=false;error.notSubmitted=true;
       }
       throw error;

@@ -8,7 +8,7 @@ import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {readFile,mkdtemp,rm} from 'node:fs/promises';
-const pinned={platform:'Linux',pty:true,tmux:'tmux 3.4',cliPath:'/fixture/cline',cliVersion:'3.0.69',cliHash:'8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032',bootId:'boot'};
+const pinned={platform:'Linux',pty:true,tmux:'tmux 3.4',cliPath:'/fixture/cline',cliVersion:'3.0.69', cliFlags:['--cwd','--data-dir','--auto-approve','--tui','--id','--json','--retries','--zen'],cliHash:'8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032',bootId:'boot'};
 function boundary(t,answer){t.mock.method(childProcess,'spawn',()=>{const p=new EventEmitter();p.stdout=new PassThrough();p.stderr=new PassThrough();p.stdin=new PassThrough();p.kill=()=>{};let body='';p.stdin.on('data',d=>body+=d);p.stdin.on('finish',()=>{p.stdout.end(JSON.stringify(answer(JSON.parse(body))));queueMicrotask(()=>p.emit('close',0));});return p;});}
 test('resume refuses an alive CLI and a dead CLI with unknown child or stop evidence before any new launch',async(t)=>{
  let evidence={identity:{pid:42,startTime:'100',bootId:'boot'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:'pending',childrenVerified:false,supervisorAlive:true}, launches=0;

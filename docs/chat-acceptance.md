@@ -112,6 +112,16 @@ generation 증가 시 이전 메시지·질문 카드를 정리하고 대화별 
 
 첫 요청은 100,000 JavaScript 문자, 질문 자유 응답은 1,024 UTF-8 바이트의 별도 계약이다. 후속/재개는 112바이트 printable 단일 행이다. JSON 양방향 입력·회사 fork·장문 일반 챗봇 지원은 미검증/미지원이다. npm 공개 게시와 제품 앱 통합은 수행하지 않았다. 실행·연동·브라우저 계약 및 테스트 GUI 용도는 `examples/chat/README.md`에 있다.
 
+## 버전 제한 제거와 첫 전송 버튼 회귀
+
+2026-10-11 사용자 지시에 따라 CLI의 `--version` 조회와 버전 번호·특정 바이너리 해시를 통한 실행 허용 조건을 제거했다. 기존 4174 앱에서 다른 CLI 바이너리를 `unsupported-profile`로 처리하여 첫 전송 버튼이 비활성화되는 현상을 재현했다. preflight는 실행 파일과 필수 옵션을 확인하며 TUI·JSON·retry·resume는 각 옵션을 확인한다. 새 진단 기록은 `cline-readline`, `cline-tui`, `cline-json` 프로필과 조회하지 않은 버전 `unknown`을 기록한다. 이전 프로필 이름은 기록 재생을 위해 유지하되 버전 메타데이터로 입력을 허용·차단하지 않는다. 화면·기록·입력 echo·SID/EID·실행 파일 동일성·프로세스 소유권·전달 불명 검증은 유지한다.
+
+실제 Windows → OpenSSH → WSL preflight에서 호출을 기록하는 시험용 CLI에는 `--help` 한 번만 실행됐고 버전 조회는 없었다. 현재 자동 발견 CLI도 `cliVersion:null`, `ready:true`였다. Windows Chrome의 별도 4188 앱에서 CLI 경로 자동 발견으로 연결한 뒤 첫 메시지 버튼 활성화와 초안 보존을 확인했다. 사용자 초안은 제출하지 않았다. 다른 버전·해시의 외부 SSH 응답으로 실제 소비 앱 첫 요청·답변·빈 composer를 검증했고, 버전이 다른 TUI 원시 기록의 질문·승인·준비 상태도 공개 재생으로 확인했다. 회사 CLI의 실제 왕복 검증을 수행했다는 의미는 아니다.
+
+수정 후 `npm test` **139/139 통과**, 실패·skip 0, SDK build 및 예제 typecheck 통과. 연결 실패 시 첫 전송 비활성 사유를 하단에 표시하며 연결 전 화면에서 새 대화를 시작할 수 있다고 안내하지 않는다.
+
 실제 재개 실행이 답변과 delivered를 만들었어도 공개 CLI manifest가 이전 PID를 유지하는 경우가 있었다. SDK는 manifest의 idle을 현재 실행 근거로 사용할 수 없어 후속 입력을 `process-unconfirmed`로 차단한다. 따라서 모든 재개 실행이 이후 sendMessage까지 준비된다고 주장하지 않는다. 이 경우의 다음 후속 지원은 별도 현재 실행의 작업 단계 근거가 필요하다. 초기 수용 스크립트의 불필요한 idle 대기는 timeout했고 재전송 없이 원래 delivered/답변을 읽기 전용 attach로 다시 확인했다. 성공한 재개 요청과 제한을 함께 보고한다.
 
 시험 소유 실행의 공개 SDK stop 결과 및 별도 소유 identity 정리 결과는 `independent-cleanup.json`에 기록한다. 기존 대화/원격 history는 보존하고 격리 시험 인증 사본만 제거한다. supervisor 근거가 부족했던 이전 #25 실행의 SDK stop unknown은 confirmed로 바꾸지 않고, 정확한 소유 PID/startTime/bootId/UID 확인 뒤 별도 시험 정리를 구분한다. 원본 provider와 다른 사용자 프로세스는 변경하지 않는다. 부모 #20의 본문·라벨·상태는 변경하지 않는다.
+
+옵션 누락에 따른 실행 전 `cli-option-unavailable`은 확정 미제출로 분류한다. 시작 예약·브라우저 pending을 해제하고 초안을 유지하며 설정 변경을 허용하는 Chrome 회귀를 추가했다. 재개는 `--id`와 TUI 지원을 함께 확인한다. 리뷰에서 발견한 두 보완 뒤 최종 전체 suite를 재실행했다.

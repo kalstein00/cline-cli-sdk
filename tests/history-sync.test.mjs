@@ -7,7 +7,7 @@ import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
 import { createClient } from '@cline-cli-sdk/sdk';
 const fixture = () => readFile(new URL('../fixtures/interactions/choice.json', import.meta.url), 'utf8').then(JSON.parse);
-const pinned = { platform: 'Linux', python: true, pty: true, tmux: 'tmux 3.4', cliPath: '/fixture/cline', cliVersion: '3.0.69', cliHash: '8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032', bootId: 'boot-1' };
+const pinned = { platform: 'Linux', python: true, pty: true, tmux: 'tmux 3.4', cliPath: '/fixture/cline', cliVersion: '3.0.69', cliFlags:['--cwd','--data-dir','--auto-approve','--tui','--id','--json','--retries','--zen'], cliHash: '8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032', bootId: 'boot-1' };
 function boundary(t, handler) {
     // Substitute only the external OpenSSH process; SDK parsers and state remain real.
     t.mock.method(childProcess, 'spawn', () => {

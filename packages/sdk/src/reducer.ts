@@ -1,3 +1,4 @@
+import {hasCliProtocol} from "./cli-protocol.js";
 import {messageInput, type MessageInputState} from "./message-input.js";
 import type {SendMessageRequest, MessageDelivery} from "./message.js";
 import xterm from "@xterm/headless";
@@ -586,7 +587,7 @@ export function createReducer(options: {
   const updateMessageInput = (obs: Observation) => {
     // Legacy recordings without a terminal witness retain their existing event contract.
     if (!composerEvidence && !state.messageInput) return;
-    const next=messageInput(state,recording?.cli.profile === "cline-3.0.69-tui" && recording.cli.name === "cline" && recording.cli.version === "3.0.69" && recording.terminal.rows === 40 && recording.terminal.cols === 120 && phaseSupported,composerEvidence,!!pendingTools.length,!!rawPhase?.active);
+    const next=messageInput(state,hasCliProtocol(recording?.cli,"tui") && recording?.terminal.rows === 40 && recording.terminal.cols === 120 && phaseSupported,composerEvidence,!!pendingTools.length,!!rawPhase?.active);
     if(JSON.stringify(next)!==JSON.stringify(state.messageInput)) {
       state.messageInput=next;emit("state.changed",obs,{messageInput:next});
     }
@@ -604,9 +605,7 @@ export function createReducer(options: {
     const lines = [];
     const buffer = terminal!.buffer.active;
     if (
-      recording!.cli.profile === "cline-3.0.69-tui" &&
-      recording!.cli.name === "cline" &&
-      recording!.cli.version === "3.0.69"
+      hasCliProtocol(recording!.cli,"tui")
     ) {
       const visible = Array.from(
         { length: recording!.terminal.rows },
@@ -823,9 +822,7 @@ export function createReducer(options: {
       previous.trim(),
     );
     const verified =
-      recording!.cli.name === "cline" &&
-      recording!.cli.version === "3.0.69" &&
-      recording!.cli.profile === "cline-3.0.69-readline";
+      hasCliProtocol(recording!.cli,"readline");
     const approval = current
       .trim()
       .match(/^Approve "(ask_question|run_commands)" (.+) \[y\/N\]$/);
@@ -1118,7 +1115,7 @@ export function createReducer(options: {
       executionId: obs.executionId,
       execution: "unknown",
       messages: [],
-      jsonOutput:obs.cli.profile==="cline-3.0.69-json"?jsonParser.state():undefined,
+      jsonOutput:hasCliProtocol(obs.cli,"json")?jsonParser.state():undefined,
       result:undefined,
       interaction: null,
       response: null,
@@ -1353,7 +1350,7 @@ export function createReducer(options: {
         connection: input.schemaVersion === 2 ? "closed" : "replay",
         execution: "unknown",
         messages: [],
-        jsonOutput:input.cli.profile==="cline-3.0.69-json"?jsonParser.state():undefined,
+        jsonOutput:hasCliProtocol(input.cli,"json")?jsonParser.state():undefined,
         result:undefined,
         interaction: null,
         response: null,
@@ -1392,7 +1389,7 @@ export function createReducer(options: {
       if (obs.kind === "execution-action") return executionAction(obs);
       observationEvents = [];
       if (obs.kind === "json-output") {
-        if(recording!.cli.profile!=="cline-3.0.69-json") throw new SdkError("unsupported-json-profile","JSON observations require a verified profile.");
+        if(!hasCliProtocol(recording!.cli,"json")) throw new SdkError("unsupported-json-profile","JSON observations require a verified profile.");
         jsonParser.feed(Buffer.from(obs.dataBase64,"base64"),obs.channel);
         const output=jsonParser.state();
         if(JSON.stringify(output)!==JSON.stringify(state.jsonOutput)) {
@@ -1500,7 +1497,7 @@ export function createReducer(options: {
                     part.type === "thinking" ? {type:"thinking",thinking:part.thinking!} : part.type === "redacted_thinking" ? {type:"redacted_thinking"} : {type:"text",text:part.text}),
                   text: raw.content
                     .filter((part) => part.type === "text")
-                    .map((part) => raw.role === "user" && recording!.cli.name === "cline" && recording!.cli.version === "3.0.69" && ["cline-3.0.69-readline", "cline-3.0.69-tui"].includes(recording!.cli.profile) && part.text.startsWith('<user_input mode="act">') && part.text.endsWith('</user_input>')
+                    .map((part) => raw.role === "user" && (hasCliProtocol(recording!.cli,"readline") || hasCliProtocol(recording!.cli,"tui")) && part.text.startsWith('<user_input mode="act">') && part.text.endsWith('</user_input>')
                       ? part.text.slice(23,-13) : part.text)
                     .join("\n"),
                 };

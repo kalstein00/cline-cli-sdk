@@ -1,6 +1,6 @@
 # Windows → SSH → WSL 공개 CLI 실행
 
-티켓 #3은 SDK 공개 API의 실제 연결·환경 점검·관리 실행·메시지·종료 상태와 로컬 웹 화면을 구현한다. 공개 Cline 3.0.69의 고정 Linux x64 실행 파일만 지원한다. 회사 fork는 미검증이며 질문·승인 응답, 재접속·재개는 후속 티켓 범위다.
+티켓 #3은 SDK 공개 API의 실제 연결·환경 점검·관리 실행·메시지·종료 상태와 로컬 웹 화면을 구현한다. 현재 SDK는 CLI 버전 조회나 특정 버전·해시 허용 목록을 사용하지 않는다. 기존 실제 실행 근거는 공개 Cline 3.0.69 Linux x64 기준이다. 회사 fork는 미검증이며 질문·승인 응답, 재접속·재개는 후속 티켓 범위다.
 
 ```js
 import { createClient } from '@cline-cli-sdk/sdk';
@@ -25,11 +25,11 @@ console.log(await client.refresh());
 client.close(); // 로컬 연결만 닫는다. 원격 작업을 중단하지 않는다.
 ```
 
-`preflight()`는 작업을 시작하지 않고 Linux·Python 3.9 이상·PTY·tmux·CLI 실행 경로·버전·SHA-256·boot ID를 점검한다. 원격 helper는 사용자 권한으로 실행하며 tmux와 Python을 자동 설치하지 않는다. SSH는 Windows OpenSSH `ssh`를 args 배열로 실행하고 `BatchMode=yes`, `StrictHostKeyChecking=yes`를 강제한다. 비밀키·agent의 내용은 읽거나 JSON 응답/이벤트에 넣지 않는다.
+`preflight()`는 작업을 시작하지 않고 Linux·Python 3.9 이상·PTY·tmux·CLI 실행 경로·필수 옵션·SHA-256·boot ID를 점검한다. 원격 helper는 사용자 권한으로 실행하며 tmux와 Python을 자동 설치하지 않는다. SSH는 Windows OpenSSH `ssh`를 args 배열로 실행하고 `BatchMode=yes`, `StrictHostKeyChecking=yes`를 강제한다. 비밀키·agent의 내용은 읽거나 JSON 응답/이벤트에 넣지 않는다.
 
 CLI를 지정하지 않으면 비대화형 PATH를 먼저 조회하고, 없으면 제한 시간 안에 `bash -lic`에서 경로만 확인한다. login shell에서 찾은 CLI는 `noninteractive-path-mismatch`로 설명하고 명시 경로로 실행한다. 두 환경에 없으면 `cli-not-installed`, shell 조회 실패면 `cli-discovery-inconclusive`다. Python 부재는 `python-unavailable` prerequisite으로 보고한다.
 
-지원 판정은 버전 `3.0.69`와 SHA-256 `8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032`의 조합이다. 같은 버전을 표시하는 다른 실행 파일도 `unknown` profile로 남기고 실행을 차단한다. 시작 직전에 해시를 재확인한다. 모든 모델 실행·버전 조회는 `CLINE_NO_AUTO_UPDATE=1`을 사용하며 전역 CLI·설정을 바꾸지 않는다.
+preflight는 CLI 버전을 조회하지 않으며 `cliVersion`은 `null`이다. 실행 가능한 파일과 도움말의 `--cwd`, `--data-dir`, `--auto-approve`를 확인한다. TUI·JSON·retry는 각각 `--tui`, `--json`, `--retries`를 추가 확인하며 재개는 `--id`와 `--tui`를 함께 확인한다. 시작 직전에 같은 실행 파일인지 해시를 재확인한다. 모델 실행·도움말 조회는 `CLINE_NO_AUTO_UPDATE=1`을 사용하며 전역 CLI·설정을 바꾸지 않는다. 회사 CLI의 화면·기록 형식은 실제 시험으로 확인해야 한다.
 
 SDK 제품 경로는 관찰 스크립트의 `--timeout 240`·`--retries 1`을 강제로 적용하지 않는다. CLI 자체 기본 제한을 사용한다. Node 수용 예제의 90초 대기는 관찰자의 확인 마감이며 원격 작업을 자동 중단하는 제한이 아니다.
 

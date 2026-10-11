@@ -12,7 +12,7 @@ let executionId;
 const initial = record.observations.filter(o => o.seq <= 18);
 const good = initial.filter(o => o.kind === 'history').at(-1).dataBase64;
 const nextHistory = record.observations.find(o => o.seq === 20).dataBase64;
-const pinned = { platform: 'Linux', python: true, pty: true, tmux: 'tmux 3.4', processOwnership: true, cliPath: '/fixture/cline', cliVersion: '3.0.69', cliHash: '8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032', bootId: 'fixture-boot' };
+const pinned = { platform: 'Linux', python: true, pty: true, tmux: 'tmux 3.4', processOwnership: true, cliPath: '/fixture/cline', cliVersion: '3.0.69', cliFlags:['--cwd','--data-dir','--auto-approve','--tui','--id','--json','--retries','--zen'], cliHash: '8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032', bootId: 'fixture-boot' };
 const native = cp.spawn;
 cp.spawn = (...args) => {
     if (args[0] !== 'ssh' && args[0] !== 'ssh.exe')

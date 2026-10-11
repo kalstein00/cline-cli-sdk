@@ -76,7 +76,8 @@ function render(packet) {
   const atBottom=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop < 80;
   const oldTop=timeline.scrollTop;
   element('connection').textContent=snapshot?.connection ?? '연결 전';
-  element('status').textContent=snapshot?.executionId ? `${snapshot.execution} · ${snapshot.sessionId ?? '대화 확인 중'}` : '새 대화를 시작할 수 있습니다.';
+  const startHint=!packet.preflight?'연결 설정에서 연결 확인을 먼저 실행하세요.':!packet.preflight.ready?`연결 확인 필요 · ${packet.preflight.problems.join(' · ')}`:snapshot?.connection!=='connected'?'연결 복구 후 첫 메시지를 보낼 수 있습니다.':'첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
+  element('status').textContent=snapshot?.executionId ? `${snapshot.execution} · ${snapshot.sessionId ?? '대화 확인 중'}` : packet.preflight?.ready && snapshot?.connection==='connected' ? '새 대화를 시작할 수 있습니다.' : '연결 설정을 확인하세요.';
   element('preflight').textContent=packet.preflight ? packet.preflight.ready ? '연결 준비 완료' : packet.preflight.problems.join(' · ') : '';
   element('connect').disabled=!transportConnected||sending || (!!pending&&!restoringServer) || packet.launchReserved || !!snapshot?.executionId;
   element('disconnect').disabled=!transportConnected||sending||packet.busy||snapshot?.connection!=='connected';
@@ -121,7 +122,7 @@ function render(packet) {
   element('send').textContent=questionText?'질문 응답 보내기':canResume?'대화 재개하여 보내기':snapshot?.executionId?'메시지 보내기':'첫 메시지 보내기';
   element('send').disabled=!transportConnected||!(canStart||canMessage||canAnswer||canResume) || sending || packet.busy || (packet.launchReserved&&!snapshot?.executionId) || !!pending;
   const reasons={'ready':'다음 메시지 입력 준비 완료 · UTF-8 112바이트 이내의 한 줄','agent-busy':'Cline이 답변을 생성하거나 도구를 실행 중입니다.','interaction-pending':'대기 중인 질문이나 승인을 먼저 처리하세요.','delivery-pending':'이전 요청의 전달 상태를 확인 중입니다.','not-connected':'연결 복구 후 입력 상태를 다시 확인합니다.','history-unavailable':'대화 기록을 다시 확인 중입니다.','process-unconfirmed':'원격 프로세스를 확인 중입니다.','composer-unconfirmed':'빈 입력창을 확인 중입니다.','unsupported-profile':'이 CLI 프로필에서는 후속 입력을 지원하지 않습니다.'};
-  element('hint').textContent=snapshot?.executionId ? (reasons[snapshot.messageInput?.reason] ?? '후속 입력 상태를 확인 중입니다.') : '첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
+  element('hint').textContent=snapshot?.executionId ? (reasons[snapshot.messageInput?.reason] ?? '후속 입력 상태를 확인 중입니다.') : startHint;
   if(snapshot?.interaction)element('hint').textContent=questionText?'현재 질문 응답 · UTF-8 1,024바이트 이내의 한 줄':snapshot.interaction.kind==='unsupported'?'지원하지 않는 상호작용입니다. 일반 전송과 응답을 차단합니다.':'현재 질문/승인의 선택 버튼을 사용하세요.';
   if(packet.launchReserved && !snapshot?.executionId)element('hint').textContent='시작 여부를 확인해야 합니다. 새 요청을 자동 전송하지 않습니다.';
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';

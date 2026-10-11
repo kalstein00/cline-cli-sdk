@@ -41,3 +41,15 @@ test('actual first-run generation, approval, tool, question and idle observation
  for(const label of ['agent-busy','interaction-pending','approval','question','ready'])assert.ok(seen.has(label),label);
  assert.equal(c.snapshot().messageInput.ready,true);assert.equal(c.snapshot().execution,'running');assert.equal(c.capabilities().sendMessage,false);c.close();
 });
+
+test('TUI interpretation uses the observed protocol regardless of CLI version',async()=>{
+ for(const profile of ['cline-tui','cline-3.0.69-tui']){
+  const recording=JSON.parse(await readFile(new URL('../fixtures/chat/readiness.json',import.meta.url)));
+  recording.cli={name:'cline',version:'company-build',profile};
+  for(const observation of recording.observations)if(observation.kind==='initialize')observation.cli=recording.cli;
+  const c=createClient({mode:'replay'});await c.openReplay(recording);const seen=new Set();
+  while(c.snapshot().replay.position<c.snapshot().replay.total){const s=await c.nextObservation();if(s.interaction)seen.add(s.interaction.kind);}
+  assert.ok(seen.has('question'));assert.ok(seen.has('approval'));
+  assert.equal(c.snapshot().messageInput.ready,true);c.close();
+ }
+});

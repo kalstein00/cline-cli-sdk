@@ -4,6 +4,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
 import { inputChunks, validComposerText } from "./input-chunks.js";
 import {cliFeatures, type CliFeatures, type DeclaredFeatures} from "./capabilities.js";
+import {profileFor} from "./cli-protocol.js";
 import {prepareResult,resultPrompt,type ResultFormat,type ResultRequest} from "./structured-result.js";
 import {
   createDiagnosticCollector,
@@ -48,7 +49,9 @@ export interface PreflightReport {
   processOwnership?: boolean;
   tmux: string | null;
   cliPath: string | null;
+  /** Always null: connecting never queries the CLI version. */
   cliVersion: string | null;
+  cliFlags?: string[] | null;
   cliHash: string | null;
   bootId: string;
   problems: string[];
@@ -69,7 +72,6 @@ export interface StartRequest {
   dataDir?: string;
   retryLimit?: number;
 }
-const profileFor=(mode:"terminal"|"json",terminal:"readline"|"tui")=>`cline-3.0.69-${mode==="json"?"json":terminal}`;
 export interface ResumeRequest {
   executionId: string;
   requestId: string;
@@ -353,20 +355,22 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       );
     else if (found.discovery === "login-shell")
       problems.push("noninteractive-path-mismatch");
-    else if (!found.cliVersion) problems.push("cli-not-executable");
-    const supported =
-      found.cliVersion === "3.0.69" &&
-      found.cliHash ===
-        "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032";
+    const executable = typeof found.cliHash === "string" && /^[a-f0-9]{64}$/.test(found.cliHash);
+    if (found.cliPath && !executable) problems.push("cli-not-executable");
+    const requiredOptions = ["--cwd", "--data-dir", "--auto-approve"];
+    const missingOptions = requiredOptions.filter(option => !found.cliFlags?.includes(option));
+    if (missingOptions.length) problems.push("cli-required-options-missing");
+    const supported = executable && !missingOptions.length;
     if (!supported) problems.push("unsupported-profile");
     report = {
       ...found,
-      features:cliFeatures(supported,found.cliFlags,config.declaredFeatures),
+      cliVersion:null,
+      features:cliFeatures(found.cliHash === "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",found.cliFlags,config.declaredFeatures),
       python: true,
       problems,
       ready: problems.every((p) => p === "noninteractive-path-mismatch"),
       profile: {
-        name: supported ? "cline-3.0.69-readline" : "unknown",
+        name: supported ? profileFor("terminal","readline") : "unknown",
         supported,
         companyCompatibility: "unverified",
       },
@@ -905,7 +909,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           observedAt: new Date().toISOString(),
           cli: {
             name: "cline",
-            version: "3.0.69",
+            version: "unknown",
             profile: profileFor(outputMode,terminalMode),
           },
           terminal: found.terminal ?? { rows: 40, cols: 120 },
@@ -939,7 +943,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       if (request.outputMode !== undefined && !["terminal","json"].includes(request.outputMode))
         throw new SdkError("unsupported-output-mode", "Unknown output mode.");
       if(request.outputMode === "json" && request.terminalMode === "tui")
-        throw new SdkError("unsupported-mode-combination","Pinned JSON mode cannot use TUI.");
+        throw new SdkError("unsupported-mode-combination","JSON mode cannot use TUI.");
+      for (const option of [request.outputMode === "json" ? "--json" : null, request.terminalMode === "tui" ? "--tui" : null, request.retryLimit !== undefined ? "--retries" : null])
+        if (option && !report.cliFlags?.includes(option))
+          throw new SdkError("cli-option-unavailable",`CLI help does not expose ${option}.`);
       if (
         (request.terminalMode !== undefined &&
           !["readline", "tui"].includes(request.terminalMode)) ||
@@ -1010,7 +1017,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         observedAt: new Date().toISOString(),
         cli: {
           name: "cline",
-          version: "3.0.69",
+          version: "unknown",
           profile: profileFor(outputMode,terminalMode),
         },
         terminal: { rows: 40, cols: 120 },
@@ -1110,7 +1117,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       if (resumeActive || messageActive || resumes.size >= 256)
         return Promise.reject(new SdkError("resume-already-requested", "A resume launch has already been reserved; do not retry another identity."));
       if (!report?.profile.supported || !report.ready)
-        return Promise.reject(new SdkError("unsupported-profile", "Resume requires the verified CLI profile."));
+        return Promise.reject(new SdkError("unsupported-profile", "Resume requires an executable with the required CLI options."));
+      for (const option of ["--id","--tui"])
+        if (!report.cliFlags?.includes(option))
+          return Promise.reject(new SdkError("cli-option-unavailable", `CLI help does not expose ${option}.`));
       if (!managed || request.executionId !== managed.executionId)
         return Promise.reject(new SdkError("resume-target-mismatch", "Attach the ended managed execution before resuming."));
       const promise = (async () => {
@@ -1146,7 +1156,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         processEvidence = null; observationGap = false; fullSynchronization = true;
         stopPromise = null; stopRequestId = null;
         await reducer.initialize({kind:"initialize",seq:++sequence,observedAt:new Date().toISOString(),
-          cli:{name:"cline",version:"3.0.69",profile:"cline-3.0.69-tui"},terminal:{rows:40,cols:120},
+          cli:{name:"cline",version:"unknown",profile:profileFor("terminal","tui")},terminal:{rows:40,cols:120},
           sessionId,executionId:launched.executionId,cliHash:report!.cliHash});
         receipt.executionId=launched.executionId;
         action("requested");
@@ -1225,13 +1235,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       return {
         structuredResults:{json:true,schemaValidation:true,nativeSchema:false},
         features:structuredClone(report?.features ?? cliFeatures(false,undefined,config.declaredFeatures)),
-        outputModes:{terminal:!!report?.ready,json:!!report?.ready},
+        outputModes:{terminal:!!report?.ready,json:!!report?.ready && !!report?.cliFlags?.includes("--json")},
         replay: false,
         live: true,
         responses: !!report?.ready && outputMode !== "json" && state.inputControl?.current!==false,
         sendMessage: !!state.messageInput?.ready && !messageActive && !activeRequest && !resumeActive,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
-        resume: state.inputControl?.current!==false && outputMode !== "json" && !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
+        resume: state.inputControl?.current!==false && outputMode !== "json" && !!report?.profile.supported && report.ready && !!report.cliFlags?.includes("--id") && !!report.cliFlags?.includes("--tui") && state.historySync.current && state.connection === "connected" &&
           !!state.sessionId && ["completed","stopped"].includes(state.execution) &&
           processEvidence?.alive === false && processEvidence.identityConfirmed === true &&
           processEvidence.supervisorAlive === false && processEvidence.childrenVerified === true &&
@@ -1729,13 +1739,10 @@ if not path:
         path=matches[-1] if matches and matches[-1] else None
         discovery='login-shell' if path else 'not-installed' if login.returncode==0 else 'login-shell-failed'
     except (OSError,subprocess.TimeoutExpired): discovery='login-shell-failed'
-version=None
 digest=None
 flags=None
 if path and os.path.isfile(path) and os.access(path,os.X_OK):
     try:
-        result=subprocess.run([path,'--version'],capture_output=True,text=True,timeout=15,env={**os.environ,'CLINE_NO_AUTO_UPDATE':'1'})
-        if result.returncode==0: version=result.stdout.strip()
         h=hashlib.sha256()
         with open(path,'rb') as source:
             for chunk in iter(lambda:source.read(1024*1024),b''):h.update(chunk)
@@ -1755,5 +1762,5 @@ try:
     if hasattr(signal,'pidfd_send_signal'):
         fd=os.pidfd_open(os.getpid());os.close(fd);working_ownership=True
 except (AttributeError,OSError): pass
-print(json.dumps(dict(platform=platform.system(),pythonVersion=platform.python_version(),pty=working_pty,processOwnership=working_ownership,tmux=subprocess.check_output([tmux,'-V'],text=True).strip() if tmux else None,cliPath=path,cliVersion=version,cliHash=digest,cliFlags=flags,discovery=discovery,bootId=open('/proc/sys/kernel/random/boot_id').read().strip() if platform.system()=='Linux' else '')))
+print(json.dumps(dict(platform=platform.system(),pythonVersion=platform.python_version(),pty=working_pty,processOwnership=working_ownership,tmux=subprocess.check_output([tmux,'-V'],text=True).strip() if tmux else None,cliPath=path,cliVersion=None,cliHash=digest,cliFlags=flags,discovery=discovery,bootId=open('/proc/sys/kernel/random/boot_id').read().strip() if platform.system()=='Linux' else '')))
 `;

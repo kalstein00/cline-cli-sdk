@@ -23,9 +23,36 @@ async function connectedPage(t,port,fault='') {
   await page.getByLabel('CLI 경로').fill('/fixture/cline');
   await page.getByLabel('작업 디렉터리').fill('/fixture/work');
   await page.getByRole('button',{name:'연결 확인',exact:true}).click();
-  await page.getByText('연결 준비 완료',{exact:true}).waitFor();
+  if(fault==='missing-options')await page.locator('#preflight').filter({hasText:'cli-required-options-missing'}).waitFor();
+  else await page.getByText('연결 준비 완료',{exact:true}).waitFor();
   return page;
 }
+
+test('company CLI with different version and binary can send the first message and reach an idle composer',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4216,'company');
+ assert.equal(await page.locator('#send').isEnabled(),true);
+ await page.locator('#message').fill('Reply exactly CHAT_BROWSER_READY.');await page.locator('#send').click();
+ await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ await page.locator('#hint').filter({hasText:'다음 메시지 입력 준비 완료'}).waitFor();
+ assert.equal(await page.locator('#send').isEnabled(),true);
+});
+
+test('blocked preflight explains why the first-message button is disabled',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4217,'missing-options');
+ assert.equal(await page.locator('#send').isEnabled(),false);
+ assert.match(await page.locator('#hint').textContent(),/연결 확인 필요.*cli-required-options-missing/);
+ assert.equal(await page.locator('#status').textContent(),'연결 설정을 확인하세요.');
+});
+
+test('missing TUI option is an unsubmitted first request that preserves the draft and allows settings correction',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4218,'no-tui');
+ await page.locator('#message').fill('Unsubmitted draft');await page.locator('#send').click();
+ await page.locator('#error').filter({hasText:'cli-option-unavailable'}).waitFor();
+ assert.equal(await page.locator('#connect').isEnabled(),true);
+ assert.equal(await page.locator('#new').isEnabled(),true);
+ assert.equal(await page.locator('#pending').isVisible(),false);
+ assert.equal(await page.locator('#message').inputValue(),'Unsubmitted draft');
+});
 test('independent consumer displays the first conversation without duplicated messages and preserves its draft', {timeout:30000}, async t => {
   const page=await connectedPage(t,4194);
   await page.getByLabel('메시지', {exact:true}).fill('Reply exactly CHAT_BROWSER_READY.');

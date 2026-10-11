@@ -23,7 +23,7 @@ cp.spawn = (...args) => {
   process.stdin.on('finish', () => {
     const request = JSON.parse(input);
     let result;
-    if (!request.action) result = pinned;
+    if (!request.action) result = fault==='company' ? {...pinned,cliVersion:'company-build',cliHash:'a'.repeat(64)} : fault==='missing-options' ? {...pinned,cliFlags:['--cwd']} : fault==='no-tui' ? {...pinned,cliFlags:pinned.cliFlags.filter(flag=>flag!=='--tui')} : pinned;
     else if (request.action === 'start') {
       executionId = request.executionId; prompt = request.prompt;runs.set(executionId,{prompt,sessionId:'chat-fixture-session-'+runs.size});
       result = {executionId:fault==='launch-identity'?'unexpected-execution':executionId, remoteRoot: '/fixture/control'};
@@ -36,11 +36,11 @@ cp.spawn = (...args) => {
         {id:'user-first',role:'user',content:[{type:'text',text:prompt}]},
         {id:'assistant-first',role:'assistant',content:[{type:'text',text:'CHAT_BROWSER_READY'}]},
       ]}));
-      result = {executionId,sessionId:sid,cursor:composer.observations.at(-1).seq,observations:['ready','busy','multi'].includes(fault)?composer.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor):[],
-        composerHash:['ready','busy','multi'].includes(fault)?'controlled-composer':null,
+      result = {executionId,sessionId:sid,cursor:composer.observations.at(-1).seq,observations:['ready','busy','multi','company'].includes(fault)?composer.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor):[],
+        composerHash:['ready','busy','multi','company'].includes(fault)?'controlled-composer':null,
         management:{phaseSupported:true,phase:{active:false},responseReservation:true},
         history:{dataBase64:history.toString('base64'),sha256:createHash('sha256').update(history).digest('hex')},
-        process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:['ready','multi'].includes(fault)?'idle':'running',supervisorAlive:true,children:[],trackingError:null}};
+        process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:['ready','multi','company'].includes(fault)?'idle':'running',supervisorAlive:true,children:[],trackingError:null}};
       if(stopResult)Object.assign(result.process,{stop:stopResult,alive:stopResult.state!=='confirmed',exitCode:stopResult.state==='confirmed'?-15:null,manifestStatus:'cancelled',supervisorAlive:stopResult.state!=='confirmed',childrenVerified:stopResult.childrenVerified});
     } else result = {error:'fixture-no-operation',message:'Unsupported controlled operation'};
     if(request.action==='status' && ['question','approval'].includes(fault)) {
