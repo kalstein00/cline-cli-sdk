@@ -77,13 +77,13 @@ function render(packet) {
   const oldTop=timeline.scrollTop;
   element('connection').textContent=snapshot?.connection ?? '연결 전';
   const startHint=!packet.preflight?'연결 설정에서 연결 확인을 먼저 실행하세요.':!packet.preflight.ready?`연결 확인 필요 · ${packet.preflight.problems.join(' · ')}`:snapshot?.connection!=='connected'?'연결 복구 후 첫 메시지를 보낼 수 있습니다.':'첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
-  element('status').textContent=snapshot?.executionId ? `${snapshot.execution} · ${snapshot.sessionId ?? '대화 확인 중'}` : packet.preflight?.ready && snapshot?.connection==='connected' ? '새 대화를 시작할 수 있습니다.' : '연결 설정을 확인하세요.';
+  element('status').textContent=snapshot?.startup?.state==='provider-setup-required'?'CLI 초기 설정 필요':snapshot?.executionId ? `${snapshot.execution} · ${snapshot.sessionId ?? '대화 확인 중'}` : packet.preflight?.ready && snapshot?.connection==='connected' ? '새 대화를 시작할 수 있습니다.' : '연결 설정을 확인하세요.';
   element('preflight').textContent=packet.preflight ? packet.preflight.ready ? '연결 준비 완료' : packet.preflight.problems.join(' · ') : '';
   element('connect').disabled=!transportConnected||sending || (!!pending&&!restoringServer) || packet.launchReserved || !!snapshot?.executionId;
   element('disconnect').disabled=!transportConnected||sending||packet.busy||snapshot?.connection!=='connected';
   element('reconnect').disabled=!transportConnected||sending||packet.busy||!snapshot||snapshot.connection==='connected';
   element('reconfirm').disabled=!transportConnected||sending||packet.busy||snapshot?.connection!=='connected'||!snapshot?.executionId;
-  element('stop').disabled=!transportConnected||sending||packet.busy||!!pending||snapshot?.connection!=='connected'||!snapshot?.executionId||!!snapshot.stop||['completed','stopped','failed'].includes(snapshot.execution);
+  element('stop').disabled=!transportConnected||sending||packet.busy||(!!pending && pending.action!=='start')||snapshot?.connection!=='connected'||!snapshot?.executionId||!!snapshot.stop||['completed','stopped','failed'].includes(snapshot.execution);
   element('stopStatus').textContent=snapshot?.stop?.state==='confirmed' && snapshot.stop.childrenVerified && snapshot.stop.remaining.length===0 && snapshot.execution==='stopped'?'중단 확인 · CLI와 추적 자식 종료':snapshot?.stop?.state==='stopping'?'중단 요청 처리 중':snapshot?.stop?'중단 여부 불명 · 종료 근거 확인 필요':'';
   const messages=element('messages');
   let changed=false;
@@ -111,9 +111,10 @@ function render(packet) {
     if(pending.fromComposer!==false && element('message').value===pending.text)element('message').value='';pending=null;requestError=false;
   }
   if(pending?.action==='respond' && snapshot?.response?.requestId===pending.requestId && snapshot.response.state==='not-submitted'){pending=null;showError(Error('응답이 제출되지 않았습니다. 현재 질문을 확인하세요.'));}
+  if(pending?.action==='start' && snapshot?.execution==='stopped' && snapshot.stop?.state==='confirmed' && snapshot.stop.childrenVerified && snapshot.stop.remaining.length===0){pending=null;requestError=false;}
   renderInteractions(snapshot);
   element('pending').hidden=!pending;
-  element('pending').textContent=pending ? `${requestError?'전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.':'전송 중'}\n${pending.text}` : '';
+  element('pending').textContent=pending ? `${snapshot?.startup?.state==='provider-setup-required'?'CLI 초기 설정 필요 · 첫 요청 수신을 아직 확인하지 못했습니다.':requestError?'전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.':'전송 중'}\n${pending.text}` : '';
   const canStart=packet.preflight?.ready && snapshot?.connection==='connected' && !snapshot.executionId && !packet.selectedId;
   const canMessage=packet.capabilities?.sendMessage && snapshot?.messageInput?.ready;
   const canResume=packet.capabilities?.resume && snapshot?.connection==='connected' && snapshot.historySync.current && ['completed','stopped'].includes(snapshot.execution);
@@ -128,6 +129,7 @@ function render(packet) {
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';
   if(snapshot?.inputControl?.current===false)element('hint').textContent='입력 전달 기록을 확인할 수 없습니다. 기존 요청을 재전송하지 않습니다.';
   if(canResume)element('hint').textContent='같은 대화를 새 실행으로 재개합니다 · UTF-8 112바이트 이내의 한 줄';
+  if(snapshot?.startup?.state==='provider-setup-required' && !snapshot.stop)element('hint').textContent='CLI 초기 설정 필요 · 현재 실행을 중단한 뒤, 인증이 설정된 CLI 데이터 디렉터리로 새 대화를 시작하세요.';
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
 }
 async function invoke(action,input) {

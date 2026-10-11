@@ -53,6 +53,19 @@ test('missing TUI option is an unsubmitted first request that preserves the draf
  assert.equal(await page.locator('#pending').isVisible(),false);
  assert.equal(await page.locator('#message').inputValue(),'Unsubmitted draft');
 });
+
+test('provider onboarding explains an unconfirmed first request and permits explicit stop without resending',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4219,'provider-setup');
+ await page.locator('#message').fill('List files');await page.locator('#send').click();
+ await page.locator('#hint').filter({hasText:'CLI 초기 설정 필요'}).waitFor({timeout:5000});
+ assert.match(await page.locator('#pending').textContent(),/첫 요청 수신을 아직 확인하지 못했습니다/);
+ assert.equal(await page.locator('#message').inputValue(),'List files');
+ assert.equal(await page.locator('#send').isEnabled(),false);
+ await page.waitForFunction(()=>!document.querySelector('#stop').disabled);await page.locator('#stop').click();
+ await page.locator('#stopStatus').filter({hasText:'중단 확인'}).waitFor();
+ assert.equal(await page.locator('#message').inputValue(),'List files');
+ assert.equal(await page.locator('[data-role="user"]').count(),0);
+});
 test('independent consumer displays the first conversation without duplicated messages and preserves its draft', {timeout:30000}, async t => {
   const page=await connectedPage(t,4194);
   await page.getByLabel('메시지', {exact:true}).fill('Reply exactly CHAT_BROWSER_READY.');

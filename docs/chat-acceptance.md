@@ -125,3 +125,20 @@ generation 증가 시 이전 메시지·질문 카드를 정리하고 대화별 
 시험 소유 실행의 공개 SDK stop 결과 및 별도 소유 identity 정리 결과는 `independent-cleanup.json`에 기록한다. 기존 대화/원격 history는 보존하고 격리 시험 인증 사본만 제거한다. supervisor 근거가 부족했던 이전 #25 실행의 SDK stop unknown은 confirmed로 바꾸지 않고, 정확한 소유 PID/startTime/bootId/UID 확인 뒤 별도 시험 정리를 구분한다. 원본 provider와 다른 사용자 프로세스는 변경하지 않는다. 부모 #20의 본문·라벨·상태는 변경하지 않는다.
 
 옵션 누락에 따른 실행 전 `cli-option-unavailable`은 확정 미제출로 분류한다. 시작 예약·브라우저 pending을 해제하고 초안을 유지하며 설정 변경을 허용하는 Chrome 회귀를 추가했다. 재개는 `--id`와 TUI 지원을 함께 확인한다. 리뷰에서 발견한 두 보완 뒤 최종 전체 suite를 재실행했다.
+
+## 초기 설정 대기와 CLI launcher 자식의 대화 연결 수정
+
+2026-10-11 실제 4174 예제에서 첫 요청 후 SID·메시지·상호작용이 모두 없는 상태를 재현했다. CLI 데이터 디렉터리가 비어 있으면 SDK의 격리 디렉터리로 실행되므로, 기존 모델 인증 설정이 적용되지 않아 `Welcome to Cline` / `Connect a model provider to get started.`에서 기다렸다. SID 이전의 해당 화면을 공개 `snapshot.startup.state=provider-setup-required`로 노출하고, 초안을 보존한 채 작업 중단을 허용한다. confirmed 중단 뒤에만 첫 요청 pending을 해제한다. fixture는 실제 초기 설정 화면의 읽기 전용 capture를 40x120 화면으로 재구성했으며 인증 값은 포함하지 않는다.
+
+사용자가 선택한 `/home/kalstein/.cline/data`를 지정한 뒤에는 CLI가 명령 승인을 기다렸지만, launcher 부모와 실제 CLI 자식의 PID가 달라 SDK가 SID를 찾지 못했다. SDK supervisor의 CLI/supervisor identity, boot ID, 추적 오류 없음 및 실제 PID/startTime 일치를 확인한 소유 자식의 manifest를 연결 대상으로 허용한다. 후보가 여러 개면 연결을 추정하지 않는다. 현재 CLI 자식은 idle 판정에서 도구 프로세스와 구분하되 전체 소유 프로세스의 중단 검증에는 계속 포함한다. 설정·history 파일에는 쓰지 않는다.
+
+실제 자동 발견 CLI와 기존 인증 디렉터리로 `디렉토리에 파일들 뭐있어?` 요청을 한 번 제출했다. 4174 Chrome에서 `ls -la /home/kalstein/vscode` 승인 카드, 승인 전달 확인, 폴더 목록의 최종 답변과 다음 메시지 준비를 확인했다. CLI 버전 조회·버전 비교는 하지 않았다. 화면 증거는 `evidence/chat/startup-wrapper-directory-reply.png`이다. 이는 개발 WSL 환경 검증이며 회사 CLI 수용 결과를 의미하지 않는다.
+
+모델이나 인증이 필요 없는 실제 SSH 회귀는 다음 명령으로 실행한다. 테스트 소유 임시 launcher가 실제 자식 프로세스에서 manifest/history와 TUI composer를 생성한다. 공개 connect/start/refresh/sendMessage/stop으로 SID·답변·후속 메시지 전달·전체 종료를 확인하며, 소유권 불일치 및 추가 도구 자식이 입력을 차단하는지 검증한다. SSH 대상이 없을 때 이 시험만 skip한다.
+
+```powershell
+$env:CLINE_SDK_TEST_SSH_HOST='wsl'
+npm test
+```
+
+수정 후 실제 SSH 시험을 포함한 전체 `npm test`는 **143/143 통과**, 실패·skip 0(약 59초), SDK TypeScript build 및 예제 서버 `tsc --checkJs` 통과. Standards·Spec 리뷰 모두 잔여 발견 사항이 없다. 브라우저 앱에 별도로 `tsc --checkJs`를 적용하면 기존 DOM `HTMLElement`/`Element` 타입 오류가 있으며, 이를 전체 앱 타입 검사 통과로 표현하지 않는다.

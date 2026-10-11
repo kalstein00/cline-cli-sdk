@@ -96,7 +96,8 @@ def message_idle(run, meta, empty=False):
     try:
         ownership=json.loads((run/'ownership.json').read_text())
         phase=json.loads((run/'phase.json').read_text()) if (run/'phase.json').exists() else {}
-        if ownership.get('trackingError') or any(child!=expected for child in ownership.get('owned',[])) or (run/'stop-request.json').exists() or phase.get('active'):
+        owner = session_owner(meta, manifest.get('pid'))
+        if ownership.get('trackingError') or any(child not in (expected, owner) for child in ownership.get('owned',[])) or (run/'stop-request.json').exists() or phase.get('active'):
             return 'agent-busy'
     except (OSError,ValueError): return 'process-unconfirmed'
     if modal_witness(meta): return 'modal-active'
@@ -148,37 +149,70 @@ def read_history(path):
         raise ValueError('file-changed')
     return payload
 
+def session_cache(meta):
+    try:
+        cache = json.loads((Path(meta['tmuxSocket']).parent / meta['executionId'] / 'session.json').read_bytes())
+        if cache.get('executionId') == meta['executionId'] and cache.get('identity') == meta.get('identity'):
+            return cache
+    except (OSError, ValueError, KeyError):
+        pass
+    return {}
+
+def session_owner(meta, pid):
+    """A launcher child is a CLI only when its manifest and exact ownership agree."""
+    expected = meta.get('identity')
+    if pid is None:
+        return None
+    if expected and pid == expected['pid']:
+        actual = identity(pid)
+        if actual == expected or (actual is None and meta.get('exitCode') is not None and expected['bootId'] == boot_id()):
+            return expected
+        return None
+    try:
+        run = Path(meta['tmuxSocket']).parent / meta['executionId']
+        ownership = json.loads((run / 'ownership.json').read_bytes())
+        if (ownership.get('cliIdentity') == expected and
+                ownership.get('supervisorIdentity') == meta.get('supervisorIdentity') and
+                not ownership.get('trackingError') and meta['bootId'] == boot_id()):
+            for child in ownership.get('owned', []):
+                if child['pid'] == pid and identity(pid) == child:
+                    return child
+        # Retain the established child's final manifest after confirmed exit.
+        # A reused PID, new boot or superseded execution never authorizes it.
+        cached = session_cache(meta).get('sessionOwner')
+        if (cached and cached['pid'] == pid and cached['bootId'] == boot_id() and
+                identity(pid) is None and meta.get('exitCode') is not None and not meta.get('resumedBy')):
+            return cached
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
 def session_files(meta):
     sessions = Path(meta['dataDir']) / 'sessions'
     expected = meta.get('sessionId')
     if not expected:
-        try:
-            cache = json.loads((Path(meta['tmuxSocket']).parent / meta['executionId'] / 'session.json').read_bytes())
-            if cache.get('executionId') == meta['executionId'] and cache.get('identity') == meta.get('identity'):
-                expected = cache['sessionId']
-        except (OSError, ValueError, KeyError):
-            pass
+        expected = session_cache(meta).get('sessionId')
     candidates = [sessions / expected / (expected + '.json')] if expected else list(sessions.glob('*/*.json'))
-    def modified(path):
-        try:
-            return path.stat().st_mtime
-        except OSError:
-            return 0
-    for path in sorted(candidates, key=modified, reverse=True):
+    matches = []
+    for path in candidates:
         if path.name.endswith(('.messages.json', '.compaction.json')):
             continue
         try:
             manifest = json.loads(path.read_bytes())
             sid = manifest['session_id']
+            if not isinstance(sid, str) or path != sessions / sid / (sid + '.json'):
+                continue
             if sid in meta.get('priorSessions', []) and not expected:
                 continue
-            if not expected and manifest.get('pid') != (meta.get('identity') or {}).get('pid'):
+            owner = session_owner(meta, manifest.get('pid'))
+            if not expected and not owner:
                 continue
-            current_manifest = manifest.get('pid') == (meta.get('identity') or {}).get('pid') or (manifest.get('pid') is None and not meta.get('resumedBy') and meta.get('exitCode') is not None and manifest.get('status') in ('completed','cancelled','failed'))
-            return sid, manifest if current_manifest else None, sessions / sid / (sid + '.messages.json')
+            current_manifest = bool(owner) or (manifest.get('pid') is None and not meta.get('resumedBy') and meta.get('exitCode') is not None and manifest.get('status') in ('completed','cancelled','failed'))
+            matches.append((sid, manifest if current_manifest else None, sessions / sid / (sid + '.messages.json')))
         except (OSError, ValueError, KeyError):
             continue
-    return None, None, None
+    # Never infer which conversation to control from file recency.
+    return matches[0] if len(matches) == 1 else (None, None, None)
 
 def serve(run):
     from ownership import Ownership, read_json
@@ -566,7 +600,8 @@ def handle(request):
             # A concurrent final exit write must never be overwritten by a stale status read.
             with open(run / 'session.lock', 'a') as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX)
-                save(run / 'session.json', dict(sessionId=sid, executionId=meta['executionId'], identity=meta.get('identity')))
+                owner = session_owner(meta, manifest.get('pid')) if manifest else session_cache(meta).get('sessionOwner')
+                save(run / 'session.json', dict(sessionId=sid, executionId=meta['executionId'], identity=meta.get('identity'), sessionOwner=owner))
         history = None
         history_error = None
         if history_path:
@@ -634,7 +669,7 @@ def handle(request):
                                  exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else meta.get('ownedManifestStatus'),
                                  supervisorAlive=bool(meta.get('supervisorIdentity') and identity(meta['supervisorIdentity']['pid']) == meta['supervisorIdentity']),
                                  stop=stop_result,
-                                 children=[value for value in ownership.get('owned', []) if value != expected], trackingError=ownership.get('trackingError'),
+                                 children=[value for value in ownership.get('owned', []) if value not in (expected, session_owner(meta, manifest.get('pid')) if manifest else None)], trackingError=ownership.get('trackingError'),
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
                     requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), message=value.get('message'), witness=value.get('witness'), baselineMessageCount=value.get('baselineMessageCount'), baselineLastMessageId=value.get('baselineLastMessageId'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],

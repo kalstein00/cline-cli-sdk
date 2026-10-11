@@ -256,6 +256,8 @@ export interface ResponseResult {
   revision: number;
 }
 export interface Snapshot {
+  /** CLI initialization is distinct from a received conversational request. */
+  startup?: {state:"waiting-for-session"|"provider-setup-required"};
   result?:StructuredResult;
   jsonOutput?:JsonOutputState;
   mode: "replay" | "live";
@@ -600,6 +602,11 @@ export function createReducer(options: {
     }
   };
   const interpretScreen = (obs: Observation) => {
+    if(state.startup && !state.sessionId && hasCliProtocol(recording?.cli,"tui")) {
+      const visible=Array.from({length:recording!.terminal.rows},(_,row)=>terminal!.buffer.active.getLine(terminal!.buffer.active.baseY+row)?.translateToString(true).trim() ?? '');
+      const startup:Snapshot["startup"]={state:visible.includes('Welcome to Cline') && visible.includes('Connect a model provider to get started.') ? 'provider-setup-required' : 'waiting-for-session'};
+      if(state.startup.state!==startup.state){state.startup=startup;emit("state.changed",obs,{startup});}
+    }
     if (!state.historySync.current) return;
     state.composer = null;
     const lines = [];
@@ -1027,6 +1034,7 @@ export function createReducer(options: {
         Object.entries(next).some(([k, v]) => state[k as keyof Snapshot] !== v)
       ) {
         Object.assign(state, next);
+        if(state.sessionId)state.startup=undefined;
         emit("state.changed", obs, next);
       }
     }
@@ -1115,6 +1123,7 @@ export function createReducer(options: {
       executionId: obs.executionId,
       execution: "unknown",
       messages: [],
+      startup:obs.executionId && !obs.sessionId ? {state:"waiting-for-session"} : undefined,
       jsonOutput:hasCliProtocol(obs.cli,"json")?jsonParser.state():undefined,
       result:undefined,
       interaction: null,
@@ -1350,6 +1359,7 @@ export function createReducer(options: {
         connection: input.schemaVersion === 2 ? "closed" : "replay",
         execution: "unknown",
         messages: [],
+        startup:input.executionId && !input.sessionId ? {state:"waiting-for-session"} : undefined,
         jsonOutput:hasCliProtocol(input.cli,"json")?jsonParser.state():undefined,
         result:undefined,
         interaction: null,
@@ -1541,6 +1551,7 @@ export function createReducer(options: {
         latestProcess = obs;
         const previous = state.execution;
         const previousStop = JSON.stringify(state.stop);
+        const previousStartup = state.startup;
         state.executionEvidence = structuredClone(obs);
         if (obs.stop) state.stop = structuredClone(obs.stop);
         if (state.stop)
@@ -1589,12 +1600,15 @@ export function createReducer(options: {
         else state.execution = "unknown";
         if (state.historySync.current && !obs.alive && obs.exitCode !== null)
           state.interaction = null;
+        if (['stopped','completed','failed'].includes(state.execution))state.startup=undefined;
         if (
           previous !== state.execution ||
+          previousStartup !== state.startup ||
           previousStop !== JSON.stringify(state.stop)
         )
           emit("state.changed", obs, {
             execution: state.execution,
+            startup:state.startup,
             process: obs,
           });
       }

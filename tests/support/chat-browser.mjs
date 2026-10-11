@@ -8,6 +8,7 @@ import {pinned} from './remote.mjs';
 const composer=JSON.parse(await readFile(new URL('../../fixtures/resume/restored-composer.json',import.meta.url)));
 const question=JSON.parse(await readFile(new URL('../../fixtures/text/tui-custom-response.json',import.meta.url)));
 const approval=JSON.parse(await readFile(new URL('../../fixtures/chat/readiness.json',import.meta.url)));
+const onboarding=JSON.parse(await readFile(new URL('../../fixtures/startup/provider-setup.json',import.meta.url)));
 const native = cp.spawn;
 const fault = process.env.CLINE_CHAT_FAULT;
 let executionId, prompt;
@@ -49,6 +50,11 @@ cp.spawn = (...args) => {
       result.observations=rows.filter(o=>o.kind==='pty'&&o.seq>request.cursor);
       const raw=JSON.parse(Buffer.from(rows.filter(o=>o.kind==='history').at(-1).dataBase64,'base64'));result.sessionId=raw.sessionId;const first=raw.messages.find(m=>m.role==='user'&&m.content.some(p=>p.type==='text'));if(first)first.content.find(p=>p.type==='text').text=prompt;else raw.messages.unshift({id:'user-first',role:'user',content:[{type:'text',text:prompt}]});const bytes=Buffer.from(JSON.stringify(raw));result.history={dataBase64:bytes.toString('base64'),sha256:createHash('sha256').update(bytes).digest('hex')};
       delete result.management; // legacy recorded question retains its observed interaction identity
+    }
+    if(request.action==='status' && fault==='provider-setup'){
+      result.sessionId=null;delete result.history;result.process.manifestStatus=null;
+      result.observations=onboarding.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor);
+      result.cursor=onboarding.observations.at(-1).seq;
     }
     process.stdout.end(JSON.stringify(result));
     queueMicrotask(() => process.emit('close',0));

@@ -13,7 +13,8 @@
 <label>관리 디렉터리<input id="remoteRoot" placeholder="/remote/sdk-control" autocomplete="off"></label>
 <label>SSH 키 파일 경로 (선택)<input id="identityFile" autocomplete="off"></label>
 <label>작업 디렉터리<input id="cwd" required placeholder="/remote/workspace" autocomplete="off"></label>
-<label>CLI 데이터 디렉터리<input id="dataDir" placeholder="/remote/isolated-data" autocomplete="off"></label>
+<label>CLI 데이터 디렉터리<input id="dataDir" placeholder="/remote/configured-cline-data" autocomplete="off"></label>
+<p class="subtle">기존 로그인·모델 설정이 있는 원격 데이터 경로를 지정하세요. 비우면 새 격리 경로를 사용하며 CLI 초기 설정이 필요할 수 있습니다.</p>
 </div><button id="connect" type="submit">연결 확인</button><p id="preflight" role="status"></p></form></details>
 <div class="session-actions"><button id="disconnect" disabled>연결 해제</button><button id="reconnect" disabled>재연결</button><button id="reconfirm" disabled>전달 상태 다시 확인</button><button id="stop" disabled>작업 중단</button><span id="stopStatus" role="status"></span></div>
 <div id="error" role="alert" hidden></div>

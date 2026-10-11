@@ -1238,7 +1238,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         outputModes:{terminal:!!report?.ready,json:!!report?.ready && !!report?.cliFlags?.includes("--json")},
         replay: false,
         live: true,
-        responses: !!report?.ready && outputMode !== "json" && state.inputControl?.current!==false,
+        responses: !!report?.ready && outputMode !== "json" && state.inputControl?.current!==false && state.startup?.state!=="provider-setup-required",
         sendMessage: !!state.messageInput?.ready && !messageActive && !activeRequest && !resumeActive,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
         resume: state.inputControl?.current!==false && outputMode !== "json" && !!report?.profile.supported && report.ready && !!report.cliFlags?.includes("--id") && !!report.cliFlags?.includes("--tui") && state.historySync.current && state.connection === "connected" &&
