@@ -115,3 +115,12 @@ test('managed conversation selection keeps drafts and filters stale prior snapsh
  await page.locator('#conversations button').filter({hasText:'Conversation B'}).click();await page.locator('article[data-role=user] .text').filter({hasText:'Conversation B'}).waitFor();assert.equal(await page.locator('#message').inputValue(),'B draft');
  assert.notEqual(first.snapshot.executionId,second.snapshot.executionId);
 });
+
+test('incomplete attach blocks first input and an old transport error cannot leak into a newer selection',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4211,'ready');await page.locator('#message').fill('Initial');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ const packet=await page.request.get('http://127.0.0.1:4211/api/state').then(r=>r.json());
+ let release;const gate=new Promise(r=>release=r);let intercepted;const arrived=new Promise(r=>intercepted=r);
+ await page.route('**/api/list',async route=>{intercepted();await gate;await route.abort();});await page.locator('#list').click();await arrived;
+ await page.evaluate(p=>window.testEvents.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({...p,generation:p.generation+2,busy:false,selectedId:'run-incomplete',snapshot:{...p.snapshot,executionId:null,sessionId:null,messages:[]}})})),packet);
+ release();await page.waitForTimeout(250);assert.equal(await page.locator('#error').isVisible(),false);assert.equal(await page.locator('#send').isDisabled(),true);
+});

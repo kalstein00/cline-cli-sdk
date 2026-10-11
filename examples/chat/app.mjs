@@ -104,7 +104,7 @@ function render(packet) {
   renderInteractions(snapshot);
   element('pending').hidden=!pending;
   element('pending').textContent=pending ? `${requestError?'전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.':'전송 중'}\n${pending.text}` : '';
-  const canStart=packet.preflight?.ready && snapshot?.connection==='connected' && !snapshot.executionId;
+  const canStart=packet.preflight?.ready && snapshot?.connection==='connected' && !snapshot.executionId && !packet.selectedId;
   const canMessage=packet.capabilities?.sendMessage && snapshot?.messageInput?.ready;
   const questionText=freeResponse(snapshot),canAnswer=questionText&&canRespond(snapshot);
   element('composerLabel').textContent=questionText?'현재 질문에 자유 응답':'메시지';
@@ -118,10 +118,13 @@ function render(packet) {
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
 }
 async function invoke(action,input) {
-  const response=await fetch(`/api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({generation:current.generation,requestId:crypto.randomUUID(),...input})});
-  const packet=await response.json();if(packet.generation<current.generation)return;render(packet);
-  if(!response.ok)throw Object.assign(Error(`${packet.error}: ${packet.message ?? ''}`),{notSubmitted:packet.notSubmitted===true});
-  return packet;
+  const started=current.generation,maxGeneration=started+(['connect','select','new'].includes(action)?1:0);
+  try {
+    const response=await fetch(`/api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({generation:started,requestId:crypto.randomUUID(),...input})});
+    const packet=await response.json();if(current.generation>maxGeneration||packet.generation<current.generation)return;render(packet);
+    if(!response.ok)throw Object.assign(Error(`${packet.error}: ${packet.message ?? ''}`),{notSubmitted:packet.notSubmitted===true});
+    return packet;
+  }catch(error){if(current.generation>maxGeneration)return;throw error;}
 }
 function showError(error){element('error').hidden=false;element('error').textContent=error.message;}
 element('connectForm').onsubmit=async event=>{

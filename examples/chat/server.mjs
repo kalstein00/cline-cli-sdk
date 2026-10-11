@@ -62,6 +62,7 @@ async function perform(action, input) {
     await listExecutions();
   } else if (action === 'start') {
     if (!client || !preflight?.ready) throw problem('not-ready','연결 설정을 확인하세요.');
+    if(selectedId)throw problem('execution-selected','선택한 실행의 전체 상태를 확인하세요. 새 대화 버튼으로 새 요청을 시작하세요.');
     launchReserved=true;
     try {await client.start({cwd:input.cwd,dataDir:input.dataDir || undefined,prompt:input.prompt,terminalMode:'tui'});}
     catch(error) {
