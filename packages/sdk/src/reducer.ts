@@ -1,3 +1,4 @@
+import {messageInput, type MessageInputState} from "./message-input.js";
 import xterm from "@xterm/headless";
 import unicode11 from "@xterm/addon-unicode11";
 import { createHash } from "node:crypto";
@@ -266,6 +267,7 @@ export interface Snapshot {
   stop: StopResult | null;
   executionEvidence: ProcessObservation | null;
   /** Observed focused composer; not a public terminal-input escape hatch. */
+  messageInput?: MessageInputState;
   composer?: { mode: "tui"; text: string } | null;
   resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" } | null;
   historySync: { current: boolean; warning: string | null };
@@ -322,6 +324,7 @@ export interface Client {
     replay: true;
     live: false;
     responses: false;
+    sendMessage: false;
     companyCompatibility: "unverified";
   };
   close(): void;
@@ -485,6 +488,7 @@ export function createReducer(options: {
     executionEvidence: null,
     historySync: { current: true, warning: null },
     composer: null,
+    messageInput: undefined,
     resume: null,
     replay: { position: 0, total: 0, complete: false, truncated: false },
   };
@@ -494,6 +498,7 @@ export function createReducer(options: {
   let strictBindings = false;
   let rawPhase: any = null;
   let phaseSupported = false;
+  let composerEvidence: PhaseObservation["terminalEvidence"];
   let pendingPhase: any = null;
   const identify = (
     kind: string,
@@ -567,6 +572,14 @@ export function createReducer(options: {
     });
     observationEvents.push(event);
     for (const listener of listeners) listener(structuredClone(event));
+  };
+  const updateMessageInput = (obs: Observation) => {
+    // Legacy recordings without a terminal witness retain their existing event contract.
+    if (!composerEvidence && !state.messageInput) return;
+    const next=messageInput(state,recording?.cli.profile === "cline-3.0.69-tui" && recording.cli.name === "cline" && recording.cli.version === "3.0.69" && recording.terminal.rows === 40 && recording.terminal.cols === 120 && phaseSupported,composerEvidence,!!pendingTools.length,!!rawPhase?.active);
+    if(JSON.stringify(next)!==JSON.stringify(state.messageInput)) {
+      state.messageInput=next;emit("state.changed",obs,{messageInput:next});
+    }
   };
   const updateResult = (obs:Observation) => {
     if(!resultRequest) return;
@@ -1013,6 +1026,7 @@ export function createReducer(options: {
     if (obs.kind === "phase") {
       rawPhase = obs.phase;
       phaseSupported = obs.supported;
+      composerEvidence = obs.terminalEvidence;
       pendingPhase = null;
     }
     if (
@@ -1037,6 +1051,7 @@ export function createReducer(options: {
       });
     }
     updateResult(obs);
+    updateMessageInput(obs);
     options.observe?.(obs, observationEvents, snapshot());
     return snapshot();
   };
@@ -1074,6 +1089,7 @@ export function createReducer(options: {
     results = new Map();
     rawPhase = null;
     phaseSupported = false;
+    composerEvidence = undefined;
     pendingPhase = null;
     responseBinding = null;
     resumeDigest = null;
@@ -1095,6 +1111,7 @@ export function createReducer(options: {
       executionEvidence: null,
       historySync: { current: true, warning: null },
       composer: null,
+      messageInput: undefined,
       resume: null,
     });
     emit("state.changed", obs, {
@@ -1102,6 +1119,7 @@ export function createReducer(options: {
       executionId: obs.executionId,
     });
     updateResult(obs);
+    updateMessageInput(obs);
     options.observe?.(obs, observationEvents, snapshot());
     return snapshot();
   };
@@ -1177,6 +1195,7 @@ export function createReducer(options: {
           next === "not-submitted" ? "awaiting-response" : next;
       emit("response.changed", obs, state.response);
     }
+    updateMessageInput(obs);
     options.observe?.(obs, observationEvents, snapshot());
     return snapshot();
   };
@@ -1227,6 +1246,7 @@ export function createReducer(options: {
       }
       if (previous !== JSON.stringify(state.resume)) emit("state.changed",obs,{resume:state.resume});
     }
+    updateMessageInput(obs);
     options.observe?.(obs, observationEvents, snapshot());
     return snapshot();
   };
@@ -1246,6 +1266,7 @@ export function createReducer(options: {
           ...(obs.reason ? { reason: obs.reason } : {}),
         });
       }
+      updateMessageInput(obs);
       options.observe?.(obs, observationEvents, snapshot());
       return snapshot();
     },
@@ -1256,6 +1277,7 @@ export function createReducer(options: {
       strictBindings = input.interpretation === "live";
       rawPhase = null;
       phaseSupported = false;
+      composerEvidence = undefined;
       pendingPhase = null;
       responseBinding = null;
       resumeDigest = null;
@@ -1289,7 +1311,8 @@ export function createReducer(options: {
         stop: null,
         executionEvidence: null,
         historySync: { current: true, warning: null },
-        composer: null,
+            composer: null,
+        messageInput: undefined,
         resume: null,
         replay: {
           position: 0,
@@ -1434,6 +1457,7 @@ export function createReducer(options: {
         } catch {
           historyFailure(obs);
           updateResult(obs);
+          updateMessageInput(obs);
           options.observe?.(obs, observationEvents, snapshot());
           throw new SdkError(
             "invalid-history",
@@ -1525,6 +1549,7 @@ export function createReducer(options: {
           });
       }
       updateResult(obs);
+      updateMessageInput(obs);
       options.observe?.(obs, observationEvents, snapshot());
       return snapshot();
     },
@@ -1627,11 +1652,13 @@ export function createReducer(options: {
         replay: true,
         live: false,
         responses: false,
+        sendMessage: false,
         companyCompatibility: "unverified",
       };
     },
     close() {
       state.connection = "closed";
+      if(state.messageInput) state.messageInput={ready:false,reason:"not-connected",maxBytes:112};
       terminal?.dispose();
       terminal = null;
       recording = null;

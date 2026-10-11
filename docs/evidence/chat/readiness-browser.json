@@ -1,0 +1,16 @@
+{
+  "source": "actual Windows Chrome -> workspace consumer -> SDK -> SSH -> pinned public Cline",
+  "sessionId": "1791709896222_pt79y",
+  "executionId": "run-160d1dc9-3a37-4104-896c-29df2da379ac",
+  "displayed": [
+    "Reply exactly CHAT_FIRST_READY. Do not call any tools.",
+    "CHAT_FIRST_READY"
+  ],
+  "input": {
+    "ready": true,
+    "reason": "ready",
+    "maxBytes": 112
+  },
+  "execution": "running",
+  "companyCompatibility": "unverified"
+}

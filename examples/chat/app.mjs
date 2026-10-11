@@ -44,7 +44,8 @@ function render(packet) {
   element('pending').textContent=pending ? `${requestError?'전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.':'전송 중'}\n${pending.text}` : '';
   const canStart=packet.preflight?.ready && snapshot?.connection==='connected' && !snapshot.executionId;
   element('send').disabled=!canStart || sending || packet.busy || packet.launchReserved || !!pending;
-  element('hint').textContent=snapshot?.executionId ? '후속 메시지 전송은 다음 구현 단계에서 지원합니다.' : '첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
+  const reasons={'ready':'다음 메시지 입력 준비 완료 (전송은 다음 구현 단계에서 지원합니다).','agent-busy':'Cline이 답변을 생성하거나 도구를 실행 중입니다.','interaction-pending':'대기 중인 질문이나 승인을 먼저 처리하세요.','delivery-pending':'이전 요청의 전달 상태를 확인 중입니다.','not-connected':'연결 복구 후 입력 상태를 다시 확인합니다.','history-unavailable':'대화 기록을 다시 확인 중입니다.','process-unconfirmed':'원격 프로세스를 확인 중입니다.','composer-unconfirmed':'빈 입력창을 확인 중입니다.','unsupported-profile':'이 CLI 프로필에서는 후속 입력을 지원하지 않습니다.'};
+  element('hint').textContent=snapshot?.executionId ? (reasons[snapshot.messageInput?.reason] ?? '후속 입력 상태를 확인 중입니다.') : '첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
   if(packet.launchReserved && !snapshot?.executionId)element('hint').textContent='시작 여부를 확인해야 합니다. 새 요청을 자동 전송하지 않습니다.';
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}

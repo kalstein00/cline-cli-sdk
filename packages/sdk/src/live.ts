@@ -110,6 +110,7 @@ export interface LiveClient {
     responses: boolean;
     freeText: boolean;
     resume: boolean;
+    sendMessage: boolean;
     companyCompatibility: "unverified";
   };
   respond(request: ResponseRequest): Promise<ResponseResult>;
@@ -1127,6 +1128,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         replay: false,
         live: true,
         responses: !!report?.ready && outputMode !== "json",
+        sendMessage: false,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
         resume: outputMode !== "json" && !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
           !!state.sessionId && ["completed","stopped"].includes(state.execution) &&

@@ -61,3 +61,11 @@ test('consumer does not call a mismatched launch identity an unsubmitted request
   await page.getByText('시작 여부를 확인해야 합니다.',{exact:false}).waitFor({timeout:5000});
   assert.equal(await page.locator('#connect').isDisabled(),true);assert.equal(await page.locator('#send').isDisabled(),true);
 });
+
+for(const [fault,hint] of [['ready','다음 메시지 입력 준비 완료'],['busy','Cline이 답변을 생성하거나 도구를 실행 중입니다.']]) {
+ test(`browser shows public ${fault} input status without enabling unimplemented send`,{timeout:30000},async t=>{
+  const page=await connectedPage(t,fault==='ready'?4200:4201,fault);
+  await page.locator('#message').fill('Reply exactly CHAT_BROWSER_READY.');await page.locator('#send').click();
+  await page.locator('#hint').filter({hasText:hint}).waitFor();assert.equal(await page.locator('#send').isDisabled(),true);
+ });
+}

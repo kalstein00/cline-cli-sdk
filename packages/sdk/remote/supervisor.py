@@ -68,7 +68,7 @@ def modal_witness(meta):
     return dict(sha256=hashlib.sha256(payload).hexdigest(), dataBase64=base64.b64encode(result.stdout).decode(), rows=meta['terminal']['rows'], cols=meta['terminal']['cols'])
 
 def composer_witness(meta):
-    if meta.get('terminalMode') != 'tui' or not meta.get('resume'):
+    if meta.get('terminalMode') != 'tui':
         return None
     target = meta['tmuxSession'] + ':0.0'
     try:

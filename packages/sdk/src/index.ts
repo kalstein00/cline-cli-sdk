@@ -1,6 +1,7 @@
 import { createReducer, type Client } from "./reducer.js";
 import { createLiveClient, type LiveClient, type LiveOptions } from "./live.js";
 export { SdkError } from "./reducer.js";
+export type {MessageInputState} from "./message-input.js";
 export type {CliFeatures, FeatureCapability, DeclaredFeatures} from "./capabilities.js";
 export type {JsonOutputState} from "./json-output.js";
 export type {ResultFormat,ResultRequest,StructuredResult} from "./structured-result.js";

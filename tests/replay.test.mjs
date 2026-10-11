@@ -217,6 +217,7 @@ test("unimplemented approval screens and unknown CLI profiles block all remote i
     replay: true,
     live: false,
     responses: false,
+    sendMessage: false,
     companyCompatibility: "unverified",
   });
   client.close();

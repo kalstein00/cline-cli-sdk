@@ -16,3 +16,11 @@ SDK build와 예제 서버의 JS typecheck가 통과했다. 공개 SDK live 시�
 재현: `npm ci`, `npm run build`, `npx tsc -p examples/chat/tsconfig.json`, `node --test tests/chat-browser.test.mjs tests/live.test.mjs`. 독립 설치는 SDK를 pack한 `.tgz`를 저장소 밖으로 가져가 예제 패키지에 설치하고 `npm start`를 실행한다. 화면에는 SSH 별칭, 고정 CLI 경로, 시험 소유 관리/작업/격리 데이터 경로를 입력한다.
 
 현재 첫 요청·답변만 수용했다. 후속 메시지·질문 조작·대화 목록·단절 복구·중단/재개는 각각 후속 티켓에서 구현·검증한다. 회사 CLI 호환성은 미검증이다. 기존 미커밋 자료와 사용자 전역 CLI/인증 설정은 변경하지 않았다.
+
+## #22 후속 입력 준비 상태
+
+Windows → SSH → 고정 공개 CLI에서 첫 요청, 도구 승인, 8초 Python 도구 실행(결과 `123`), `CHAT_READY_QUESTION` 선택 질문, `CHAT_READY_DONE` 이후 빈 Act composer를 실제 관찰했다. 같은 SID/EID의 살아 있는 CLI와 manifest `idle`을 확인했고 실행 상태는 `running`으로 유지했다. 검토한 원시 관찰은 계정/소유 경로/SID/EID를 치환한 `fixtures/chat/readiness.json`에 저장했다. 도구 실행·질문 단계의 process/phase/history/PTY 원시 관찰을 공개 SDK 재생으로 검증했다.
+
+`Snapshot.messageInput`은 `{ready, reason, maxBytes:112}`를 제공한다. 정확한 3.0.69 TUI 프로필, 40×120 화면, 최신 기록, 살아 있는 동일 identity/supervisor, manifest `idle`, 자식 프로세스·미완료 도구·질문·이전 불명 요청 부재, 관찰된 빈 focused composer/hash를 함께 요구한다. 근거가 없으면 활성화하지 않는다. 구형 기록에 terminal witness가 없으면 필드는 없으며 소비자는 이를 확인 중으로 취급한다. replay의 준비 상태는 기록 해석이며 `capabilities().sendMessage`는 항상 false다. 전송 API는 #23에서 추가한다.
+
+SDK build와 예제 typecheck 통과. 공개 API 준비 상태 10개, 브라우저 6개, resume/diagnostic 회귀 9개 통과. 생성·도구·질문 대기, stale history, 단절, 프로필/identity 불명은 각각 차단 이유를 제공한다. 준비 상태 변화는 revision과 `state.changed`로 전달한다. 기존 기록의 질문/응답 및 resume 진단의 live/replay 비교도 통과했다. 실제 브라우저 근거는 `evidence/chat/readiness-browser.{png,json}`, 실제 단계 요약은 `evidence/chat/readiness.json`에 기록한다.

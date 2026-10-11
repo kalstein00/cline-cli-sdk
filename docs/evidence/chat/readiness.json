@@ -1,0 +1,78 @@
+{
+  "seen": [
+    {
+      "execution": "running",
+      "manifest": null,
+      "children": 0,
+      "input": {
+        "ready": false,
+        "reason": "agent-busy",
+        "maxBytes": 112
+      }
+    },
+    {
+      "execution": "running",
+      "manifest": "running",
+      "children": 0,
+      "input": {
+        "ready": false,
+        "reason": "agent-busy",
+        "maxBytes": 112
+      }
+    },
+    {
+      "execution": "awaiting-input",
+      "manifest": "pending",
+      "children": 0,
+      "interaction": "approval",
+      "input": {
+        "ready": false,
+        "reason": "interaction-pending",
+        "maxBytes": 112
+      }
+    },
+    {
+      "execution": "running",
+      "manifest": "running",
+      "children": 0,
+      "input": {
+        "ready": false,
+        "reason": "agent-busy",
+        "maxBytes": 112
+      }
+    },
+    {
+      "execution": "awaiting-input",
+      "manifest": "running",
+      "children": 0,
+      "interaction": "question",
+      "input": {
+        "ready": false,
+        "reason": "interaction-pending",
+        "maxBytes": 112
+      }
+    },
+    {
+      "execution": "running",
+      "manifest": "running",
+      "children": 0,
+      "input": {
+        "ready": false,
+        "reason": "agent-busy",
+        "maxBytes": 112
+      }
+    },
+    {
+      "execution": "running",
+      "manifest": "idle",
+      "children": 0,
+      "input": {
+        "ready": true,
+        "reason": "ready",
+        "maxBytes": 112
+      }
+    }
+  ],
+  "sessionId": "1791709748426_98r2x",
+  "executionId": "run-db5fc24c-18c8-49df-8943-85b8a264c0a4"
+}
