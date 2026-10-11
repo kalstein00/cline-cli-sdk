@@ -158,3 +158,17 @@ npm test
 실제 SSH wrapper 회귀는 같은 public API로 start→send→도구 자식 차단→stop→resume→후속 두 번→전체 종료를 검증한다. 생성 중 partial assistant, tool call, 과거 reply, malformed content, manifest 누락을 시험 소유 데이터에만 주입하여 후속 입력이 차단되는지도 확인한다.
 
 최종 `CLINE_SDK_TEST_SSH_HOST=wsl npm test`는 **151/151 통과**, 실패·skip 0(약 87초)였다. SDK build와 예제 서버 checkJs도 통과했다. Standards 리뷰에서 발견한 생성 중 입력 허용 및 history 경로/구조 누락 처리를 보완한 후 Standards·Spec 모두 잔여 finding 0이다.
+
+## 기존 테스트 대화 복원 시 재개 예약 충돌
+
+원래 실행 `run-170f47b8-a6af-4d77-98ba-8895b3cd71e5`를 다시 열면 실제 공개 SDK에서 stopped이면서 resume=true가 되는 것을 재현했다. 이 실행은 이미 `run-88ffcf55-30ad-49b7-89ea-b9db7057f2bf`를 거쳐 `run-e09ca4fd-d7ae-4e6e-a308-c5a3a81bc45b`로 재개된 상태였다. 원격의 중복 예약 보호는 정상이며, SDK와 예제가 이 연결 관계를 입력 가능 상태에 반영하지 않는 결함이었다. 사용자 4174 화면에서 `ValueError: This execution already has a resume reservation; do not create another run`와 미전송 초안/잠금을 확인했다.
+
+`snapshot.supersededBy`를 노출하고 이미 재개된 실행의 새 resume를 요청 전 차단한다. 상태 확인 이후 다른 클라이언트가 먼저 예약한 경우도 원격 lock 안에서 새 요청의 EID/SID/digest와 기존 successor를 포함한 not-submitted receipt를 반환한다. 기존 예약을 덮어쓰거나 새 실행·입력을 만들지 않는다. 요청 결합이 일치할 때만 resume.not-submitted를 인정한다. SSE로 거부가 확인되고 HTTP 응답이 유실된 경우에도 같은 요청 ID의 pending만 해제하고 초안을 보존한다. 연결 상실만으로 미제출을 추정하지 않는다.
+
+예제 연결 복원은 저장된 ancestor의 supersededBy 관계를 따라 동일 SID/관리 경로의 leaf를 선택한다. 누락·다른 SID·순환 관계는 거부한다. 명시적인 이전 실행 선택은 정확히 해당 EID를 attach하여 상태·중단 근거 조회를 유지하고 재개 입력은 차단한다. 현재 대화는 한 개의 기본 버튼으로, 개별 이전 EID는 접힌 `이전 실행 기록`에 표시한다. 펼침 상태는 SSE 갱신에도 유지한다.
+
+공개 SDK 회귀는 원래 실행의 재개 차단과 동시 예약 거부 시 phantom pending이 남지 않는지 확인한다. 실제 브라우저 회귀는 저장 ancestor→현재 실행 복원, 이전 EID 개별 조회→현재 실행 복귀, 초안 유지, HTTP 유실 후 SSE 미제출 잠금 해제를 검증한다. 실제 SSH 회귀는 시험 소유 redundant alias만 제거해 상태 확인과 원격 예약 사이의 충돌을 재현하고, 기존 예약 보존·관리 실행 수 2개·입력 미전송을 확인했다.
+
+실제 Chrome 4189에서 원래 EID를 기록 조회로 선택해 저장한 뒤 시험 소유 Node 서버를 재시작했다. 브라우저의 연결 확인으로 두 재개 연결을 따라 현재 EID를 복원했고, SID와 전체 14개 message ID가 동일하며 sendMessage=true/ready임을 확인했다. 원래 4174의 미전송 문장은 새 화면에 초안으로만 보존했다. 새로운 모델 요청·원격 실행은 생성하지 않았다. `evidence/chat/resume-reservation-recovery.json`/`.png`에 증거를 기록했다. 4174는 기존 SDK를 로드한 서버이므로 재시작 전에는 최신 복원 처리가 적용되지 않는다.
+
+최종 `CLINE_SDK_TEST_SSH_HOST=wsl npm test`는 **155/155 통과**, 실패·skip 0(약 90초), SDK build와 예제 서버 checkJs도 통과했다. Standards의 SSE 미제출 잠금 해제와 Spec의 개별 이전 EID 조회 보존 지적을 보완한 후 두 리뷰 모두 잔여 finding 0이다.

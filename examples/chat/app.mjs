@@ -8,10 +8,14 @@ const draftKey=packet=>packet.snapshot?.sessionId ?? packet.executions?.find(e=>
 function selectionBlocked(packet) {return !transportConnected||sending||!!pending||packet.busy||packet.snapshot?.inputControl?.current===false||(packet.launchReserved&&!packet.snapshot?.executionId)||[packet.snapshot?.response,packet.snapshot?.messageDelivery,packet.snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state));}
 function renderConversations(packet) {
   const nav=element('conversations'),groups=new Map();
+  const expanded=new Set([...nav.querySelectorAll('details[open]')].map(details=>details.dataset.sessionId));
   for(const run of packet.executions ?? []){const key=run.sessionId ?? run.executionId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(run);}
   nav.replaceChildren();
   for(const [key,runs] of groups){const group=document.createElement('section'),title=document.createElement('p');title.className='subtle';title.textContent=key;group.append(title);
-    for(const run of runs){const button=document.createElement('button');button.type='button';button.textContent=run.title;button.title=run.executionId;button.dataset.executionId=run.executionId;button.setAttribute('aria-current',String(run.executionId===packet.selectedId));button.disabled=selectionBlocked(packet)||run.executionId===packet.selectedId;button.onclick=()=>changeSelection('select',{executionId:run.executionId});group.append(button);}nav.append(group);
+    const historical=runs.filter(run=>run.supersededBy && runs.some(next=>next.executionId===run.supersededBy && next.remoteRoot===run.remoteRoot && next.sessionId===run.sessionId));
+    const add=(run,parent,past=false)=>{const button=document.createElement('button');button.type='button';button.textContent=past?`이전 실행 · ${run.executionId.slice(-8)}`:run.title;button.title=run.executionId;button.dataset.executionId=run.executionId;button.setAttribute('aria-current',String(run.executionId===packet.selectedId));button.disabled=selectionBlocked(packet)||run.executionId===packet.selectedId;button.onclick=()=>changeSelection('select',{executionId:run.executionId});parent.append(button);};
+    for(const run of runs.filter(run=>!historical.includes(run)))add(run,group);
+    if(historical.length){const details=document.createElement('details'),summary=document.createElement('summary');details.dataset.sessionId=key;details.open=expanded.has(key);summary.textContent='이전 실행 기록';details.append(summary);for(const run of historical)add(run,details,true);group.append(details);}nav.append(group);
   }
   element('new').disabled=!packet.preflight?.ready||selectionBlocked(packet);element('list').disabled=!packet.preflight?.ready||sending||packet.busy;
   element('title').textContent=(packet.executions ?? []).find(e=>e.executionId===packet.selectedId)?.title ?? '새 대화';
@@ -112,6 +116,7 @@ function render(packet) {
   }
   if(pending?.action==='respond' && snapshot?.response?.requestId===pending.requestId && snapshot.response.state==='not-submitted'){pending=null;showError(Error('응답이 제출되지 않았습니다. 현재 질문을 확인하세요.'));}
   if(pending?.action==='message' && snapshot?.messageDelivery?.requestId===pending.requestId && snapshot.messageDelivery.state==='not-submitted'){pending=null;requestError=false;showError(Error('메시지가 제출되지 않았습니다. 초안을 확인한 뒤 직접 전송하세요.'));}
+  if(pending?.action==='resume' && snapshot?.resume?.requestId===pending.requestId && snapshot.resume.state==='not-submitted'){pending=null;requestError=false;showError(Error('이미 재개된 대화입니다. 메시지는 제출되지 않았습니다. 현재 대화를 선택한 뒤 초안을 직접 전송하세요.'));}
   if(pending?.action==='start' && snapshot?.execution==='stopped' && snapshot.stop?.state==='confirmed' && snapshot.stop.childrenVerified && snapshot.stop.remaining.length===0){pending=null;requestError=false;}
   renderInteractions(snapshot);
   element('pending').hidden=!pending;
@@ -130,6 +135,7 @@ function render(packet) {
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';
   if(snapshot?.inputControl?.current===false)element('hint').textContent='입력 전달 기록을 확인할 수 없습니다. 기존 요청을 재전송하지 않습니다.';
   if(canResume)element('hint').textContent='같은 대화를 새 실행으로 재개합니다 · UTF-8 112바이트 이내의 한 줄';
+  if(snapshot?.supersededBy)element('hint').textContent='이전 실행 기록입니다. 대화 목록에서 현재 대화를 선택하면 계속할 수 있습니다.';
   if(snapshot?.startup?.state==='provider-setup-required' && !snapshot.stop)element('hint').textContent='CLI 초기 설정 필요 · 현재 실행을 중단한 뒤, 인증이 설정된 CLI 데이터 디렉터리로 새 대화를 시작하세요.';
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
 }
@@ -160,8 +166,12 @@ element('composer').onsubmit=async event=>{
   if(followup && (!text||text.trim()!==text||new TextEncoder().encode(text).length>112||/[\p{Cc}\p{Cs}]/u.test(text)||text.startsWith('/')||text.includes('@')||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error('후속 메시지는 UTF-8 112바이트 이내의 한 줄입니다. 앞뒤 공백, 제어 문자, slash command, @ mention을 제외하세요.'));return;}
   if(!text.trim()||text.length>100000){showError(Error('비어 있지 않은 100,000자 이내의 첫 요청을 입력하세요.'));return;}
   pending={text,action:answerMode?'respond':resumeMode?'resume':followup?'message':'start',baseline:(current.snapshot?.messages??[]).map(m=>m.id),requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
+  const attempted=pending;
   try{await invoke(pending.action,{requestId:pending.requestId,generation:pending.generation,...(answerMode?{answer:text,interactionId:current.snapshot.interaction.id,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:followup?{text,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:{cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text})});}
-  catch(error){requestError=true;showError(error);if(error.notSubmitted===true){pending=null;showError(Error(`${error.message} · 메시지가 제출되지 않았습니다. 초안을 확인한 뒤 직접 전송하세요.`));}}
+  catch(error){
+    if(attempted.action==='resume' && current.snapshot?.resume?.requestId===attempted.requestId && current.snapshot.resume.state==='not-submitted')error=Object.assign(Error('이미 재개된 대화입니다. 현재 대화를 선택하세요.'),{notSubmitted:true});
+    requestError=true;showError(error);if(error.notSubmitted===true){pending=null;requestError=false;showError(Error(`${error.message} · 메시지가 제출되지 않았습니다. 초안을 확인한 뒤 직접 전송하세요.`));}
+  }
   finally{sending=false;render(current);}
 };
 element('message').onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229&&!event.shiftKey){event.preventDefault();element('composer').requestSubmit();}};

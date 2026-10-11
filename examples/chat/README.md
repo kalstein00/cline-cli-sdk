@@ -103,3 +103,5 @@ if (client.capabilities().sendMessage && s.messageInput?.ready) {
 일부 CLI는 재개 시 manifest에 이전 PID를 유지합니다. 이 경우 현재 실행의 소유 프로세스와 정확한 SID/작업/데이터 경로 인자, 재개 이후 완료된 text 응답의 token metrics, 도구 호출 없음, 빈 composer가 모두 확인될 때만 다음 입력을 허용합니다. 완료 근거가 없는 history profile은 계속 차단합니다. SDK 또는 원격 supervisor 코드를 변경한 뒤에는 예제 Node 서버를 재시작하고 기존 작업을 confirmed 중단한 후 재개해야 새 코드가 적용됩니다.
 
 실제 브라우저·공개 CLI 근거와 fixture/장애 주입 결과는 저장소의 `docs/chat-acceptance.md`에 구분해 기록했습니다.
+
+이미 재개된 이전 실행은 `snapshot.supersededBy`에 이어지는 관리 EID를 표시하고 `capabilities().resume=false`로 재개를 차단합니다. 예제의 연결 복원은 저장 EID의 재개 연결 관계를 따라 같은 SID/관리 경로의 현재 실행을 엽니다. 파일 시각이나 목록 순서로 실행을 추정하지 않습니다. 이전 실행은 대화 목록의 `이전 실행 기록`에서 개별 조회할 수 있고, 계속 대화하려면 해당 그룹의 현재 대화 버튼을 선택합니다. 새 요청과 기존 재개 예약이 충돌하면 `resume.state=not-submitted`로 초안을 보존합니다. 연결 자체가 끊겨 거부가 확인되지 않으면 계속 전달 여부 불명입니다.

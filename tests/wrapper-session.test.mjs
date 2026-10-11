@@ -86,10 +86,26 @@ while True:
   assert.equal(busy.messageInput.reason,'agent-busy');assert.equal(c.capabilities().sendMessage,false);
   assert.equal((await c.stop({executionId,requestId:randomUUID()})).state,'confirmed');
   await until(()=>c.refresh(),()=>c.capabilities().resume);
+  const priorExecutionId=executionId;
   const resumed=await c.resume({executionId,requestId:randomUUID(),prompt:'resume next'});
   executionId=resumed.executionId;assert.equal(resumed.sessionId,'wrapper-child-session');assert.equal(resumed.resume.state,'delivered');
   const idle=await until(()=>c.refresh(),()=>c.capabilities().sendMessage);
   assert.equal(idle.executionEvidence.manifestStatus,null);assert.equal(idle.executionEvidence.composerIdle,true);
+  // Emulate another client winning the resume reservation after our last status.
+  // Remove only the redundant test-owned alias; retain the actual reservation.
+  const priorMeta=root+'/'+priorExecutionId+'/meta.json';
+  const originalMeta=python(`import pathlib;print(pathlib.Path(${JSON.stringify(priorMeta)}).read_text())`);
+  const other=createClient({mode:'live',connection:{host,cliPath:cli,remoteRoot:root,responseTimeoutMs:5000}});
+  try {
+   const changed=JSON.parse(originalMeta);delete changed.resumedBy;
+   python(`import pathlib,base64\np=pathlib.Path(${JSON.stringify(priorMeta)});p.write_bytes(base64.b64decode('${Buffer.from(JSON.stringify(changed)).toString('base64')}'))`);
+   await other.connect();await other.attach(priorExecutionId);assert.equal(other.capabilities().resume,true);
+   await assert.rejects(other.resume({executionId:priorExecutionId,requestId:randomUUID(),prompt:'must remain a draft'}),{code:'execution-superseded',notSubmitted:true});
+   assert.equal(other.snapshot().supersededBy,executionId);assert.equal(other.snapshot().resume.state,'not-submitted');
+   assert.equal((await other.listManagedExecutions()).length,2);
+  } finally {
+   other.close();python(`import pathlib,base64\np=pathlib.Path(${JSON.stringify(priorMeta)});p.write_bytes(base64.b64decode('${Buffer.from(originalMeta).toString('base64')}'))`);
+  }
   // A partial assistant can expose an empty composer while still generating.
   // Only these test-owned histories are edited, never actual CLI conversations.
   const historyFile=directory+'/data/sessions/wrapper-child-session/wrapper-child-session.messages.json';

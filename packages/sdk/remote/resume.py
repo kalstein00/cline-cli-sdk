@@ -19,7 +19,9 @@ def launch_resume(request, root, handle, identity, boot_id, save):
         if receipt_path.exists():
             receipt = json.loads(receipt_path.read_text())
             if any(receipt.get(k) != v for k,v in binding.items()):
-                raise ValueError('This execution already has a resume reservation; do not create another run')
+                # This attempt has not reserved/launched/written anything. Preserve
+                # the original reservation and let the consumer attach its successor.
+                return dict(state='not-submitted',executionId=new_id,sessionId=receipt['sessionId'],promptDigest=binding['promptDigest'],supersededBy=receipt['executionId'])
             return dict(executionId=receipt['executionId'],sessionId=receipt['sessionId'],remoteRoot=str(root),terminalMode='tui',resume=receipt)
         status = handle(dict(request,action='status',cursor=0,fullScreen=False))
         if status.get('management',{}).get('inputLedgerCurrent') is not True:

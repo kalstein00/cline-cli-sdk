@@ -1133,6 +1133,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         return Promise.reject(new SdkError("resume-target-mismatch", "Attach the ended managed execution before resuming."));
       const promise = (async () => {
       await refresh();
+      if(state.supersededBy)throw Object.assign(new SdkError("execution-superseded",`This execution was already resumed. Attach ${state.supersededBy} to continue; this prompt was not submitted.`),{notSubmitted:true});
         if(state.inputControl?.current===false)throw new SdkError("input-control-unavailable","The durable input ledger is unavailable; resume is blocked.");
       if (!state.historySync.current || !state.sessionId || !["completed", "stopped"].includes(state.execution) ||
           processEvidence?.alive !== false || !processEvidence.identityConfirmed ||
@@ -1156,6 +1157,12 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         const launched = await helper({ action: "resume", root: managed!.remoteRoot,
           executionId: fromExecutionId, newExecutionId: executionId, requestId: request.requestId,
           prompt: request.prompt, cliPath: report!.cliPath, cliHash: report!.cliHash });
+        if(launched.state==='not-submitted' && launched.executionId===executionId && launched.sessionId===sessionId && launched.promptDigest===digest && /^run-[a-f0-9-]{36}$/.test(launched.supersededBy)) {
+          action('receipt',{receipt:launched});resumeActive=false;
+          reducer.binding({kind:'binding',seq:++sequence,observedAt:new Date().toISOString(),sessionId,supersededBy:launched.supersededBy});
+          throw Object.assign(new SdkError('execution-superseded',`This conversation was already resumed. Attach ${launched.supersededBy}; this prompt was not submitted.`),{notSubmitted:true});
+        }
+        if(launched.state==='not-submitted')throw new SdkError('resume-input-uncertain','The existing reservation rejection did not match this request.');
         if (!launched.executionId || launched.sessionId !== sessionId)
           throw new SdkError("resume-target-mismatch", "Remote resume did not preserve the conversation.");
         managed = launched;
@@ -1223,7 +1230,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         state={...reducer.snapshot(),mode:"live",connection:state.connection};
         return snapshot();
       } catch(error) {
-        action("fault",{reason:error instanceof SdkError?error.code:"resume-input-uncertain"});
+        if(reducer.snapshot().resume?.state!=='not-submitted')action("fault",{reason:error instanceof SdkError?error.code:"resume-input-uncertain"});
         state={...reducer.snapshot(),mode:"live",connection:state.connection};
         throw error;
       }
@@ -1249,7 +1256,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         responses: !!report?.ready && outputMode !== "json" && state.inputControl?.current!==false && state.startup?.state!=="provider-setup-required",
         sendMessage: !!state.messageInput?.ready && !messageActive && !activeRequest && !resumeActive,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
-        resume: state.inputControl?.current!==false && outputMode !== "json" && !!report?.profile.supported && report.ready && !!report.cliFlags?.includes("--id") && !!report.cliFlags?.includes("--tui") && state.historySync.current && state.connection === "connected" &&
+        resume: !state.supersededBy && state.inputControl?.current!==false && outputMode !== "json" && !!report?.profile.supported && report.ready && !!report.cliFlags?.includes("--id") && !!report.cliFlags?.includes("--tui") && state.historySync.current && state.connection === "connected" &&
           !!state.sessionId && ["completed","stopped"].includes(state.execution) &&
           processEvidence?.alive === false && processEvidence.identityConfirmed === true &&
           processEvidence.supervisorAlive === false && processEvidence.childrenVerified === true &&

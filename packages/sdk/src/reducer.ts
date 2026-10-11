@@ -259,6 +259,8 @@ export interface ResponseResult {
   revision: number;
 }
 export interface Snapshot {
+  /** This execution has already been resumed; attach this managed successor to continue. */
+  supersededBy?: string;
   /** CLI initialization is distinct from a received conversational request. */
   startup?: {state:"waiting-for-session"|"provider-setup-required"};
   result?:StructuredResult;
@@ -280,7 +282,7 @@ export interface Snapshot {
   /** Missing/corrupt durable input metadata blocks input, even on a fresh attach. */
   inputControl?: {current:boolean;reason:"ledger-unavailable"|null};
   composer?: { mode: "tui"; text: string } | null;
-  resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" } | null;
+  resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" | "not-submitted" } | null;
   historySync: { current: boolean; warning: string | null };
   replay: {
     position: number;
@@ -1047,6 +1049,7 @@ export function createReducer(options: {
       if(obs.supersededBy && resultRequest) resultRequest.supersededBy=obs.supersededBy;
       const next = {
         sessionId: obs.sessionId,
+        ...(obs.supersededBy ? {supersededBy:obs.supersededBy} : {}),
         ...(obs.executionId ? { executionId: obs.executionId } : {}),
       };
       if (
@@ -1308,6 +1311,8 @@ export function createReducer(options: {
         };
       } else if (state.resume?.requestId === obs.requestId && obs.operation === "fault") {
         state.resume.state = "delivery-unknown";
+      } else if(state.resume?.requestId===obs.requestId && obs.operation==='receipt' && obs.receipt?.state==='not-submitted' && 'promptDigest' in obs.receipt && obs.receipt.promptDigest===resumeDigest && obs.receipt.executionId===state.resume.executionId && obs.receipt.sessionId===state.resume.sessionId) {
+        state.resume.state='not-submitted';
       } else if (state.resume?.requestId === obs.requestId && obs.operation === "receipt" && obs.receipt && "messageId" in obs.receipt) {
         const witness = obs.receipt;
         const delivered = witness.state === "delivered" &&
@@ -1375,6 +1380,7 @@ export function createReducer(options: {
         ...state,
         sessionId: input.sessionId,
         executionId: input.executionId,
+        supersededBy: undefined,
         revision: 0,
         connection: input.schemaVersion === 2 ? "closed" : "replay",
         execution: "unknown",

@@ -28,6 +28,36 @@ async function connectedPage(t,port,fault='') {
   return page;
 }
 
+test('saved ancestor selection restores the existing current run once without another resume or lost draft',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4224,'resumed-lineage');
+ await page.evaluate(()=>localStorage.setItem('cline-chat-selected','run-11111111-1111-4111-8111-111111111111'));
+ await page.reload();await page.getByRole('button',{name:'연결 확인',exact:true}).click();
+ await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ assert.equal((await page.request.get('http://127.0.0.1:4224/api/state').then(r=>r.json())).selectedId,'run-33333333-3333-4333-8333-333333333333');
+ assert.equal(await page.locator('#conversations section > button').count(),1);assert.equal(await page.locator('#conversations details button').count(),2);assert.equal(await page.locator('#send').textContent(),'메시지 보내기');
+ await page.locator('#message').fill('keep this draft');
+ const current=await page.request.get('http://127.0.0.1:4224/api/state').then(r=>r.json());
+ await page.getByText('이전 실행 기록',{exact:true}).click();await page.waitForTimeout(1500); // retain expansion across the next SSE refresh
+ assert.equal(await page.locator('#conversations details').getAttribute('open'),'');
+ await page.getByRole('button',{name:'이전 실행 · 11111111',exact:true}).click();
+ await page.locator('#hint').filter({hasText:'이전 실행 기록입니다'}).waitFor();assert.equal(await page.locator('#send').isEnabled(),false);
+ await page.locator('#conversations section > button').click();await page.locator('#hint').filter({hasText:'다음 메시지 입력 준비 완료'}).waitFor();
+ assert.equal(await page.locator('#message').inputValue(),'keep this draft');
+ assert.equal(await page.evaluate(()=>localStorage.getItem('cline-chat-selected')),current.selectedId);
+});
+
+test('SSE resolves an unsubmitted resume after its HTTP response is lost without clearing or resending the draft',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4225,'resume-conflict');
+ await page.locator('#message').fill('original');await page.locator('#send').click();
+ await page.getByRole('button',{name:'대화 재개하여 보내기',exact:true}).waitFor({timeout:5000});
+ let attempts=0;await page.route('**/api/resume',async route=>{attempts++;await route.fetch();await route.abort();});
+ await page.locator('#message').fill('must stay a draft');await page.locator('#send').click();
+ await page.locator('#error').filter({hasText:/메시지[가는] 제출되지 않았습니다/}).waitFor({timeout:5000});
+ assert.equal(await page.locator('#pending').isVisible(),false);assert.equal(await page.locator('#message').inputValue(),'must stay a draft');assert.equal(attempts,1);
+ assert.equal(await page.locator('#new').isEnabled(),true);
+ const s=await page.request.get('http://127.0.0.1:4225/api/state').then(r=>r.json());assert.equal(s.snapshot.resume.state,'not-submitted');assert.equal(s.snapshot.supersededBy,'run-33333333-3333-4333-8333-333333333333');
+});
+
 test('company CLI with different version and binary can send the first message and reach an idle composer',{timeout:30000},async t=>{
  const page=await connectedPage(t,4216,'company');
  assert.equal(await page.locator('#send').isEnabled(),true);

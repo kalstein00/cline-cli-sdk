@@ -26,13 +26,28 @@ function state() {
     executions:executions.map(e=>({...e,title:titles.get(e.sessionId ?? e.executionId) ?? e.sessionId ?? e.executionId})),snapshot,capabilities:client?.capabilities() ?? null};
 }
 async function listExecutions(){executions=await client.listManagedExecutions();}
+function currentExecution(executionId) {
+  const seen=new Set();let run=executions.find(e=>e.executionId===executionId);
+  if(!run)throw problem('unknown-execution','관리 실행 목록을 갱신하세요.');
+  while(run.supersededBy){
+    if(seen.has(run.executionId))throw problem('continuation-unconfirmed','재개 연결 관계를 확인할 수 없습니다. 목록을 갱신하세요.');
+    seen.add(run.executionId);
+    const next=executions.find(e=>e.executionId===run.supersededBy);
+    if(!next || !run.sessionId || next.sessionId!==run.sessionId || next.remoteRoot!==run.remoteRoot)
+      throw problem('continuation-unconfirmed','이미 재개된 대화입니다. 이어지는 실행을 확인할 수 없어 입력을 차단합니다. 목록을 갱신하세요.');
+    run=next;
+  }
+  return run.executionId;
+}
 function guardSelection() {
   const snapshot=client?.snapshot();
   if(snapshot?.inputControl?.current===false||(launchReserved&&!snapshot?.executionId)||[snapshot?.response,snapshot?.messageDelivery,snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state)))
     throw problem('delivery-pending','진행 중이거나 전달 여부가 불명인 요청을 먼저 확인하세요.');
 }
 async function selectClient(executionId=null) {
-  guardSelection();unsubscribe?.();client?.close();selectedId=executionId;launchReserved=false;
+  guardSelection();
+  if(executionId && client.snapshot().executionId===executionId){await client.refresh();return;}
+  unsubscribe?.();client?.close();selectedId=executionId;launchReserved=false;
   client=createClient({mode:'live',connection:connectionOptions});generation++;watch();
   preflight=await client.connect();
   if(executionId)await client.attach(executionId);
@@ -54,7 +69,7 @@ async function perform(action, input) {
     connectionOptions={host:input.host,cliPath:input.cliPath || undefined,
       remoteRoot:input.remoteRoot || undefined,identityFile:input.identityFile || undefined};
     await selectClient();
-    if(input.executionId && executions.some(e=>e.executionId===input.executionId)){selectedId=input.executionId;await client.attach(input.executionId);}
+    if(input.executionId && executions.some(e=>e.executionId===input.executionId)){selectedId=input.executionId;selectedId=currentExecution(input.executionId);await client.attach(selectedId);}
     if(process.env.CLINE_CHAT_DIAGNOSTICS)await client.startDiagnostics({directory:process.env.CLINE_CHAT_DIAGNOSTICS});
   } else if(action==='new'||action==='select') {
     if(!connectionOptions)throw problem('not-ready','연결 설정을 확인하세요.');

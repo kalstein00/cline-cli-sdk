@@ -14,7 +14,10 @@ const fault = process.env.CLINE_CHAT_FAULT;
 let executionId, prompt;
 let stopResult;
 let messageRequest, messageRejected=false, messageResolution;
+let resumeConflict=false;
 const runs=new Map();
+const lineageIds=['run-11111111-1111-4111-8111-111111111111','run-22222222-2222-4222-8222-222222222222','run-33333333-3333-4333-8333-333333333333'];
+if(fault==='resumed-lineage')for(const [i,id] of lineageIds.entries())runs.set(id,{prompt:'original conversation',sessionId:'chat-fixture-session',supersededBy:lineageIds[i+1]});
 cp.spawn = (...args) => {
   if (!['ssh', 'ssh.exe'].includes(args[0])) return native(...args);
   const process = new EventEmitter();
@@ -29,8 +32,11 @@ cp.spawn = (...args) => {
     else if (request.action === 'start') {
       executionId = request.executionId; prompt = request.prompt;runs.set(executionId,{prompt,sessionId:'chat-fixture-session-'+runs.size});
       result = {executionId:fault==='launch-identity'?'unexpected-execution':executionId, remoteRoot: '/fixture/control'};
+    } else if(request.action==='resume' && fault==='resume-conflict'){
+      resumeConflict=true;const successor='run-33333333-3333-4333-8333-333333333333';runs.get(executionId).supersededBy=successor;runs.set(successor,{prompt,sessionId:'chat-fixture-session'});
+      result={state:'not-submitted',executionId:request.newExecutionId,sessionId:'chat-fixture-session',promptDigest:createHash('sha256').update(request.prompt).digest('hex'),supersededBy:successor};
     } else if(request.action==='stop'){stopResult={executionId:request.executionId,requestId:request.requestId,state:fault==='stop-unknown'?'unknown':'confirmed',childrenVerified:fault!=='stop-unknown',trackedCount:1,remaining:[],reason:null,observedAt:new Date().toISOString()};result=stopResult;
-    } else if(request.action==='list') {result={executions:[...runs].map(([id,run])=>({executionId:id,remoteRoot:'/fixture/control',sessionId:run.sessionId,terminalMode:'tui',terminal:{rows:40,cols:120},cliHash:pinned.cliHash,alive:true,identityConfirmed:true}))};
+    } else if(request.action==='list') {result={executions:[...runs].map(([id,run])=>({executionId:id,remoteRoot:'/fixture/control',sessionId:run.sessionId,supersededBy:run.supersededBy,terminalMode:'tui',terminal:{rows:40,cols:120},cliHash:pinned.cliHash,alive:!run.supersededBy,identityConfirmed:true}))};
     } else if (request.action === 'reserve-message') {
       messageRequest=request;result={state:'reserved',fresh:true};
     } else if (request.action === 'respond' && fault==='message-rejected') {
@@ -38,7 +44,7 @@ cp.spawn = (...args) => {
     } else if (request.action === 'settle-message' && fault==='message-rejected') {
       messageResolution='not-submitted';result={state:'not-submitted',executionId,sessionId:'chat-fixture-session',promptDigest:messageRequest.answerDigest};
     } else if (request.action === 'status') {
-      if(fault==='multi'){executionId=request.executionId;prompt=runs.get(executionId)?.prompt;}
+      if(['multi','resumed-lineage'].includes(fault)){executionId=request.executionId;prompt=runs.get(executionId)?.prompt;}
       const sid=fault==='multi'?runs.get(executionId)?.sessionId:'chat-fixture-session';
       const history = Buffer.from(JSON.stringify({version:1, sessionId:sid, messages:[
         {id:'user-first',role:'user',content:[{type:'text',text:prompt}]},
@@ -51,6 +57,15 @@ cp.spawn = (...args) => {
         process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:['ready','multi','company','message-rejected'].includes(fault)?'idle':'running',supervisorAlive:true,children:[],trackingError:null}};
       if(messageRejected)result.requests=[{requestId:messageRequest.requestId,state:'rejected',resolution:messageResolution,message:true,binding:messageRequest,baselineMessageCount:2,baselineLastMessageId:'assistant-first',steps:[{index:0,state:'rejected'}]}];
       if(stopResult)Object.assign(result.process,{stop:stopResult,alive:stopResult.state!=='confirmed',exitCode:stopResult.state==='confirmed'?-15:null,manifestStatus:'cancelled',supervisorAlive:stopResult.state!=='confirmed',childrenVerified:stopResult.childrenVerified});
+      if(fault==='resumed-lineage'){
+       result.supersededBy=runs.get(executionId)?.supersededBy;
+       result.observations=composer.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor);result.composerHash='controlled-composer';
+       Object.assign(result.process,{alive:!result.supersededBy,exitCode:result.supersededBy?0:null,manifestStatus:result.supersededBy?'completed':'idle',supervisorAlive:!result.supersededBy,childrenVerified:true});
+      }
+      if(fault==='resume-conflict'){
+       Object.assign(result.process,{alive:false,exitCode:0,manifestStatus:'completed',supervisorAlive:false,childrenVerified:true});
+       if(resumeConflict)result.supersededBy=runs.get(executionId).supersededBy;
+      }
     } else result = {error:'fixture-no-operation',message:'Unsupported controlled operation'};
     if(request.action==='status' && ['question','approval'].includes(fault)) {
       const record=fault==='question'?question:approval;const end=fault==='question'?98:record.observations.find(o=>o.kind==='response-input').seq-1;const rows=record.observations.filter(o=>o.seq<=end);
