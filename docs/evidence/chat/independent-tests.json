@@ -1,0 +1,28 @@
+{
+  "source": "Recorded command results in this implementation session",
+  "fullSuite": {
+    "failed": 0,
+    "durationMs": 61640.7744,
+    "timing": "Before the final manifest-null readiness reason correction",
+    "command": "npm test",
+    "skipped": 0,
+    "passed": 130
+  },
+  "finalFocused": {
+    "includesNewManifestNullRegression": true,
+    "command": "npm run build; node --test tests/message-input.test.mjs tests/send-message.test.mjs tests/resume.test.mjs; npx tsc -p examples/chat/tsconfig.json",
+    "failed": 0,
+    "passed": 25
+  },
+  "browserFocused": {
+    "command": "node --test --test-name-pattern='reading position|IME Enter' tests/chat-browser.test.mjs",
+    "failed": 0,
+    "passed": 2
+  },
+  "currentTotalTests": 131,
+  "remoteBoundary": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 python3 tests/remote-input-boundary.py",
+    "passed": 2,
+    "phase": "Ticket26, separate from npm test"
+  }
+}

@@ -1,0 +1,251 @@
+{
+  "source": "Independent npm installation of copied consumer and packed SDK",
+  "stage": "C:\\Users\\kalst\\AppData\\Local\\Temp\\cline-chat28-5e989fd69e16421ebb31978e954ae429",
+  "node": "v24.16.0",
+  "sourceFiles": [
+    "package.json",
+    "server.mjs",
+    "index.html",
+    "app.mjs",
+    "style.css",
+    "README.md"
+  ],
+  "sdkTgzSha256": "0f8072b39faaad2916a4441703b4f218f1657a7e070ca43a671d61ebbe98e180",
+  "pack": {
+    "id": "@cline-cli-sdk/sdk@0.1.0",
+    "name": "@cline-cli-sdk/sdk",
+    "version": "0.1.0",
+    "size": 60030,
+    "unpackedSize": 285812,
+    "shasum": "bf2c9599a1ab6cd0707a6494ac663c4ced332c8c",
+    "integrity": "sha512-e1Rkptav19oi/HvRZ0tsrchde2ZVYa4/XMgsCm5tXkJTWg9it393Syxb0BnlfssSSPvfmOeL2y7Un58R7vRZYQ==",
+    "filename": "cline-cli-sdk-sdk-0.1.0.tgz",
+    "files": [
+      {
+        "path": "dist/capabilities.d.ts",
+        "size": 529,
+        "mode": 420
+      },
+      {
+        "path": "dist/capabilities.js",
+        "size": 1479,
+        "mode": 420
+      },
+      {
+        "path": "dist/delivery.d.ts",
+        "size": 632,
+        "mode": 420
+      },
+      {
+        "path": "dist/delivery.js",
+        "size": 1441,
+        "mode": 420
+      },
+      {
+        "path": "dist/diagnostic-file.d.ts",
+        "size": 668,
+        "mode": 420
+      },
+      {
+        "path": "dist/diagnostic-file.js",
+        "size": 5549,
+        "mode": 420
+      },
+      {
+        "path": "dist/diagnostics.d.ts",
+        "size": 1528,
+        "mode": 420
+      },
+      {
+        "path": "dist/diagnostics.js",
+        "size": 16475,
+        "mode": 420
+      },
+      {
+        "path": "dist/export.d.ts",
+        "size": 1912,
+        "mode": 420
+      },
+      {
+        "path": "dist/export.js",
+        "size": 17459,
+        "mode": 420
+      },
+      {
+        "path": "dist/index.d.ts",
+        "size": 1461,
+        "mode": 420
+      },
+      {
+        "path": "dist/index.js",
+        "size": 472,
+        "mode": 420
+      },
+      {
+        "path": "dist/input-chunks.d.ts",
+        "size": 210,
+        "mode": 420
+      },
+      {
+        "path": "dist/input-chunks.js",
+        "size": 860,
+        "mode": 420
+      },
+      {
+        "path": "dist/json-output.d.ts",
+        "size": 564,
+        "mode": 420
+      },
+      {
+        "path": "dist/json-output.js",
+        "size": 5196,
+        "mode": 420
+      },
+      {
+        "path": "dist/live.d.ts",
+        "size": 3641,
+        "mode": 420
+      },
+      {
+        "path": "dist/live.js",
+        "size": 80631,
+        "mode": 420
+      },
+      {
+        "path": "dist/message-input.d.ts",
+        "size": 617,
+        "mode": 420
+      },
+      {
+        "path": "dist/message-input.js",
+        "size": 1592,
+        "mode": 420
+      },
+      {
+        "path": "dist/message.d.ts",
+        "size": 349,
+        "mode": 420
+      },
+      {
+        "path": "dist/message.js",
+        "size": 11,
+        "mode": 420
+      },
+      {
+        "path": "dist/reducer.d.ts",
+        "size": 11464,
+        "mode": 420
+      },
+      {
+        "path": "dist/reducer.js",
+        "size": 57771,
+        "mode": 420
+      },
+      {
+        "path": "dist/schema.d.ts",
+        "size": 252,
+        "mode": 420
+      },
+      {
+        "path": "dist/schema.js",
+        "size": 4223,
+        "mode": 420
+      },
+      {
+        "path": "dist/structured-result.d.ts",
+        "size": 1170,
+        "mode": 420
+      },
+      {
+        "path": "dist/structured-result.js",
+        "size": 6168,
+        "mode": 420
+      },
+      {
+        "path": "package.json",
+        "size": 406,
+        "mode": 420
+      },
+      {
+        "path": "remote/message.py",
+        "size": 3587,
+        "mode": 420
+      },
+      {
+        "path": "remote/ownership.py",
+        "size": 11240,
+        "mode": 420
+      },
+      {
+        "path": "remote/resume.py",
+        "size": 5519,
+        "mode": 420
+      },
+      {
+        "path": "remote/supervisor.py",
+        "size": 40736,
+        "mode": 420
+      }
+    ],
+    "entryCount": 33,
+    "bundled": []
+  },
+  "dependencies": {
+    "version": "0.1.0",
+    "name": "@cline-cli-sdk/chat-example",
+    "dependencies": {
+      "@cline-cli-sdk/sdk": {
+        "version": "0.1.0",
+        "resolved": "file:C:\\Users\\kalst\\AppData\\Local\\Temp\\cline-chat28-5e989fd69e16421ebb31978e954ae429\\sdk-final28.tgz",
+        "overridden": false,
+        "dependencies": {
+          "@xterm/addon-unicode11": {
+            "version": "0.8.0",
+            "resolved": "https://registry.npmjs.org/@xterm/addon-unicode11/-/addon-unicode11-0.8.0.tgz",
+            "overridden": false,
+            "dependencies": {
+              "@xterm/xterm": {
+                "version": "5.5.0",
+                "resolved": "https://registry.npmjs.org/@xterm/xterm/-/xterm-5.5.0.tgz",
+                "overridden": false
+              }
+            }
+          },
+          "@xterm/headless": {
+            "version": "5.5.0",
+            "resolved": "https://registry.npmjs.org/@xterm/headless/-/headless-5.5.0.tgz",
+            "overridden": false
+          },
+          "ajv": {
+            "version": "8.20.0",
+            "resolved": "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz",
+            "overridden": false,
+            "dependencies": {
+              "fast-deep-equal": {
+                "version": "3.1.3",
+                "resolved": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+                "overridden": false
+              },
+              "fast-uri": {
+                "version": "3.1.8",
+                "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz",
+                "overridden": false
+              },
+              "json-schema-traverse": {
+                "version": "1.0.0",
+                "resolved": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+                "overridden": false
+              },
+              "require-from-string": {
+                "version": "2.0.2",
+                "resolved": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
+                "overridden": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "sdkLinkType": null
+}

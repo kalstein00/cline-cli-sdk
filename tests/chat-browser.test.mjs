@@ -138,3 +138,23 @@ for(const [fault,confirmed] of [['stop-confirmed',true],['stop-unknown',false]])
  if(confirmed){assert.equal(await page.locator('#send').textContent(),'대화 재개하여 보내기');await page.locator('#message').fill('한'.repeat(38));await page.locator('#send').click();await page.locator('#error').filter({hasText:'UTF-8 112바이트'}).waitFor();}
  const after=await page.request.get(`http://127.0.0.1:${confirmed?4215:4216}/api/state`).then(r=>r.json());assert.equal(after.snapshot.executionId,before.snapshot.executionId);assert.deepEqual(after.snapshot.messages,before.snapshot.messages);
 });
+
+test('consumer preserves reading position and draft during history recovery and renders message text safely',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4220,'ready');await page.locator('#message').fill('Read history');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ const packet=await page.request.get('http://127.0.0.1:4220/api/state').then(r=>r.json());
+ const history=Array.from({length:40},(_,i)=>({id:`history-${i}`,role:i%2?'assistant':'user',text:`Prior message ${i}\n${'Long paragraph. '.repeat(20)}`}));
+ const updated={...packet,snapshot:{...packet.snapshot,revision:packet.snapshot.revision+1000,messages:[...packet.snapshot.messages,...history]}};
+ await page.evaluate(p=>window.testEvents.dispatchEvent(new MessageEvent('message',{data:JSON.stringify(p)})),updated);
+ await page.locator('#message').fill('Reading draft');const top=await page.locator('#timeline').evaluate(e=>{e.scrollTop=160;return e.scrollTop;});assert.equal(top,160);
+ updated.snapshot={...updated.snapshot,revision:updated.snapshot.revision+1,historySync:{...updated.snapshot.historySync,current:false},messages:[...updated.snapshot.messages,{id:'latest-safe',role:'assistant',text:'<img src=x onerror="window.unsafe=true"> New answer'}]};
+ await page.evaluate(p=>window.testEvents.dispatchEvent(new MessageEvent('message',{data:JSON.stringify(p)})),updated);
+ assert.equal(await page.locator('#timeline').evaluate(e=>e.scrollTop),top);assert.equal(await page.locator('#message').inputValue(),'Reading draft');assert.equal(await page.locator('[data-message-id="user-first"]').count(),1);
+ await page.locator('#hint').filter({hasText:'마지막 정상 대화를 유지'}).waitFor();assert.equal(await page.locator('#newMessages').isVisible(),true);assert.equal(await page.locator('#messages img').count(),0);assert.equal(await page.evaluate(()=>window.unsafe),undefined);
+ const stored=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)));assert.deepEqual(Object.keys(stored).sort(),['cline-chat-selected','cline-chat-settings']);assert.equal(JSON.stringify(stored).includes('Reading draft'),false);
+});
+
+test('IME Enter does not submit and a multiline followup is rejected before HTTP while preserving its draft',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4221,'ready');await page.locator('#message').fill('IME baseline');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();await page.waitForFunction(()=>!document.querySelector('#send').disabled);
+ let sends=0;await page.route('**/api/message',route=>{sends++;return route.abort();});await page.locator('#message').fill('한글 조합');await page.locator('#message').dispatchEvent('keydown',{key:'Enter',isComposing:true});await page.waitForTimeout(100);assert.equal(sends,0);assert.equal(await page.locator('#pending').isVisible(),false);
+ await page.locator('#message').fill('first\nsecond');await page.locator('#send').click();await page.locator('#error').filter({hasText:'한 줄'}).waitFor();assert.equal(sends,0);assert.equal(await page.locator('#message').inputValue(),'first\nsecond');
+});

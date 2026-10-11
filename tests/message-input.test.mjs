@@ -25,6 +25,7 @@ test('public snapshot distinguishes a witnessed idle composer from a still-runni
 for(const [label,overrides,extra,reason] of [
  ['tool process',{children:[{pid:43,startTime:'101',bootId:'fixture-boot'}]},[],'agent-busy'],
  ['lost identity',{identityConfirmed:false},[],'process-unconfirmed'],
+ ['manifest ownership unavailable',{manifestStatus:null},[],'process-unconfirmed'],
  ['supervisor missing',{supervisorAlive:false},[],'process-unconfirmed'],
  ['stale history',{},[{kind:'history-failure',reason:'controlled-file-change'}],'history-unavailable'],
  ['disconnect',{},[{kind:'connection',action:'disconnected'}],'not-connected'],

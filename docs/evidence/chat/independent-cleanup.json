@@ -1,0 +1,367 @@
+{
+  "source": "public SDK stop of actual test-owned roots only; prior results retained separately",
+  "results": [
+    {
+      "root": "control",
+      "executionId": "run-7ad2a101-241b-45d4-b854-fb30c76db51e",
+      "requestId": "cleanup28-run-7ad2a101-241b-45d4-b854-fb30c76db51e",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 19,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:34:38.380902+00:00",
+      "targets": [
+        {
+          "pid": 925710,
+          "startTime": "3324781",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "root": "control28",
+      "executionId": "run-3715b63f-a364-453f-9f7f-4583fa5885b0",
+      "requestId": "cleanup28-run-3715b63f-a364-453f-9f7f-4583fa5885b0",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 18,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:34:57.420909+00:00",
+      "targets": [
+        {
+          "pid": 969568,
+          "startTime": "3395082",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "root": "control28b",
+      "executionId": "run-5f8be793-9aa3-409b-a459-fd1bb1db5c3c",
+      "requestId": "cleanup28-run-5f8be793-9aa3-409b-a459-fd1bb1db5c3c",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 3,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:35:11.262266+00:00",
+      "targets": [
+        {
+          "pid": 996414,
+          "startTime": "3425956",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "root": "control28b",
+      "executionId": "run-b429645a-d908-4772-a90f-5a79e1494450",
+      "requestId": "cleanup28-run-b429645a-d908-4772-a90f-5a79e1494450",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 1,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:35:18.335241+00:00",
+      "targets": [
+        {
+          "pid": 1034736,
+          "startTime": "3473964",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "root": "control28b",
+      "executionId": "run-360983a6-4340-4ac6-8c34-bc97e46a8a19",
+      "requestId": "cleanup28-run-360983a6-4340-4ac6-8c34-bc97e46a8a19",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 8,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:35:25.826134+00:00",
+      "targets": [
+        {
+          "pid": 1014484,
+          "startTime": "3448815",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "root": "control28b",
+      "executionId": "run-98da3e8b-7fb1-4333-ad26-2d24d9f53968",
+      "requestId": "cleanup28-run-98da3e8b-7fb1-4333-ad26-2d24d9f53968",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 4,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:35:32.490120+00:00",
+      "targets": [
+        {
+          "pid": 1039355,
+          "startTime": "3480870",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "root": "control28b",
+      "executionId": "run-498c21ae-082d-4b05-8af7-e49ecbda4a3d",
+      "requestId": "cleanup28-run-498c21ae-082d-4b05-8af7-e49ecbda4a3d",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 11,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:35:39.419361+00:00",
+      "targets": [
+        {
+          "pid": 992799,
+          "startTime": "3421268",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    }
+  ],
+  "priorCleanup": [
+    {
+      "executionId": "run-8d292c38-c13d-4ad5-a96b-c0cd1e75d6d7",
+      "requestId": "cleanup-prior-run-8d292c38-c13d-4ad5-a96b-c0cd1e75d6d7",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 59,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:10:24.086548+00:00",
+      "targets": [
+        {
+          "pid": 405931,
+          "startTime": "2909782",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-1ac0e6fb-9f78-41be-88d5-2f884bbfd883",
+      "requestId": "cleanup-prior-run-1ac0e6fb-9f78-41be-88d5-2f884bbfd883",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 41,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:10:37.096940+00:00",
+      "targets": [
+        {
+          "pid": 500760,
+          "startTime": "3047413",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-c19f2999-5fec-4bb3-95e6-48cf8152d61b",
+      "requestId": "cleanup-prior-run-c19f2999-5fec-4bb3-95e6-48cf8152d61b",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 34,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:10:47.555625+00:00",
+      "targets": [
+        {
+          "pid": 560945,
+          "startTime": "3104952",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-160d1dc9-3a37-4104-896c-29df2da379ac",
+      "requestId": "cleanup-prior-run-160d1dc9-3a37-4104-896c-29df2da379ac",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 53,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:10:55.891828+00:00",
+      "targets": [
+        {
+          "pid": 450297,
+          "startTime": "2995895",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-56e183fa-1acb-455a-ba45-64371fd04791",
+      "requestId": "cleanup-prior-run-56e183fa-1acb-455a-ba45-64371fd04791",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 28,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:11:04.374668+00:00",
+      "targets": [
+        {
+          "pid": 659509,
+          "startTime": "3162625",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-0766d434-7381-433b-b076-623c4e83728a",
+      "requestId": "cleanup-prior-run-0766d434-7381-433b-b076-623c4e83728a",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 41,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:11:12.241875+00:00",
+      "targets": [
+        {
+          "pid": 769516,
+          "startTime": "3219861",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-988ae6a2-bbf9-4e9c-8dec-6de290552c38",
+      "requestId": "cleanup-prior-run-988ae6a2-bbf9-4e9c-8dec-6de290552c38",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 32,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:11:20.803942+00:00",
+      "targets": [
+        {
+          "pid": 828834,
+          "startTime": "3256715",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-26485e6e-c5e0-4950-b03c-d6383f9c3eb9",
+      "requestId": "cleanup-prior-run-26485e6e-c5e0-4950-b03c-d6383f9c3eb9",
+      "state": "unknown",
+      "childrenVerified": false,
+      "trackedCount": 30,
+      "remaining": [
+        {
+          "pid": 681002,
+          "startTime": "3174749",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ],
+      "reason": "owned-supervisor-unavailable",
+      "observedAt": "2026-10-11T10:11:31.130639+00:00"
+    },
+    {
+      "executionId": "run-29924cb1-d3ab-47ab-9c48-1ec6baecd9df",
+      "requestId": "cleanup-prior-run-29924cb1-d3ab-47ab-9c48-1ec6baecd9df",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 40,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:11:40.695883+00:00",
+      "targets": [
+        {
+          "pid": 547532,
+          "startTime": "3095045",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-db5fc24c-18c8-49df-8943-85b8a264c0a4",
+      "requestId": "cleanup-prior-run-db5fc24c-18c8-49df-8943-85b8a264c0a4",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 47,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:11:48.052447+00:00",
+      "targets": [
+        {
+          "pid": 441383,
+          "startTime": "2981396",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-45b81ac3-19b5-45d7-ac6d-6b0d13360de2",
+      "requestId": "cleanup-prior-run-45b81ac3-19b5-45d7-ac6d-6b0d13360de2",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 31,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:11:54.890937+00:00",
+      "targets": [
+        {
+          "pid": 684424,
+          "startTime": "3176397",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    }
+  ],
+  "separateIdentityCleanup": {
+    "source": "test-only SIGTERM after exact persisted owner + PID/startTime/bootId/UID/cmdline match; SDK stop remains unknown",
+    "executionId": "run-26485e6e-c5e0-4950-b03c-d6383f9c3eb9",
+    "results": [
+      {
+        "kind": "cli",
+        "identity": {
+          "pid": 681002,
+          "startTime": "3174749",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        },
+        "wasAlive": true,
+        "terminated": true
+      },
+      {
+        "kind": "supervisor",
+        "identity": {
+          "pid": 680997,
+          "startTime": "3174735",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        },
+        "wasAlive": true,
+        "terminated": true
+      }
+    ]
+  },
+  "finalManagedLists": [
+    {
+      "root": "control",
+      "executionCount": 23,
+      "aliveCount": 0
+    },
+    {
+      "root": "control28",
+      "executionCount": 1,
+      "aliveCount": 0
+    },
+    {
+      "root": "control28b",
+      "executionCount": 6,
+      "aliveCount": 0
+    }
+  ],
+  "authenticationCleanup": {
+    "isolatedProviderCopyRemoved": true,
+    "originalProviderStillExists": true,
+    "conversationHistoryPreserved": true
+  }
+}

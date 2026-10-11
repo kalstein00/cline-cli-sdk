@@ -15,7 +15,7 @@ export function messageInput(state: Snapshot, supported: boolean, witness: Phase
   else if (!state.historySync.current) reason='history-unavailable';
   else if (state.inputControl?.current===false || (state.messageDelivery && state.messageDelivery.state!=='delivered') || state.stop || (state.resume && state.resume.state!=='delivered') || (state.response && ['submitting','delivery-unknown'].includes(state.response.state))) reason='delivery-pending';
   else if (state.interaction || activePhase) reason='interaction-pending';
-  else if (!process?.alive || !process.identityConfirmed || !process.supervisorAlive || process.trackingError) reason='process-unconfirmed';
+  else if (!process?.alive || !process.identityConfirmed || !process.supervisorAlive || process.trackingError || !process.manifestStatus) reason='process-unconfirmed';
   else if ((state.messageDelivery?.state==='delivered' && state.messages.at(-1)?.id===state.messageDelivery.messageId) || process.manifestStatus!=='idle' || process.children?.length || pendingTools) reason='agent-busy';
   else if (!state.sessionId || !state.composer || state.composer.text!=='' || !witness?.composerHash || witness.gap || witness.modalHash) reason='composer-unconfirmed';
   else reason='ready';

@@ -72,3 +72,46 @@ generation 증가 시 이전 메시지·질문 카드를 정리하고 대화별 
 원격 meta/ownership/proc/history를 읽기 전용으로 대조해 이전 CLI와 자식 종료, 같은 SID·새 EID, 원래 history 경계 뒤 정확한 digest의 user 메시지를 확인했다(`stop-resume-remote.json`). 해당 두 재개 실행은 공개 SDK stop으로 confirmed 정리했고 대화 기록은 보존했다(`stop-resume-cleanup.json`). 원격 근거 파일의 마지막 PID 확인은 이 정리 뒤 수행했다. 원본 provider와 다른 사용자 실행은 변경하지 않았다.
 
 실제 초기 재개 시험에서 composer가 다시 그려져 첫 입력이 거부되는 경우를 불명으로 처리했고 자동 재전송하지 않았다. 첫 쓰기 전 이전 기록과 빈 composer/hash가 연속한 bounded refresh에서 유지되는 것을 요구하도록 보강한 뒤 새 시험 대화에서 정상·중단 재개를 재검증했다. stop/resume과 주기적 읽기 경합도 읽기 완료 뒤 대상/종료를 재검사한다. 오래된 대상·중복 재개·불명 echo 및 실제 원시 재생을 포함한 공개 SDK 중단/재개 11개, Chrome 중단 confirmed/unknown·기록 보존·112바이트·재연결 3개와 typecheck/build 통과. 전체 suite는 #28에서 한 번 실행한다.
+
+## #28 저장소 밖 독립 설치와 전체 수용
+
+2026-10-11 Node 24.16.0 / 실제 Windows Chrome / OpenSSH `wsl` / Ubuntu-24.04 / 고정 공개 Cline 3.0.69 조합을 수용했다. 실행 파일 SHA-256은 위 단계의 `8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032`와 일치한다. SDK를 새로 build·pack하고 저장소 밖 임시 프로젝트에 예제의 여섯 파일과 `.tgz`만 복사했다. 설치된 SDK는 symlink가 아닌 해당 프로젝트의 node_modules이며 예제 자체의 `npm start`로 실행했다. 설치·파일 목록·패키지 digest는 `evidence/chat/independent-installation.json`에 기록한다.
+
+실제 독립 앱에서 첫 요청의 `printf APPROVED28 > approved28.txt`를 승인하고 선택 질문에 BLUE로 답했다. 첫 후속 요청의 `touch denied28.txt`는 거절하고 자유 응답 `2 한글 응답 😀 café`를 보냈다. 두 번째 후속 요청 `2 한글 😀 café: Reply exactly CHAT_FOLLOWUP28. No tools.`의 원문·답변·delivered를 확인했다. 이 경로는 같은 SID/EID를 유지했다. 같은 문구를 별도 요청으로 두 번 보낸 결과는 다른 user message ID에 각각 연결됐다.
+
+대기 질문에서 연결 해제/재연결, Chrome 프로세스 재시작, Node 서버 프로세스 재시작을 수행했다. SID/EID·질문 ID·전체 메시지가 같고 입력이나 CLI를 반복 생성하지 않았다. 두 번째 대화를 만들고 각 대화의 메모리 초안을 유지하며 전환했다. 첫 대화 질문에 답한 후 명시적으로 중단하여 SDK confirmed를 확인했고, 숫자·한글·emoji 재개 요청에 같은 SID·새 EID·기존 메시지 보존·delivered와 CHAT_RESUMED28 답변을 확인했다. 실제 화면/SDK 결과는 `independent-browser.{json,png}`, 읽기 전용 원격 history/ledger/프로세스와 승인 파일·거절 파일 대조는 `independent-remote.json`에 있다.
+
+추가로 독립 예제의 시작 명령에 Node filesystem permission을 적용해 예제 디렉터리만 읽도록 했다. 저장소 README 읽기 probe는 ERR_ACCESS_DENIED였고, 그 조건에서 공개 connect/attach로 재개 대화를 읽고 새 대화 첫 요청과 두 후속 요청을 실제 왕복했다. SSH 프로세스 실행은 이 SDK의 정상 경로이므로 child-process 권한은 허용했다. 이는 Node 소비 앱의 저장소 소스 읽기 차단 검증이며 외부 SSH 프로세스의 전체 OS sandbox를 주장하지 않는다. 원래 예제의 기본 npm start 실행과 이 추가 제한 검증을 구분한다.
+
+전체 `npm test`는 기능 체인 종료 후 한 번 실행하여 **130/130 통과**, 실패·skip 0이었다(약 61.64초). SDK build와 예제 JS typecheck도 통과했다. 전체 suite 이후 manifest 근거가 없을 때의 차단 이유를 process-unconfirmed로 명확히 하는 공개 API 회귀를 먼저 실패시킨 뒤 수정했고, readiness/sendMessage/resume focused 25개 및 예제 typecheck를 재검증했다. 이 추가 시험을 포함한 현재 시험 수는 131개이며 전체 suite를 다시 실행했다고 표현하지 않는다. 전체 suite는 기존 SDK public API 회귀, 새 후속 입력·ledger 복원, 진단 replay 비교와 Chrome 16개를 포함한다. 추가 Chrome 회귀로 IME Enter의 무전송, 여러 행 후속 입력의 HTTP 이전 거부/초안 유지, 기록 회복 중 읽는 위치와 초안 유지, 안전한 text 표시와 최소 localStorage를 확인했다. SDK 내부 함수/CSS 배치를 고정하지 않고 공개 SDK 및 브라우저 계약에서 관찰했다. 별도 실제 WSL FIFO→PTY 경계 시험 2개(네 입력 모드와 ledger 누락 fail-closed)는 #26에서 통과했으며 npm test에 포함된다고 표현하지 않는다.
+
+### #20 수용 기준 연결
+
+| AC | 담당 티켓 | 근거와 결과 |
+| --- | --- | --- |
+| 01 | #21, #28 | 별도 example:chat의 실제 화면·독립 npm start, 기존 example:web 유지. `first-conversation.png`, `independent-browser.png` — 통과 |
+| 02 | #21, #28 | `examples/chat/server.mjs`는 설치한 SDK 공개 export만 import. 독립 파일 목록·symlink 없음·저장소 읽기 거부 조건 왕복 — 통과 |
+| 03 | #22, #23, #28 | `followup-browser.json`, `independent-browser.json` first/send의 같은 SID/EID 및 delivered — 통과 |
+| 04 | #23, #28 | 실제 숫자·한글·emoji와 동일 문구 두 번, 원격 ledger 경계/서로 다른 새 message ID — 통과 |
+| 05 | #23, #27, #28 | 공개 API 제한 시험·Chrome byte 초과/여러 행의 전송 전 거부·초안 보존, UI/README 112바이트 — 통과 |
+| 06 | #22, #26 | 실제 생성·도구·질문·idle 원시 기록 `fixtures/chat/readiness.json`; stale/미지원/identity/ledger 차단 public API 시험 — 통과 |
+| 07 | #24, #28 | 실제 승인/거절/BLUE/자유 응답, `interactions-tool-results.json`, `independent-remote.json`; 거절 파일 없음 — 통과 |
+| 08 | #21, #23, #27, #28 | 실제 더블클릭과 동일 요청 ID 공개 API 중복 검사, Chrome IME Enter의 무전송 — 통과 |
+| 09 | #23, #26 | 외부 SSH 장애 주입의 Enter 뒤 상실/새 ID 차단/새 클라이언트 재대조 및 raw replay 비교, Chrome HTTP 상실. 실제 수신 직후 SSH 강제 단절은 미실측 — 통제 경계 통과 |
+| 10 | #26, #28 | 실제 Chrome·Node 재시작 뒤 같은 질문/메시지/SID/EID 복원 — 통과 |
+| 11 | #25, #28 | 실제 두 대화/초안 전환, Chrome 늦은 SSE/HTTP와 stale 대상 거부 — 통과 |
+| 12 | #26, #27, #28 | 실제 disconnect 작업 유지, SDK confirmed stop, 정상 종료/명시적 중단의 same-SID/new-EID resume 및 history 보존 — 통과 |
+| 13 | #21, #25, #26, #28 | 공개 history-sync 부분 JSON의 마지막 정상 기록 유지, Chrome ID 갱신/회복 상태·읽는 위치·초안·새 메시지 안내 — 통과 |
+| 14 | #21, #25, #28 | 설정+EID만 localStorage, key path 제외; 앱 응답은 SDK 공개 상태, credentials 파일 미전달·opt-in 진단 — 통과 |
+| 15 | #21, #28 | 새 packed SDK 독립 설치, 기본 npm start 전체 흐름 및 저장소 읽기 차단 Node 환경 첫 요청+두 후속 왕복 — 통과 |
+| 16 | #22~#28 | npm test 130/130, 실제 공개 CLI/Chrome와 fixture·장애·raw replay를 각각 표시, 회사 fork 미검증 — 통과 |
+
+요청한 AC-01~16에 담당과 근거를 연결했다. 실제 CLI에서 강제 수신 직후 단절은 수행하지 않아 AC-09의 해당 장애 타이밍 근거는 통제 SSH 시험이다. 원격 머신 재부팅과 회사 fork 수용은 이번 결과에 포함하지 않는다.
+
+### 확인된 한계와 정리
+
+첫 요청은 100,000 JavaScript 문자, 질문 자유 응답은 1,024 UTF-8 바이트의 별도 계약이다. 후속/재개는 112바이트 printable 단일 행이다. JSON 양방향 입력·회사 fork·장문 일반 챗봇 지원은 미검증/미지원이다. npm 공개 게시와 제품 앱 통합은 수행하지 않았다. 실행·연동·브라우저 계약 및 테스트 GUI 용도는 `examples/chat/README.md`에 있다.
+
+실제 재개 실행이 답변과 delivered를 만들었어도 공개 CLI manifest가 이전 PID를 유지하는 경우가 있었다. SDK는 manifest의 idle을 현재 실행 근거로 사용할 수 없어 후속 입력을 `process-unconfirmed`로 차단한다. 따라서 모든 재개 실행이 이후 sendMessage까지 준비된다고 주장하지 않는다. 이 경우의 다음 후속 지원은 별도 현재 실행의 작업 단계 근거가 필요하다. 초기 수용 스크립트의 불필요한 idle 대기는 timeout했고 재전송 없이 원래 delivered/답변을 읽기 전용 attach로 다시 확인했다. 성공한 재개 요청과 제한을 함께 보고한다.
+
+시험 소유 실행의 공개 SDK stop 결과 및 별도 소유 identity 정리 결과는 `independent-cleanup.json`에 기록한다. 기존 대화/원격 history는 보존하고 격리 시험 인증 사본만 제거한다. supervisor 근거가 부족했던 이전 #25 실행의 SDK stop unknown은 confirmed로 바꾸지 않고, 정확한 소유 PID/startTime/bootId/UID 확인 뒤 별도 시험 정리를 구분한다. 원본 provider와 다른 사용자 프로세스는 변경하지 않는다. 부모 #20의 본문·라벨·상태는 변경하지 않는다.
