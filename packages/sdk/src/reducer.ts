@@ -1,5 +1,6 @@
 import {hasCliProtocol} from "./cli-protocol.js";
 import {messageInput, type MessageInputState} from "./message-input.js";
+import {messageNotSubmitted} from "./message-evidence.js";
 import type {SendMessageRequest, MessageDelivery} from "./message.js";
 import xterm from "@xterm/headless";
 import unicode11 from "@xterm/addon-unicode11";
@@ -61,6 +62,8 @@ export interface ProcessObservation {
   identityConfirmed: boolean;
   exitCode: number | null;
   manifestStatus: string | null;
+  /** Resumed owner/arguments, finished text response and current empty composer were verified. */
+  composerIdle?: boolean;
   requestedStop?: boolean;
   stop?: StopResult | null;
   children?: { pid: number; startTime: string; bootId: string }[];
@@ -631,6 +634,22 @@ export function createReducer(options: {
       if (permission >= 0 && !popup) {
         const body = visible.slice(permission + 1);
         const nonempty = body.map((line) => line.trim()).filter(Boolean);
+        // Reconstruct only forced word wraps at the fixed terminal width. Compare
+        // the resulting bytes to history; never normalize whitespace in commands.
+        const footer=body.findIndex(line=>line.trim()==="[y] Approve   [n] Deny");
+        const renderedCommands:string[]=[];
+        let priorRow=-1, validCommands=footer>=0;
+        const cells=(row:number)=>buffer.getLine(buffer.baseY+permission+1+row);
+        const endColumn=(row:number)=>{const line=cells(row);let end=0;for(let col=0;col<recording!.terminal.cols;col++){const cell=line?.getCell(col);if(cell?.getChars().trim())end=col+cell.getWidth();}return end;};
+        const firstWordWidth=(row:number)=>{const line=cells(row);let width=0,started=false;for(let col=0;col<recording!.terminal.cols;col++){const cell=line?.getCell(col),chars=cell?.getChars() ?? '';if(!chars)continue;if(/^\s+$/.test(chars)){if(started)break;continue;}started=true;width+=cell!.getWidth();}return width;};
+        for(let row=0;row<footer;row++){
+          const text=body[row].trim();if(!text)continue;
+          if(text.startsWith('$ ')){renderedCommands.push(text);priorRow=row;}
+          else if(renderedCommands.length){
+            if(row!==priorRow+1 || endColumn(priorRow)+1+firstWordWidth(row)<=recording!.terminal.cols){validCommands=false;break;}
+            renderedCommands[renderedCommands.length-1]+=' '+text;priorRow=row;
+          }
+        }
         const matches = pendingTools.filter(
           (tool) =>
             tool.name === "run_commands" &&
@@ -641,7 +660,7 @@ export function createReducer(options: {
             tool.input.commands.every(
               (command: unknown) => typeof command === "string",
             ) &&
-            JSON.stringify(nonempty.filter((line) => line.startsWith("$ "))) ===
+            validCommands && JSON.stringify(renderedCommands) ===
               JSON.stringify(
                 tool.input.commands.map((command: string) => `$ ${command}`),
               ) &&
@@ -1173,7 +1192,7 @@ export function createReducer(options: {
         const matched=state.historySync.current && Number.isSafeInteger(count) && count>=0 && historyIds.length>=count && (!count || historyIds[count-1]===r.baselineLastMessageId) &&
           w?.state==="delivered" && w.executionId===state.executionId && w.sessionId===state.sessionId && w.promptDigest===r.binding.answerDigest && historyIds.indexOf(w.messageId)>=count &&
           state.messages.some(m=>m.id===w.messageId && m.role==="user" && createHash("sha256").update(m.text).digest("hex")===w.promptDigest);
-        const nextMessage:MessageDelivery={requestId:r.requestId,executionId:r.binding.executionId,sessionId:r.binding.sessionId,state:matched?"delivered":"delivery-unknown",messageId:matched?w.messageId:null};
+        const nextMessage:MessageDelivery={requestId:r.requestId,executionId:r.binding.executionId,sessionId:r.binding.sessionId,state:matched?"delivered":messageNotSubmitted(r)?"not-submitted":"delivery-unknown",messageId:matched?w.messageId:null};
         // A temporary read failure does not erase a previously confirmed witness.
         const prior=state.messageDelivery;
         if(!state.historySync.current && prior && prior.requestId===r.requestId && prior.state==="delivered"){nextMessage.state="delivered";nextMessage.messageId=prior.messageId;}
@@ -1269,7 +1288,8 @@ export function createReducer(options: {
           witness.executionId===state.executionId && witness.sessionId===state.sessionId && witness.promptDigest===messageDigest &&
           state.historySync.current && state.messages.some(m=>m.id===witness.messageId && !messageBaseline.has(m.id) && m.role==="user" && createHash("sha256").update(m.text).digest("hex")===messageDigest);
         if(obs.operation==="receipt" || obs.operation==="fault") {
-          state.messageDelivery.state=matched?"delivered":"delivery-unknown";
+          const unsubmitted=obs.operation==="receipt" && witness && witness.state==="not-submitted" && "promptDigest" in witness && witness.promptDigest===messageDigest && witness.executionId===state.executionId && witness.sessionId===state.sessionId;
+          state.messageDelivery.state=matched?"delivered":unsubmitted?"not-submitted":"delivery-unknown";
           state.messageDelivery.messageId=matched && witness && "messageId" in witness ? witness.messageId ?? null : null;
         }
       }

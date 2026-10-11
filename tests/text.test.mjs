@@ -256,6 +256,20 @@ test("current TUI approval binds exact command history and a different popup blo
   assert.equal(c.snapshot().interaction.state, "unsupported");
   c.close();
 });
+
+test('actual wrapped approval reconstructs complete arguments and rejects missing or changed continuation',async()=>{
+ const original=JSON.parse(await readFile(new URL('../fixtures/chat/wrapped-approval.json',import.meta.url)));
+ for(const fault of ['none','changed','missing']){
+  const r=structuredClone(original);const frame=r.observations.at(-1);
+  const raw=Buffer.from(frame.dataBase64,'base64').toString();
+  if(fault==='changed')frame.dataBase64=Buffer.from(raw.replace(' 파일:', ' 삭제:')).toString('base64');
+  if(fault==='missing')frame.dataBase64=Buffer.from(raw.replace(/\r\n 파일:[^\r\n]*/, '')).toString('base64');
+  const c=createClient({mode:'replay'});await c.openReplay(r);await c.replayAll();
+  assert.equal(c.snapshot().interaction.kind,fault==='none'?'approval':'unsupported',fault);
+  if(fault==='none')assert.match(c.snapshot().interaction.toolInput.commands[0],/find .*malo -type f \| wc -l$/);
+  c.close();
+ }
+});
 test("actual Korean emoji modal echo preserves spacing with Unicode cell widths and split UTF8", async () => {
   const r = await fixture("tui-korean-echo");
   const c = createClient({ mode: "replay" });

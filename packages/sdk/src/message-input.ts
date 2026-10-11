@@ -13,10 +13,10 @@ export function messageInput(state: Snapshot, supported: boolean, witness: Phase
   if (!supported) reason='unsupported-profile';
   else if (!['connected','replay'].includes(state.connection)) reason='not-connected';
   else if (!state.historySync.current) reason='history-unavailable';
-  else if (state.inputControl?.current===false || (state.messageDelivery && state.messageDelivery.state!=='delivered') || state.stop || (state.resume && state.resume.state!=='delivered') || (state.response && ['submitting','delivery-unknown'].includes(state.response.state))) reason='delivery-pending';
+  else if (state.inputControl?.current===false || (state.messageDelivery && !['delivered','not-submitted'].includes(state.messageDelivery.state)) || state.stop || (state.resume && state.resume.state!=='delivered') || (state.response && ['submitting','delivery-unknown'].includes(state.response.state))) reason='delivery-pending';
   else if (state.interaction || activePhase) reason='interaction-pending';
-  else if (!process?.alive || !process.identityConfirmed || !process.supervisorAlive || process.trackingError || !process.manifestStatus) reason='process-unconfirmed';
-  else if ((state.messageDelivery?.state==='delivered' && state.messages.at(-1)?.id===state.messageDelivery.messageId) || process.manifestStatus!=='idle' || process.children?.length || pendingTools) reason='agent-busy';
+  else if (!process?.alive || !process.identityConfirmed || !process.supervisorAlive || process.trackingError || (!process.manifestStatus && !process.composerIdle)) reason='process-unconfirmed';
+  else if ((state.messageDelivery?.state==='delivered' && state.messages.at(-1)?.id===state.messageDelivery.messageId) || (process.manifestStatus!=='idle' && !(!process.manifestStatus && process.composerIdle)) || process.children?.length || pendingTools) reason='agent-busy';
   else if (!state.sessionId || !state.composer || state.composer.text!=='' || !witness?.composerHash || witness.gap || witness.modalHash) reason='composer-unconfirmed';
   else reason='ready';
   return {ready:reason==='ready',reason,maxBytes:112};

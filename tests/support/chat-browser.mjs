@@ -13,6 +13,7 @@ const native = cp.spawn;
 const fault = process.env.CLINE_CHAT_FAULT;
 let executionId, prompt;
 let stopResult;
+let messageRequest, messageRejected=false, messageResolution;
 const runs=new Map();
 cp.spawn = (...args) => {
   if (!['ssh', 'ssh.exe'].includes(args[0])) return native(...args);
@@ -30,6 +31,12 @@ cp.spawn = (...args) => {
       result = {executionId:fault==='launch-identity'?'unexpected-execution':executionId, remoteRoot: '/fixture/control'};
     } else if(request.action==='stop'){stopResult={executionId:request.executionId,requestId:request.requestId,state:fault==='stop-unknown'?'unknown':'confirmed',childrenVerified:fault!=='stop-unknown',trackedCount:1,remaining:[],reason:null,observedAt:new Date().toISOString()};result=stopResult;
     } else if(request.action==='list') {result={executions:[...runs].map(([id,run])=>({executionId:id,remoteRoot:'/fixture/control',sessionId:run.sessionId,terminalMode:'tui',terminal:{rows:40,cols:120},cliHash:pinned.cliHash,alive:true,identityConfirmed:true}))};
+    } else if (request.action === 'reserve-message') {
+      messageRequest=request;result={state:'reserved',fresh:true};
+    } else if (request.action === 'respond' && fault==='message-rejected') {
+      messageRejected=true;result={state:'queued'};
+    } else if (request.action === 'settle-message' && fault==='message-rejected') {
+      messageResolution='not-submitted';result={state:'not-submitted',executionId,sessionId:'chat-fixture-session',promptDigest:messageRequest.answerDigest};
     } else if (request.action === 'status') {
       if(fault==='multi'){executionId=request.executionId;prompt=runs.get(executionId)?.prompt;}
       const sid=fault==='multi'?runs.get(executionId)?.sessionId:'chat-fixture-session';
@@ -37,11 +44,12 @@ cp.spawn = (...args) => {
         {id:'user-first',role:'user',content:[{type:'text',text:prompt}]},
         {id:'assistant-first',role:'assistant',content:[{type:'text',text:'CHAT_BROWSER_READY'}]},
       ]}));
-      result = {executionId,sessionId:sid,cursor:composer.observations.at(-1).seq,observations:['ready','busy','multi','company'].includes(fault)?composer.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor):[],
-        composerHash:['ready','busy','multi','company'].includes(fault)?'controlled-composer':null,
+      result = {executionId,sessionId:sid,cursor:composer.observations.at(-1).seq,observations:['ready','busy','multi','company','message-rejected'].includes(fault)?composer.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor):[],
+        composerHash:['ready','busy','multi','company','message-rejected'].includes(fault)?'controlled-composer':null,
         management:{phaseSupported:true,phase:{active:false},responseReservation:true},
         history:{dataBase64:history.toString('base64'),sha256:createHash('sha256').update(history).digest('hex')},
-        process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:['ready','multi','company'].includes(fault)?'idle':'running',supervisorAlive:true,children:[],trackingError:null}};
+        process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:['ready','multi','company','message-rejected'].includes(fault)?'idle':'running',supervisorAlive:true,children:[],trackingError:null}};
+      if(messageRejected)result.requests=[{requestId:messageRequest.requestId,state:'rejected',resolution:messageResolution,message:true,binding:messageRequest,baselineMessageCount:2,baselineLastMessageId:'assistant-first',steps:[{index:0,state:'rejected'}]}];
       if(stopResult)Object.assign(result.process,{stop:stopResult,alive:stopResult.state!=='confirmed',exitCode:stopResult.state==='confirmed'?-15:null,manifestStatus:'cancelled',supervisorAlive:stopResult.state!=='confirmed',childrenVerified:stopResult.childrenVerified});
     } else result = {error:'fixture-no-operation',message:'Unsupported controlled operation'};
     if(request.action==='status' && ['question','approval'].includes(fault)) {
@@ -56,8 +64,8 @@ cp.spawn = (...args) => {
       result.observations=onboarding.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor);
       result.cursor=onboarding.observations.at(-1).seq;
     }
-    process.stdout.end(JSON.stringify(result));
-    queueMicrotask(() => process.emit('close',0));
+    const finish=()=>{process.stdout.end(JSON.stringify(result));queueMicrotask(() => process.emit('close',0));};
+    if(fault==='refresh-race' && request.action==='status' && request.cursor>0)setTimeout(finish,1200);else finish();
   });
   return process;
 };

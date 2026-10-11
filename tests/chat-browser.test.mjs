@@ -66,6 +66,26 @@ test('provider onboarding explains an unconfirmed first request and permits expl
  assert.equal(await page.locator('#message').inputValue(),'List files');
  assert.equal(await page.locator('[data-role="user"]').count(),0);
 });
+
+test('a rejected followup keeps its draft, clears pending and allows explicit later input without automatic retry',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4222,'message-rejected');
+ await page.locator('#message').fill('Initial request');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ await page.waitForFunction(()=>!document.querySelector('#send').disabled);
+ let submissions=0;page.on('request',r=>{if(r.url().endsWith('/api/message'))submissions++;});
+ await page.locator('#message').fill('Rejected followup');await page.locator('#send').click();
+ await page.locator('#error').filter({hasText:'제출되지 않았습니다'}).waitFor();
+ await page.waitForFunction(()=>!document.querySelector('#send').disabled);
+ assert.equal(await page.locator('#message').inputValue(),'Rejected followup');assert.equal(await page.locator('#pending').isVisible(),false);
+ assert.equal(submissions,1);assert.equal(await page.locator('[data-role="user"]').count(),1);
+});
+
+test('consumer serializes an action arriving during a read-only refresh instead of rejecting operation-busy',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4223,'refresh-race');await page.locator('#message').fill('Initial request');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ let packet;for(let i=0;i<50;i++){packet=await page.request.get('http://127.0.0.1:4223/api/state').then(r=>r.json());if(packet.busy)break;await new Promise(r=>setTimeout(r,40));}
+ assert.equal(packet.busy,true);
+ const response=await page.request.post('http://127.0.0.1:4223/api/respond',{data:{serverId:packet.serverId,generation:packet.generation,requestId:'refresh-race-response',sessionId:packet.snapshot.sessionId,executionId:packet.snapshot.executionId,revision:packet.snapshot.revision,interactionId:'unavailable',answer:'Approve'}});
+ const result=await response.json();assert.notEqual(result.error,'operation-busy');assert.equal(result.notSubmitted,true);
+});
 test('independent consumer displays the first conversation without duplicated messages and preserves its draft', {timeout:30000}, async t => {
   const page=await connectedPage(t,4194);
   await page.getByLabel('메시지', {exact:true}).fill('Reply exactly CHAT_BROWSER_READY.');

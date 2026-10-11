@@ -22,6 +22,13 @@ test('public snapshot distinguishes a witnessed idle composer from a still-runni
   assert.deepEqual(running.snapshot().messageInput,{ready:false,reason:'agent-busy',maxBytes:112});running.close();
 });
 
+test('a resumed CLI with verified current composer evidence can be idle despite an unchanged manifest owner',async()=>{
+ const c=await recordedIdle({manifestStatus:null,composerIdle:true});
+ assert.equal(c.snapshot().messageInput.ready,true);c.close();
+ const busy=await recordedIdle({manifestStatus:null,composerIdle:true,children:[{pid:43,startTime:'101',bootId:'fixture-boot'}]});
+ assert.equal(busy.snapshot().messageInput.ready,false);busy.close();
+});
+
 for(const [label,overrides,extra,reason] of [
  ['tool process',{children:[{pid:43,startTime:'101',bootId:'fixture-boot'}]},[],'agent-busy'],
  ['lost identity',{identityConfirmed:false},[],'process-unconfirmed'],

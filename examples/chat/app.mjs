@@ -111,6 +111,7 @@ function render(packet) {
     if(pending.fromComposer!==false && element('message').value===pending.text)element('message').value='';pending=null;requestError=false;
   }
   if(pending?.action==='respond' && snapshot?.response?.requestId===pending.requestId && snapshot.response.state==='not-submitted'){pending=null;showError(Error('응답이 제출되지 않았습니다. 현재 질문을 확인하세요.'));}
+  if(pending?.action==='message' && snapshot?.messageDelivery?.requestId===pending.requestId && snapshot.messageDelivery.state==='not-submitted'){pending=null;requestError=false;showError(Error('메시지가 제출되지 않았습니다. 초안을 확인한 뒤 직접 전송하세요.'));}
   if(pending?.action==='start' && snapshot?.execution==='stopped' && snapshot.stop?.state==='confirmed' && snapshot.stop.childrenVerified && snapshot.stop.remaining.length===0){pending=null;requestError=false;}
   renderInteractions(snapshot);
   element('pending').hidden=!pending;
@@ -160,7 +161,7 @@ element('composer').onsubmit=async event=>{
   if(!text.trim()||text.length>100000){showError(Error('비어 있지 않은 100,000자 이내의 첫 요청을 입력하세요.'));return;}
   pending={text,action:answerMode?'respond':resumeMode?'resume':followup?'message':'start',baseline:(current.snapshot?.messages??[]).map(m=>m.id),requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
   try{await invoke(pending.action,{requestId:pending.requestId,generation:pending.generation,...(answerMode?{answer:text,interactionId:current.snapshot.interaction.id,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:followup?{text,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:{cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text})});}
-  catch(error){requestError=true;showError(error);if(error.notSubmitted===true)pending=null;}
+  catch(error){requestError=true;showError(error);if(error.notSubmitted===true){pending=null;showError(Error(`${error.message} · 메시지가 제출되지 않았습니다. 초안을 확인한 뒤 직접 전송하세요.`));}}
   finally{sending=false;render(current);}
 };
 element('message').onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229&&!event.shiftKey){event.preventDefault();element('composer').requestSubmit();}};

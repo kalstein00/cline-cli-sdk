@@ -600,13 +600,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       if(!messageSending) {
         const composerReceipts=remoteRequests.filter((r:any)=>r.message===true && r.binding?.kind==="composer" && r.binding.executionId===managed!.executionId && r.binding.sessionId===state.sessionId);
         const receipt=composerReceipts.filter(r=>!r.resolution).at(-1) ?? composerReceipts.at(-1);
-        if(receipt && !receipt.resolution && ["queued","written"].includes(receipt.state) && state.historySync.current) {
+        if(receipt && !receipt.resolution && ["queued","written","rejected"].includes(receipt.state) && state.historySync.current) {
           const witness=await helper({action:"settle-message",root:managed!.remoteRoot,executionId:managed!.executionId,requestId:receipt.requestId});
-          if(witness.state==="delivered"){Object.assign(receipt,{witness,resolution:"delivered"});}
+          if(["delivered","not-submitted"].includes(witness.state)){Object.assign(receipt,{witness,resolution:witness.state});}
           reducer.responseObservation({kind:"response-receipt",seq:++sequence,observedAt:new Date().toISOString(),receipts:[receipt],final:true});
           state={...reducer.snapshot(),mode:"live",connection:"connected"};
         }
-        messageActive=!!state.messageDelivery && state.messageDelivery.state!=="delivered";
+        messageActive=!!state.messageDelivery && !["delivered","not-submitted"].includes(state.messageDelivery.state);
       }
       if (!activeRequest) {
         const receipts = remoteRequests.filter(
@@ -1038,11 +1038,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       const previous=messages.get(request.requestId);
       if(previous) {
         if(previous.binding!==binding)return invalid("request-conflict","Message identity is already bound.");
+        if(state.messageDelivery?.requestId===request.requestId && state.messageDelivery.state==="not-submitted")return invalid("message-not-submitted","This request was conclusively rejected before input; it is never repeated.");
         return state.messageDelivery?.requestId===request.requestId && state.messageDelivery.state==="delivered" ? Promise.resolve(structuredClone(state.messageDelivery)) : previous.promise;
       }
       const durable=remoteRequests.find((r:any)=>r.requestId===request.requestId && r.message===true);
       if(durable) {
         if(durable.binding.sessionId!==request.sessionId || durable.binding.executionId!==request.executionId || durable.binding.revision!==request.revision || durable.binding.answerDigest!==createHash("sha256").update(request.text).digest("hex"))return invalid("request-conflict","Message identity is already durably bound.");
+        if(state.messageDelivery?.requestId===request.requestId && state.messageDelivery.state==="not-submitted")return invalid("message-not-submitted","This request was conclusively rejected before input; it is never repeated.");
         return state.messageDelivery?.requestId===request.requestId && state.messageDelivery.state==="delivered" ? Promise.resolve(structuredClone(state.messageDelivery)) : invalid("message-input-uncertain","Reconfirm the original reservation; input is never repeated.");
       }
       if(!managed || request.executionId!==state.executionId || request.sessionId!==state.sessionId || request.revision!==state.revision)
@@ -1053,7 +1055,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         return invalid("message-not-ready","A verified idle TUI composer is required.");
       messageActive=true; // reserve synchronously before a refresh can yield to another caller
       messageSending=true;
-      let reserved=false;
+      let reserved=false, reservationRejected=false, firstStepRejected=false;
       const digest=createHash("sha256").update(request.text).digest("hex");
       const action=(operation:"requested"|"receipt"|"fault"|"input",fields:any={})=>reducer.executionAction({kind:"execution-action",seq:++sequence,observedAt:new Date().toISOString(),action:"message",operation,executionId:request.executionId,sessionId:request.sessionId,requestId:request.requestId,promptDigest:digest,...fields});
       const promise=(async()=>{
@@ -1065,7 +1067,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           const receipt=await helper({action:"reserve-message",root:managed!.remoteRoot,executionId:request.executionId,sessionId:request.sessionId,
             requestId:request.requestId,interactionId:`${request.executionId}:composer`,revision:request.revision,kind:"composer",answerDigest:digest,
             modalHash:composerHash,historyHash,processIdentity:processEvidence.identity,expectedCursor:cursor});
-          if(receipt.state==="rejected") throw new SdkError("message-input-uncertain",receipt.reason ?? "Remote reservation rejected.");
+          if(receipt.state==="rejected" && receipt.notSubmitted===true){reservationRejected=true;throw new SdkError("message-not-submitted",receipt.reason ?? "Remote reservation rejected.");}
           if(!receipt.fresh) throw new SdkError("message-input-uncertain","An existing reservation can only be reconfirmed; input is never repeated.");
           const wait=async(condition:()=>boolean)=>{
             const deadline=Date.now()+(config.responseTimeoutMs ?? 30000);
@@ -1085,8 +1087,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             const queued=await helper({action:"respond",root:managed!.remoteRoot,executionId:request.executionId,sessionId:request.sessionId,
               requestId:request.requestId,interactionId:`${request.executionId}:composer`,revision:request.revision,kind:"composer",answerDigest:digest,
               stepIndex:index,inputType,dataBase64:Buffer.from(text).toString("base64"),modalHash:composerHash,historyHash,processIdentity:processEvidence.identity,expectedCursor:cursor});
-            if(queued.state==="rejected")throw new SdkError("message-input-uncertain",queued.reason ?? "Input rejected.");
-            await wait(()=>remoteRequests.some(r=>r.requestId===request.requestId&&r.steps?.some((s:any)=>s.index===index&&s.state==="written"))&&condition());
+            if(queued.state==="rejected"){firstStepRejected=index===0;throw new SdkError("message-input-uncertain",queued.reason ?? "Input rejected.");}
+            await wait(()=>{const r=remoteRequests.find(r=>r.requestId===request.requestId);if(r?.steps?.some((s:any)=>s.index===index&&s.state==="rejected"))throw new SdkError("message-input-uncertain","The supervisor rejected this input step.");return !!r?.steps?.some((s:any)=>s.index===index&&s.state==="written")&&condition();});
           };
           let accumulated="";
           for(const chunk of inputChunks(request.text)){accumulated+=chunk;await step("composer-text",chunk,()=>state.composer?.text===accumulated);}
@@ -1097,7 +1099,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           messageActive=false;state={...reducer.snapshot(),mode:"live",connection:state.connection};
           return structuredClone(state.messageDelivery!);
         }catch(error){
-          if(reserved)action("fault",{reason:error instanceof SdkError?error.code:"message-input-uncertain"});
+          let unsubmitted=reservationRejected;
+          if(reserved && !unsubmitted && (firstStepRejected || remoteRequests.some(r=>r.requestId===request.requestId&&r.state==="rejected"))) {
+            try {const witness=await helper({action:"settle-message",root:managed!.remoteRoot,executionId:request.executionId,requestId:request.requestId});if(witness.state==="not-submitted"){action("receipt",{receipt:witness});unsubmitted=reducer.snapshot().messageDelivery?.state==="not-submitted";}}catch{}
+          }
+          if(reservationRejected)action("receipt",{receipt:{state:"not-submitted",executionId:request.executionId,sessionId:request.sessionId,promptDigest:digest}});
+          if(unsubmitted){messageActive=false;Object.assign(error as object,{notSubmitted:true});}
+          else if(reserved)action("fault",{reason:error instanceof SdkError?error.code:"message-input-uncertain"});
           else messageActive=false;
           state={...reducer.snapshot(),mode:"live",connection:state.connection};throw error;
         } finally {messageSending=false;}

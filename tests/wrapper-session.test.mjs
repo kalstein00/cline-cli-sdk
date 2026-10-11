@@ -24,26 +24,26 @@ test('real SSH binds a launcher child session, permits idle input and stops ever
 import json,os,pathlib,subprocess,sys,time,tty
 base=pathlib.Path(__file__).parent
 if '--help' in sys.argv:
- print('--cwd --data-dir --auto-approve --tui');sys.exit(0)
+ print('--cwd --data-dir --auto-approve --tui --id');sys.exit(0)
 if '--native-child' not in sys.argv:
  sys.exit(subprocess.call([sys.executable,__file__,'--native-child',*sys.argv[1:]]))
 tty.setraw(sys.stdin.fileno())
 data=pathlib.Path(sys.argv[sys.argv.index('--data-dir')+1]);sid='wrapper-child-session'
-folder=data/'sessions'/sid;folder.mkdir(parents=True)
-(folder/(sid+'.json')).write_text(json.dumps(dict(session_id=sid,pid=os.getpid(),status='idle')))
-messages=[dict(id='first',role='user',content=[dict(type='text',text='wrapper prompt')]),dict(id='reply',role='assistant',content=[dict(type='text',text='WRAPPER_CHILD_OK')])]
+folder=data/'sessions'/sid;folder.mkdir(parents=True,exist_ok=True)
+if '--id' not in sys.argv:(folder/(sid+'.json')).write_text(json.dumps(dict(session_id=sid,pid=os.getpid(),status='idle')))
+messages=json.loads((folder/(sid+'.messages.json')).read_text())['messages'] if '--id' in sys.argv else [dict(id='first',role='user',content=[dict(type='text',text='wrapper prompt')]),dict(id='reply',role='assistant',content=[dict(type='text',text='WRAPPER_CHILD_OK')])]
 def history():
  p=folder/(sid+'.messages.json');tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(dict(version=1,sessionId=sid,messages=messages)));tmp.replace(p)
 def screen(text=''):
  rule='─'*120
  sys.stdout.write('\\x1b[2J\\x1b[35;1H'+rule+'\\x1b[36;1H❯ '+(text or 'Ask anything...')+'\\x1b[37;1H'+rule+'\\x1b[38;1H● Act (Tab)\\x1b[40;1HAuto-approve all disabled (Shift+Tab)'+f'\\x1b[36;{3+len(text)}H');sys.stdout.flush()
-history();screen();text='';count=0
+history();screen();text='';count=len(messages)
 while True:
  value=os.read(sys.stdin.fileno(),64).decode('utf8')
  if '\\r' in value:
   count+=1
   if text=='spawn':subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'])
-  messages.extend([dict(id='user-'+str(count),role='user',content=[dict(type='text',text=text)]),dict(id='reply-'+str(count),role='assistant',content=[dict(type='text',text='CHILD_REPLY')])]);history();text=''
+  messages.extend([dict(id='user-'+str(count),role='user',content=[dict(type='text',text=text)]),dict(id='reply-'+str(count),role='assistant',content=[dict(type='text',text='CHILD_REPLY')],metrics=dict(inputTokens=1,outputTokens=1))]);history();text=''
  else:text+=value
  screen(text)
 `;
@@ -84,8 +84,41 @@ while True:
   assert.equal((await c.sendMessage({executionId,sessionId:next.sessionId,revision:next.revision,requestId:randomUUID(),text:'spawn'})).state,'delivered');
   const busy=await until(()=>c.refresh(),s=>s.executionEvidence.children.length>0);
   assert.equal(busy.messageInput.reason,'agent-busy');assert.equal(c.capabilities().sendMessage,false);
+  assert.equal((await c.stop({executionId,requestId:randomUUID()})).state,'confirmed');
+  await until(()=>c.refresh(),()=>c.capabilities().resume);
+  const resumed=await c.resume({executionId,requestId:randomUUID(),prompt:'resume next'});
+  executionId=resumed.executionId;assert.equal(resumed.sessionId,'wrapper-child-session');assert.equal(resumed.resume.state,'delivered');
+  const idle=await until(()=>c.refresh(),()=>c.capabilities().sendMessage);
+  assert.equal(idle.executionEvidence.manifestStatus,null);assert.equal(idle.executionEvidence.composerIdle,true);
+  // A partial assistant can expose an empty composer while still generating.
+  // Only these test-owned histories are edited, never actual CLI conversations.
+  const historyFile=directory+'/data/sessions/wrapper-child-session/wrapper-child-session.messages.json';
+  const completeHistory=python(`import pathlib;print(pathlib.Path(${JSON.stringify(historyFile)}).read_text())`);
+  try {
+   for(const fault of ['streaming','tool-call','old-reply','malformed-content']){
+    const changed=JSON.parse(completeHistory);
+    if(fault==='streaming')delete changed.messages.at(-1).metrics;
+    if(fault==='tool-call')changed.messages.at(-1).content.push({type:'tool_use',id:'pending',name:'run_commands',input:{commands:['sleep 1']}});
+    if(fault==='old-reply')changed.messages=changed.messages.slice(0,-2);
+    if(fault==='malformed-content')changed.messages.at(-1).content=[null];
+    python(`import pathlib,base64\np=pathlib.Path(${JSON.stringify(historyFile)});p.write_bytes(base64.b64decode('${Buffer.from(JSON.stringify(changed)).toString('base64')}'))`);
+    await c.refresh();assert.equal(c.capabilities().sendMessage,false,fault);assert.equal(c.snapshot().executionEvidence.composerIdle,false,fault);
+   }
+  } finally {
+   python(`import pathlib,base64\np=pathlib.Path(${JSON.stringify(historyFile)});p.write_bytes(base64.b64decode('${Buffer.from(completeHistory).toString('base64')}'))`);
+  }
+  const manifestFile=directory+'/data/sessions/wrapper-child-session/wrapper-child-session.json';
+  python(`import pathlib\np=pathlib.Path(${JSON.stringify(manifestFile)});p.rename(p.with_suffix('.held'))`);
+  try {const missing=await c.refresh();assert.equal(missing.executionEvidence.composerIdle,false);assert.equal(c.capabilities().sendMessage,false);}
+  finally {python(`import pathlib\np=pathlib.Path(${JSON.stringify(manifestFile)});p.with_suffix('.held').rename(p)`);}
+  for(const text of ['after resume one','after resume two']){
+   const ready=await until(()=>c.refresh(),()=>c.capabilities().sendMessage);
+   const delivered=await c.sendMessage({executionId,sessionId:ready.sessionId,revision:ready.revision,requestId:randomUUID(),text});
+   assert.equal(delivered.state,'delivered');assert.ok(c.snapshot().messages.some(m=>m.role==='user'&&m.text===text));
+  }
  } finally {
-  if(executionId){const result=await c.stop({executionId,requestId:randomUUID()});assert.equal(result.state,'confirmed');assert.equal(result.childrenVerified,true);assert.deepEqual(result.remaining,[]);stopped=true;}
+  executionId=c.snapshot().executionId ?? executionId;
+  if(executionId){const s=await c.refresh(),p=s.executionEvidence;if(p?.alive===false&&p.identityConfirmed&&p.childrenVerified&&p.supervisorAlive===false&&!p.children?.length&&!p.trackingError)stopped=true;else{const result=await c.stop({executionId,requestId:randomUUID()});assert.equal(result.state,'confirmed');assert.equal(result.childrenVerified,true);assert.deepEqual(result.remaining,[]);stopped=true;}}
   c.close();
   if(!executionId||stopped)python(`import pathlib,shutil\np=pathlib.Path(${JSON.stringify(directory)}).resolve();assert p.parent==pathlib.Path('/tmp') and p.name.startswith('cline-sdk-wrapper-test-');shutil.rmtree(p)`);
  }

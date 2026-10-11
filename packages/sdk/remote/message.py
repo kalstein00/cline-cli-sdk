@@ -15,14 +15,14 @@ def reserve_message(request, run, meta, ledger_lock, input_binding, session_file
             return dict(state=prior['state'],fresh=False)
         if len(ledger)>=256: raise ValueError('Message request limit reached')
         if any(not value.get('resolution') and value['state'] in ('reserved','queued','written') for value in ledger.values()):
-            return dict(state='rejected',reason='input-pending',fresh=False)
+            return dict(state='rejected',reason='input-pending',fresh=False,notSubmitted=True)
         cursor=json.loads((run/'buffer.json').read_text())['cursor']
         reason=input_binding(run,meta,dict(request,inputType='composer-text'),cursor) or idle(run,meta,empty=True)
-        if reason: return dict(state='rejected',reason=reason,fresh=False)
+        if reason: return dict(state='rejected',reason=reason,fresh=False,notSubmitted=True)
         sid,_,path=session_files(meta)
         history=json.loads(read_history(path))
         if sid!=binding['sessionId'] or history.get('sessionId')!=sid or history.get('version')!=1:
-            return dict(state='rejected',reason='history-changed',fresh=False)
+            return dict(state='rejected',reason='history-changed',fresh=False,notSubmitted=True)
         ledger[req_id]=dict(binding=binding,state='reserved',message=True,baselineMessageCount=len(history['messages']),baselineLastMessageId=history['messages'][-1]['id'] if history['messages'] else None)
         return dict(state='reserved',fresh=True)
 
@@ -30,6 +30,12 @@ def settle_message(request, run, meta, ledger_lock, session_files, read_history)
     with ledger_lock(run) as ledger:
         record=ledger.get(request.get('requestId'))
         if not record or not record.get('message'): raise ValueError('Unknown message reservation')
+        steps=record.get('steps',{})
+        if record['state']=='rejected' and (not steps or (list(steps)==['0'] and steps['0']['state']=='rejected')):
+            # The lock also excludes late enqueue; a rejected first step cannot write.
+            witness=dict(state='not-submitted',promptDigest=record['binding']['answerDigest'],sessionId=record['binding']['sessionId'],executionId=meta['executionId'],reason=record.get('reason'))
+            record.update(resolution='not-submitted',witness=witness)
+            return witness
         sid,_,path=session_files(meta)
         if sid!=record['binding']['sessionId'] or not path: return dict(state='delivery-unknown')
         doc=json.loads(read_history(path))

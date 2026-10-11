@@ -88,15 +88,18 @@ def composer_witness(meta):
 
 def message_idle(run, meta, empty=False):
     sid, manifest, path = session_files(meta)
-    if meta.get('terminalMode')!='tui' or meta.get('outputMode')=='json' or not manifest or manifest.get('status')!='idle' or not sid or not path:
+    resumed_owner = resume_owner(meta) if not manifest else None
+    if meta.get('terminalMode')!='tui' or meta.get('outputMode')=='json' or not sid or not path or (not resumed_owner and (not manifest or manifest.get('status')!='idle')):
         return 'agent-not-idle'
+    if resumed_owner and not completed_resume_turn(meta, path):
+        return 'agent-busy'
     expected=meta.get('identity')
     if not expected or identity(expected['pid'])!=expected or not meta.get('supervisorIdentity') or identity(meta['supervisorIdentity']['pid'])!=meta['supervisorIdentity']:
         return 'process-unconfirmed'
     try:
         ownership=json.loads((run/'ownership.json').read_text())
         phase=json.loads((run/'phase.json').read_text()) if (run/'phase.json').exists() else {}
-        owner = session_owner(meta, manifest.get('pid'))
+        owner = session_owner(meta, manifest.get('pid')) if manifest else resumed_owner
         if ownership.get('trackingError') or any(child not in (expected, owner) for child in ownership.get('owned',[])) or (run/'stop-request.json').exists() or phase.get('active'):
             return 'agent-busy'
     except (OSError,ValueError): return 'process-unconfirmed'
@@ -213,6 +216,64 @@ def session_files(meta):
             continue
     # Never infer which conversation to control from file recency.
     return matches[0] if len(matches) == 1 else (None, None, None)
+
+def completed_resume_turn(meta, path):
+    """An empty composer also exists during generation. Require a finished text turn.
+
+    The observed history profile writes token metrics on the completed API response.
+    A streamed/partial assistant, tool call, or pre-resume reply cannot establish idle.
+    Unknown history profiles stay blocked rather than guessing from elapsed time.
+    """
+    if not path:
+        return False
+    try:
+        doc=json.loads(read_history(path))
+        if not isinstance(doc,dict): return False
+        messages=doc['messages']
+        baseline=(meta.get('resume') or {}).get('baselineMessageCount')
+        if not isinstance(messages,list) or doc.get('version')!=1 or doc.get('sessionId')!=meta.get('sessionId') or type(baseline) is not int or len(messages)<=baseline+1:
+            return False
+        last=messages[-1]
+        if not isinstance(last,dict): return False
+        metrics=last.get('metrics') or {}
+        content=last.get('content') or []
+        if not isinstance(metrics,dict) or not isinstance(content,list) or any(not isinstance(p,dict) for p in content): return False
+        return bool(last.get('role')=='assistant' and any(p.get('type')=='text' and p.get('text') for p in content) and
+                    all(p.get('type') in ('text','thinking') for p in content) and
+                    type(metrics.get('inputTokens')) is int and metrics['inputTokens']>=0 and
+                    type(metrics.get('outputTokens')) is int and metrics['outputTokens']>=0)
+    except (OSError,ValueError,KeyError,TypeError):
+        return False
+
+def resume_owner(meta):
+    """Some CLIs retain the old manifest PID. Verify this launch's SID in /proc."""
+    resume = meta.get('resume') or {}
+    expected = meta.get('identity')
+    supervisor = meta.get('supervisorIdentity')
+    if (not resume or resume.get('executionId') != meta.get('executionId') or
+            resume.get('sessionId') != meta.get('sessionId') or not expected or
+            identity(expected['pid']) != expected or not supervisor or identity(supervisor['pid']) != supervisor):
+        return None
+    try:
+        ownership = json.loads((Path(meta['tmuxSocket']).parent / meta['executionId'] / 'ownership.json').read_bytes())
+        if ownership.get('cliIdentity') != expected or ownership.get('supervisorIdentity') != supervisor or ownership.get('trackingError'):
+            return None
+        def matches_args(process):
+            argv=(Path('/proc')/str(process['pid'])/'cmdline').read_bytes().decode('utf8').rstrip('\0').split('\0')
+            for flag,value in [('--id',meta['sessionId']),('--cwd',meta['cwd']),('--data-dir',meta['dataDir']),('--auto-approve','false')]:
+                if argv.count(flag)!=1 or argv.index(flag)+1>=len(argv) or argv[argv.index(flag)+1]!=value:
+                    return False
+            return identity(process['pid']) == process
+        candidates=[]
+        for child in ownership.get('owned',[]):
+            if child==expected or identity(child['pid'])!=child: continue
+            raw=(Path('/proc')/str(child['pid'])/'stat').read_text()
+            ppid=int(raw[raw.rfind(')')+2:].split()[1])
+            if ppid==expected['pid'] and matches_args(child): candidates.append(child)
+        if candidates: return candidates[0] if len(candidates)==1 else None
+        return expected if expected in ownership.get('owned',[]) and matches_args(expected) else None
+    except (OSError,ValueError,KeyError,TypeError,IndexError):
+        return None
 
 def serve(run):
     from ownership import Ownership, read_json
@@ -436,7 +497,7 @@ def handle(request):
         return settle_message(request,run,meta,request_ledger,session_files,read_history)
     if action == 'settle-resume':
         from resume import settle_resume
-        return settle_resume(request, run, meta, session_files)
+        return settle_resume(request, run, meta, session_files, request_ledger)
     if action == 'stop':
         if not isinstance(request.get('requestId'), str) or not 1 <= len(request['requestId']) <= 128 or not all(c.isalnum() or c in '._:-' for c in request['requestId']):
             raise ValueError('Invalid stop request identity')
@@ -663,13 +724,18 @@ def handle(request):
                 pass
         modal = modal_witness(meta)
         composer = composer_witness(meta)
+        resumed_owner = resume_owner(meta) if not manifest else None
+        cli_owner = session_owner(meta, manifest.get('pid')) if manifest else resumed_owner
+        composer_idle = bool(resumed_owner and completed_resume_turn(meta, history_path) and composer and not modal and not phase.get('active') and
+                             base64.b64decode(composer['dataBase64']).decode().splitlines()[-5][2:].rstrip() in ('','Ask anything...'))
         return dict(executionId=meta['executionId'], sessionId=sid, supersededBy=meta.get('resumedBy'), observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal, composerHash=composer['sha256'] if composer else None, composerPane=composer, resume=meta.get('resume'),
                     gap=cursor < buffer['first'] - 1, history=history, historyError=history_error, screen=screen, phase=phase,
                     process=dict(kind='process', identity=expected, alive=alive, identityConfirmed=confirmed,
                                  exitCode=meta.get('exitCode'), manifestStatus=manifest.get('status') if manifest else meta.get('ownedManifestStatus'),
+                                 composerIdle=composer_idle,
                                  supervisorAlive=bool(meta.get('supervisorIdentity') and identity(meta['supervisorIdentity']['pid']) == meta['supervisorIdentity']),
                                  stop=stop_result,
-                                 children=[value for value in ownership.get('owned', []) if value not in (expected, session_owner(meta, manifest.get('pid')) if manifest else None)], trackingError=ownership.get('trackingError'),
+                                 children=[value for value in ownership.get('owned', []) if value not in (expected, cli_owner)], trackingError=ownership.get('trackingError'),
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
                     requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), message=value.get('message'), witness=value.get('witness'), baselineMessageCount=value.get('baselineMessageCount'), baselineLastMessageId=value.get('baselineLastMessageId'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],

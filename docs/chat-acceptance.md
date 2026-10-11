@@ -142,3 +142,19 @@ npm test
 ```
 
 수정 후 실제 SSH 시험을 포함한 전체 `npm test`는 **143/143 통과**, 실패·skip 0(약 59초), SDK TypeScript build 및 예제 서버 `tsc --checkJs` 통과. Standards·Spec 리뷰 모두 잔여 발견 사항이 없다. 브라우저 앱에 별도로 `tsc --checkJs`를 적용하면 기존 DOM `HTMLElement`/`Element` 타입 오류가 있으며, 이를 전체 앱 타입 검사 통과로 표현하지 않는다.
+
+## 연속 대화 회귀 수정
+
+이전 실제 검증은 첫 디렉터리 답변과 입력 준비까지만 확인했으며 실제 후속 메시지의 연속 왕복을 증명하지 못했다. 2026-10-11 보고 이후 실제 첫 쓰기 전 `agent-not-idle` 거부가 `delivery-unknown` 잠금을 남기는 문제를 재현했다. durable ledger가 예약 거부 또는 첫 step의 미기록 거부를 확정할 때만 `not-submitted`로 해제한다. partial-written 이후 실패는 계속 unknown이며 초안을 자동 재전송하지 않는다.
+
+재개 제출의 raw history witness가 delivered를 확인해도 composer ledger를 unresolved로 남기던 문제를 수정했다. 같은 요청·SID·EID·digest와 written submit step이 일치할 때 원격 ledger를 같은 lock에서 delivered로 해결한다. manifest가 이전 PID를 유지하는 재개는 현재 소유 launcher/native child identity와 정확한 `--id`, `--cwd`, `--data-dir`, `--auto-approve false` 인자로 연결한다. 현재 manifest idle을 위조하지 않으며 `manifestStatus=null`을 유지한다. 빈 composer는 생성 중에도 보이므로 재개 baseline 이후 tool_use 없는 assistant text와 완료 token metrics까지 확인한 뒤에만 `composerIdle=true`가 된다. 알 수 없는 history profile은 거부한다.
+
+실제 파일 개수 명령 승인이 두 줄로 렌더링되는 화면도 재현했다. 강제 word wrap이 셀 너비로 확인되는 인접 줄만 복원하고 history의 전체 명령과 정확하게 비교한다. 변경되거나 사라진 이어지는 줄은 계속 unsupported다. timer 조회 중 클릭의 `operation-busy` 거부는 기존 refreshTask를 기다리도록 고쳤으며, 동시 쓰기 요청 거부는 유지한다.
+
+실제 브라우저는 새 코드로 실행한 `http://127.0.0.1:4189/`에서 검증했다. 원래 4174 Node 서버는 실행 중 로드한 이전 SDK를 유지하므로 별도 재시작 전에는 이번 수정이 적용되지 않는다. 기존 Cline 설정 `/home/kalstein/.cline/data`와 작업 경로 `/home/kalstein/vscode`를 사용했다. 버전 조회나 인증·CLI history/manifest 변경은 하지 않았다.
+
+실제 승인 후 `malo` 파일 0개 답변을 확인하고, 같은 SID `1791720380872_9re4x`를 새 EID `run-e09ca4fd-d7ae-4e6e-a308-c5a3a81bc45b`로 재개했다. 재개 요청은 파일 개수의 한 문장 요약이다. 이후 중단·재연결 없이 폴더 경로, 파일 개수와 이름, 대화 요약을 연속 요청해 각 delivered·모델 답변·다음 입력 준비를 확인했다. 재개와 세 후속의 8개 user/assistant message ID가 서로 다르고 원래 폴더/파일 개수 맥락이 유지됐다. 검증 결과는 `evidence/chat/continuous-conversation.json` 및 `.png`에 기록했다. 개발 WSL 검증이며 회사 CLI에서 완료한 수용 검증으로 표현하지 않는다.
+
+실제 SSH wrapper 회귀는 같은 public API로 start→send→도구 자식 차단→stop→resume→후속 두 번→전체 종료를 검증한다. 생성 중 partial assistant, tool call, 과거 reply, malformed content, manifest 누락을 시험 소유 데이터에만 주입하여 후속 입력이 차단되는지도 확인한다.
+
+최종 `CLINE_SDK_TEST_SSH_HOST=wsl npm test`는 **151/151 통과**, 실패·skip 0(약 87초)였다. SDK build와 예제 서버 checkJs도 통과했다. Standards 리뷰에서 발견한 생성 중 입력 허용 및 history 경로/구조 누락 처리를 보완한 후 Standards·Spec 모두 잔여 finding 0이다.

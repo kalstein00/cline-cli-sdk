@@ -98,4 +98,8 @@ if (client.capabilities().sendMessage && s.messageInput?.ready) {
 
 브라우저는 message ID로 갱신하고 이전 serverId/generation 결과를 무시합니다. pending ID를 유지하고 HTTP 오류만으로 미제출을 단정하지 않습니다. capabilities/history/inputControl과 현재 질문을 함께 확인합니다. 서버는 loopback Host/Origin과 JSON 형식·본문 크기를 검사합니다. 로컬 단일 소비 앱용이며 공개 웹 서비스나 여러 앱 동시 제어 계약은 아닙니다.
 
+`messageDelivery.state=not-submitted`는 원격 예약 거부 또는 첫 쓰기 이전의 확정 거부입니다. 초안을 유지하고 pending만 해제하므로 사용자가 직접 다시 전송할 수 있습니다. 일부 입력이 기록된 뒤의 실패는 `delivery-unknown`으로 계속 차단하며 자동 재전송하지 않습니다. 주기적인 읽기 조회와 버튼 클릭이 겹치면 서버가 조회 종료를 기다린 뒤 요청을 처리합니다.
+
+일부 CLI는 재개 시 manifest에 이전 PID를 유지합니다. 이 경우 현재 실행의 소유 프로세스와 정확한 SID/작업/데이터 경로 인자, 재개 이후 완료된 text 응답의 token metrics, 도구 호출 없음, 빈 composer가 모두 확인될 때만 다음 입력을 허용합니다. 완료 근거가 없는 history profile은 계속 차단합니다. SDK 또는 원격 supervisor 코드를 변경한 뒤에는 예제 Node 서버를 재시작하고 기존 작업을 confirmed 중단한 후 재개해야 새 코드가 적용됩니다.
+
 실제 브라우저·공개 CLI 근거와 fixture/장애 주입 결과는 저장소의 `docs/chat-acceptance.md`에 구분해 기록했습니다.

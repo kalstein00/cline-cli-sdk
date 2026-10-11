@@ -9,6 +9,6 @@ export interface MessageDelivery {
   requestId: string;
   sessionId: string;
   executionId: string;
-  state: 'submitting' | 'delivered' | 'delivery-unknown';
+  state: 'submitting' | 'delivered' | 'not-submitted' | 'delivery-unknown';
   messageId: string | null;
 }

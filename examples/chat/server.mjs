@@ -119,7 +119,7 @@ function mutate(action, input) {
   }
   if (input.generation !== generation) throw problem('selection-changed','대화 상태가 변경되었습니다.');
   if(input.serverId!==serverId)throw problem('server-changed','서버가 재시작되었습니다. 현재 연결과 실행을 확인하세요.');
-  if (busy || (refreshing&&!['new','select','list','disconnect','reconnect','reconfirm','stop','resume'].includes(action))) throw problem('operation-busy','진행 중인 상태 확인·전송이 있습니다.');
+  if (busy) throw problem('operation-busy','진행 중인 전송이 있습니다.');
   if (requests.size >= 256) throw problem('request-limit','요청 보관 한도에 도달했습니다. 서버를 재시작하고 원격 실행을 확인하세요.');
   busy = true;
   const promise = Promise.resolve().then(async () => {await refreshTask;return perform(action,input);}).finally(() => {busy=false;publish();});

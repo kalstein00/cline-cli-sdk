@@ -48,7 +48,7 @@ def launch_resume(request, root, handle, identity, boot_id, save):
         save(receipt_path,receipt)
         return dict(launched,resume=receipt)
 
-def settle_resume(request,run,meta,session_files):
+def settle_resume(request,run,meta,session_files,ledger_lock):
     resume = meta.get('resume')
     if not resume or request['requestId'] != resume['requestId']:
         raise ValueError('Unknown resume reservation')
@@ -65,4 +65,13 @@ def settle_resume(request,run,meta,session_files):
     matched=[m for m in doc['messages'][count:] if m['role']=='user' and hashlib.sha256(text(m).encode()).hexdigest()==resume['promptDigest']]
     if len(matched)!=1:return dict(state='delivery-unknown')
     # Return raw history identity witness. The consumer still checks fresh process/session.
-    return dict(state='delivered',messageId=matched[0]['id'],promptDigest=resume['promptDigest'],sessionId=sid,executionId=meta['executionId'])
+    witness=dict(state='delivered',messageId=matched[0]['id'],promptDigest=resume['promptDigest'],sessionId=sid,executionId=meta['executionId'])
+    with ledger_lock(run) as ledger:
+        record=ledger.get(resume['requestId'])
+        binding=(record or {}).get('binding',{})
+        steps=(record or {}).get('steps',{})
+        submitted=any(step.get('inputType')=='composer-submit' and step.get('state')=='written' for step in steps.values())
+        if not record or binding.get('executionId')!=meta['executionId'] or binding.get('sessionId')!=sid or binding.get('kind')!='composer' or binding.get('answerDigest')!=resume['promptDigest'] or record['state'] not in ('queued','written') or not submitted:
+            return dict(state='delivery-unknown')
+        record.update(resolution='delivered',witness=witness)
+    return witness
