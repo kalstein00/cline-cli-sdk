@@ -1,0 +1,1131 @@
+{
+  "source": "actual Windows Chrome -> public SDK stop/resume -> SSH WSL, normal completion seeded with public SDK readline start",
+  "results": [
+    {
+      "label": "NORMAL_RESUMED27",
+      "before": {
+        "mode": "live",
+        "sessionId": "1791713491678_f1i9q",
+        "executionId": "run-ce0e41fa-e98a-4fc4-a0a9-54338d88c6ff",
+        "revision": 8,
+        "connection": "connected",
+        "execution": "completed",
+        "messages": [
+          {
+            "id": "5b68923f-ef64-4c8d-ab47-afaa55e26d83",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">Reply exactly NORMAL_COMPLETED27. No tools.</user_input>"
+              }
+            ],
+            "text": "Reply exactly NORMAL_COMPLETED27. No tools."
+          },
+          {
+            "id": "msg_kQURtRCz",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "NORMAL_COMPLETED27"
+              }
+            ],
+            "text": "NORMAL_COMPLETED27"
+          }
+        ],
+        "interaction": null,
+        "response": null,
+        "stop": null,
+        "executionEvidence": {
+          "kind": "process",
+          "identity": {
+            "pid": 946117,
+            "startTime": "3350654",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          "alive": false,
+          "identityConfirmed": true,
+          "exitCode": 0,
+          "manifestStatus": "completed",
+          "supervisorAlive": false,
+          "stop": null,
+          "children": [],
+          "trackingError": null,
+          "childrenVerified": true,
+          "requestedStop": false,
+          "seq": 10,
+          "observedAt": "2026-10-11T10:12:10.965Z"
+        },
+        "historySync": {
+          "current": true,
+          "warning": null
+        },
+        "composer": null,
+        "messageInput": {
+          "ready": false,
+          "reason": "unsupported-profile",
+          "maxBytes": 112
+        },
+        "messageDelivery": null,
+        "resume": null,
+        "replay": {
+          "position": 1,
+          "total": 0,
+          "complete": false,
+          "truncated": false
+        },
+        "inputControl": {
+          "current": true,
+          "reason": null
+        }
+      },
+      "after": {
+        "mode": "live",
+        "sessionId": "1791713491678_f1i9q",
+        "executionId": "run-9f504927-5b6b-4745-9949-2673f880d6b8",
+        "revision": 20,
+        "connection": "connected",
+        "execution": "running",
+        "messages": [
+          {
+            "id": "5b68923f-ef64-4c8d-ab47-afaa55e26d83",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">Reply exactly NORMAL_COMPLETED27. No tools.</user_input>"
+              }
+            ],
+            "text": "Reply exactly NORMAL_COMPLETED27. No tools."
+          },
+          {
+            "id": "msg_kQURtRCz",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "NORMAL_COMPLETED27"
+              }
+            ],
+            "text": "NORMAL_COMPLETED27"
+          },
+          {
+            "id": "242745cc-8279-4bbd-b4db-354d2a18c6f2",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">2 한글 😀: Reply exactly NORMAL_RESUMED27. No tools.</user_input>"
+              }
+            ],
+            "text": "2 한글 😀: Reply exactly NORMAL_RESUMED27. No tools."
+          },
+          {
+            "id": "msg_pLx4I9te",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "NORMAL_RESUMED27"
+              }
+            ],
+            "text": "NORMAL_RESUMED27"
+          }
+        ],
+        "interaction": null,
+        "response": null,
+        "stop": null,
+        "executionEvidence": {
+          "kind": "process",
+          "identity": {
+            "pid": 948185,
+            "startTime": "3354963",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          "alive": true,
+          "identityConfirmed": true,
+          "exitCode": null,
+          "manifestStatus": null,
+          "supervisorAlive": true,
+          "stop": null,
+          "children": [],
+          "trackingError": null,
+          "childrenVerified": false,
+          "requestedStop": false,
+          "seq": 147,
+          "observedAt": "2026-10-11T10:12:22.416Z"
+        },
+        "historySync": {
+          "current": true,
+          "warning": null
+        },
+        "composer": {
+          "mode": "tui",
+          "text": ""
+        },
+        "messageInput": {
+          "ready": false,
+          "reason": "agent-busy",
+          "maxBytes": 112
+        },
+        "messageDelivery": null,
+        "resume": {
+          "requestId": "f4f022b3-9b08-401e-923f-4a3fddad575f",
+          "fromExecutionId": "run-ce0e41fa-e98a-4fc4-a0a9-54338d88c6ff",
+          "executionId": "run-9f504927-5b6b-4745-9949-2673f880d6b8",
+          "sessionId": "1791713491678_f1i9q",
+          "state": "delivered"
+        },
+        "replay": {
+          "position": 1,
+          "total": 0,
+          "complete": false,
+          "truncated": false
+        },
+        "inputControl": {
+          "current": true,
+          "reason": null
+        }
+      },
+      "executions": [
+        {
+          "executionId": "run-f097419b-d703-4e5c-b0fc-317f50b16751",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712635349_d1vk1",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712635349_d1vk1"
+        },
+        {
+          "executionId": "run-247873e4-d528-4473-b7a1-564c52c81335",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791710324301_qfpa1",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791710324301_qfpa1"
+        },
+        {
+          "executionId": "run-c2895633-495a-4eab-a590-57db6c4e9585",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712254185_ro62h",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712254185_ro62h"
+        },
+        {
+          "executionId": "run-d1740994-44e0-46fc-b7d9-96006d1b2c6a",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713297000_dmmeg",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791713297000_dmmeg"
+        },
+        {
+          "executionId": "run-ce0e41fa-e98a-4fc4-a0a9-54338d88c6ff",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713491678_f1i9q",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "readline",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "Reply exactly NORMAL_COMPLETED27. No tools."
+        },
+        {
+          "executionId": "run-8d292c38-c13d-4ad5-a96b-c0cd1e75d6d7",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791709018504_x6bgo",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791709018504_x6bgo"
+        },
+        {
+          "executionId": "run-6e7dc8e5-752f-4e0e-bc8d-5df14481304f",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712823299_88oxe",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712823299_88oxe"
+        },
+        {
+          "executionId": "run-1ac0e6fb-9f78-41be-88d5-2f884bbfd883",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791710421169_ru2jm",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791710421169_ru2jm"
+        },
+        {
+          "executionId": "run-c19f2999-5fec-4bb3-95e6-48cf8152d61b",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791711007010_jz5fx",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791711007010_jz5fx"
+        },
+        {
+          "executionId": "run-160d1dc9-3a37-4104-896c-29df2da379ac",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791709896222_pt79y",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791709896222_pt79y"
+        },
+        {
+          "executionId": "run-56e183fa-1acb-455a-ba45-64371fd04791",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791711594032_vg9jh",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791711594032_vg9jh"
+        },
+        {
+          "executionId": "run-c8f6b453-6ed0-4c25-a644-8d23c2d79e2b",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712823299_88oxe",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "readline",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": "run-6e7dc8e5-752f-4e0e-bc8d-5df14481304f",
+          "title": "1791712823299_88oxe"
+        },
+        {
+          "executionId": "run-0766d434-7381-433b-b076-623c4e83728a",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712176032_izmn0",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712176032_izmn0"
+        },
+        {
+          "executionId": "run-988ae6a2-bbf9-4e9c-8dec-6de290552c38",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712550822_lgkvs",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712550822_lgkvs"
+        },
+        {
+          "executionId": "run-26485e6e-c5e0-4950-b03c-d6383f9c3eb9",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791711717324_a63fh",
+          "alive": true,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791711717324_a63fh"
+        },
+        {
+          "executionId": "run-29924cb1-d3ab-47ab-9c48-1ec6baecd9df",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791710905927_pqgzp",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791710905927_pqgzp"
+        },
+        {
+          "executionId": "run-db5fc24c-18c8-49df-8943-85b8a264c0a4",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791709748426_98r2x",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791709748426_98r2x"
+        },
+        {
+          "executionId": "run-024d83ed-b6e8-4c4f-9029-d063709c1428",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713138011_njkyv",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "readline",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": "run-7ad2a101-241b-45d4-b854-fb30c76db51e",
+          "title": "1791713138011_njkyv"
+        },
+        {
+          "executionId": "run-7ad2a101-241b-45d4-b854-fb30c76db51e",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713138011_njkyv",
+          "alive": true,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791713138011_njkyv"
+        },
+        {
+          "executionId": "run-45b81ac3-19b5-45d7-ac6d-6b0d13360de2",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791711735235_d5sr1",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791711735235_d5sr1"
+        }
+      ]
+    },
+    {
+      "label": "STOPPED_RESUMED27",
+      "before": {
+        "mode": "live",
+        "sessionId": "1791713552674_qicb9",
+        "executionId": "run-dd49efd8-063e-4b3e-acbe-49a851555f9c",
+        "revision": 15,
+        "connection": "connected",
+        "execution": "stopped",
+        "messages": [
+          {
+            "id": "19a5ae24-6500-443c-b36a-da696daaa15c",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">Reply exactly BEFORE_STOP27. No tools.</user_input>"
+              }
+            ],
+            "text": "Reply exactly BEFORE_STOP27. No tools."
+          },
+          {
+            "id": "msg_F_Z5xOjt",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "BEFORE_STOP27"
+              }
+            ],
+            "text": "BEFORE_STOP27"
+          }
+        ],
+        "interaction": null,
+        "response": null,
+        "stop": {
+          "executionId": "run-dd49efd8-063e-4b3e-acbe-49a851555f9c",
+          "requestId": "abccac7b-39bf-411c-afd5-d662a2c4d512",
+          "state": "confirmed",
+          "childrenVerified": true,
+          "trackedCount": 2,
+          "remaining": [],
+          "reason": null,
+          "observedAt": "2026-10-11T10:12:38.352604+00:00",
+          "targets": [
+            {
+              "pid": 949286,
+              "startTime": "3356677",
+              "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+            }
+          ]
+        },
+        "executionEvidence": {
+          "kind": "process",
+          "identity": {
+            "pid": 949286,
+            "startTime": "3356677",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          "alive": false,
+          "identityConfirmed": true,
+          "exitCode": 0,
+          "manifestStatus": "completed",
+          "supervisorAlive": false,
+          "stop": {
+            "executionId": "run-dd49efd8-063e-4b3e-acbe-49a851555f9c",
+            "requestId": "abccac7b-39bf-411c-afd5-d662a2c4d512",
+            "state": "confirmed",
+            "childrenVerified": true,
+            "trackedCount": 2,
+            "remaining": [],
+            "reason": null,
+            "observedAt": "2026-10-11T10:12:38.352604+00:00",
+            "targets": [
+              {
+                "pid": 949286,
+                "startTime": "3356677",
+                "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+              }
+            ]
+          },
+          "children": [],
+          "trackingError": null,
+          "childrenVerified": true,
+          "requestedStop": false,
+          "seq": 105,
+          "observedAt": "2026-10-11T10:12:39.018Z"
+        },
+        "historySync": {
+          "current": true,
+          "warning": null
+        },
+        "composer": null,
+        "messageInput": {
+          "ready": false,
+          "reason": "delivery-pending",
+          "maxBytes": 112
+        },
+        "messageDelivery": null,
+        "resume": null,
+        "replay": {
+          "position": 1,
+          "total": 0,
+          "complete": false,
+          "truncated": false
+        },
+        "inputControl": {
+          "current": true,
+          "reason": null
+        }
+      },
+      "after": {
+        "mode": "live",
+        "sessionId": "1791713552674_qicb9",
+        "executionId": "run-4c073ed1-7cc9-4f0b-98ef-9367a686ac8a",
+        "revision": 27,
+        "connection": "connected",
+        "execution": "running",
+        "messages": [
+          {
+            "id": "19a5ae24-6500-443c-b36a-da696daaa15c",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">Reply exactly BEFORE_STOP27. No tools.</user_input>"
+              }
+            ],
+            "text": "Reply exactly BEFORE_STOP27. No tools."
+          },
+          {
+            "id": "msg_F_Z5xOjt",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "BEFORE_STOP27"
+              }
+            ],
+            "text": "BEFORE_STOP27"
+          },
+          {
+            "id": "561d6aa9-56da-4268-8743-6629e1a39c8d",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">2 한글 😀: Reply exactly STOPPED_RESUMED27. No tools.</user_input>"
+              }
+            ],
+            "text": "2 한글 😀: Reply exactly STOPPED_RESUMED27. No tools."
+          },
+          {
+            "id": "msg_6tDbjUBQ",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "STOPPED_RESUMED27"
+              }
+            ],
+            "text": "STOPPED_RESUMED27"
+          }
+        ],
+        "interaction": null,
+        "response": null,
+        "stop": null,
+        "executionEvidence": {
+          "kind": "process",
+          "identity": {
+            "pid": 949963,
+            "startTime": "3357719",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          "alive": true,
+          "identityConfirmed": true,
+          "exitCode": null,
+          "manifestStatus": null,
+          "supervisorAlive": true,
+          "stop": null,
+          "children": [],
+          "trackingError": null,
+          "childrenVerified": false,
+          "requestedStop": false,
+          "seq": 234,
+          "observedAt": "2026-10-11T10:12:49.891Z"
+        },
+        "historySync": {
+          "current": true,
+          "warning": null
+        },
+        "composer": {
+          "mode": "tui",
+          "text": ""
+        },
+        "messageInput": {
+          "ready": false,
+          "reason": "agent-busy",
+          "maxBytes": 112
+        },
+        "messageDelivery": null,
+        "resume": {
+          "requestId": "9563ad79-6f92-41ab-8dbb-76d0ff643d1b",
+          "fromExecutionId": "run-dd49efd8-063e-4b3e-acbe-49a851555f9c",
+          "executionId": "run-4c073ed1-7cc9-4f0b-98ef-9367a686ac8a",
+          "sessionId": "1791713552674_qicb9",
+          "state": "delivered"
+        },
+        "replay": {
+          "position": 1,
+          "total": 0,
+          "complete": false,
+          "truncated": false
+        },
+        "inputControl": {
+          "current": true,
+          "reason": null
+        }
+      },
+      "executions": [
+        {
+          "executionId": "run-f097419b-d703-4e5c-b0fc-317f50b16751",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712635349_d1vk1",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712635349_d1vk1"
+        },
+        {
+          "executionId": "run-247873e4-d528-4473-b7a1-564c52c81335",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791710324301_qfpa1",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791710324301_qfpa1"
+        },
+        {
+          "executionId": "run-c2895633-495a-4eab-a590-57db6c4e9585",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712254185_ro62h",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712254185_ro62h"
+        },
+        {
+          "executionId": "run-d1740994-44e0-46fc-b7d9-96006d1b2c6a",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713297000_dmmeg",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791713297000_dmmeg"
+        },
+        {
+          "executionId": "run-ce0e41fa-e98a-4fc4-a0a9-54338d88c6ff",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713491678_f1i9q",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "readline",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": "run-9f504927-5b6b-4745-9949-2673f880d6b8",
+          "title": "Reply exactly NORMAL_COMPLETED27. No tools."
+        },
+        {
+          "executionId": "run-8d292c38-c13d-4ad5-a96b-c0cd1e75d6d7",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791709018504_x6bgo",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791709018504_x6bgo"
+        },
+        {
+          "executionId": "run-6e7dc8e5-752f-4e0e-bc8d-5df14481304f",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712823299_88oxe",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712823299_88oxe"
+        },
+        {
+          "executionId": "run-1ac0e6fb-9f78-41be-88d5-2f884bbfd883",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791710421169_ru2jm",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791710421169_ru2jm"
+        },
+        {
+          "executionId": "run-c19f2999-5fec-4bb3-95e6-48cf8152d61b",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791711007010_jz5fx",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791711007010_jz5fx"
+        },
+        {
+          "executionId": "run-160d1dc9-3a37-4104-896c-29df2da379ac",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791709896222_pt79y",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791709896222_pt79y"
+        },
+        {
+          "executionId": "run-56e183fa-1acb-455a-ba45-64371fd04791",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791711594032_vg9jh",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791711594032_vg9jh"
+        },
+        {
+          "executionId": "run-c8f6b453-6ed0-4c25-a644-8d23c2d79e2b",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712823299_88oxe",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "readline",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": "run-6e7dc8e5-752f-4e0e-bc8d-5df14481304f",
+          "title": "1791712823299_88oxe"
+        },
+        {
+          "executionId": "run-0766d434-7381-433b-b076-623c4e83728a",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712176032_izmn0",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712176032_izmn0"
+        },
+        {
+          "executionId": "run-988ae6a2-bbf9-4e9c-8dec-6de290552c38",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791712550822_lgkvs",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791712550822_lgkvs"
+        },
+        {
+          "executionId": "run-26485e6e-c5e0-4950-b03c-d6383f9c3eb9",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791711717324_a63fh",
+          "alive": true,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791711717324_a63fh"
+        },
+        {
+          "executionId": "run-29924cb1-d3ab-47ab-9c48-1ec6baecd9df",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791710905927_pqgzp",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791710905927_pqgzp"
+        },
+        {
+          "executionId": "run-db5fc24c-18c8-49df-8943-85b8a264c0a4",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791709748426_98r2x",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791709748426_98r2x"
+        },
+        {
+          "executionId": "run-9f504927-5b6b-4745-9949-2673f880d6b8",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713491678_f1i9q",
+          "alive": true,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "Reply exactly NORMAL_COMPLETED27. No tools."
+        },
+        {
+          "executionId": "run-dd49efd8-063e-4b3e-acbe-49a851555f9c",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713552674_qicb9",
+          "alive": true,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "Reply exactly BEFORE_STOP27. No tools."
+        },
+        {
+          "executionId": "run-024d83ed-b6e8-4c4f-9029-d063709c1428",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713138011_njkyv",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "readline",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": "run-7ad2a101-241b-45d4-b854-fb30c76db51e",
+          "title": "1791713138011_njkyv"
+        },
+        {
+          "executionId": "run-7ad2a101-241b-45d4-b854-fb30c76db51e",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791713138011_njkyv",
+          "alive": true,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791713138011_njkyv"
+        },
+        {
+          "executionId": "run-45b81ac3-19b5-45d7-ac6d-6b0d13360de2",
+          "remoteRoot": "/home/kalstein/cline-chat-20261011/control",
+          "sessionId": "1791711735235_d5sr1",
+          "alive": false,
+          "identityConfirmed": true,
+          "terminal": {
+            "rows": 40,
+            "cols": 120
+          },
+          "terminalMode": "tui",
+          "outputMode": "terminal",
+          "cliHash": "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
+          "resultRequest": null,
+          "supersededBy": null,
+          "title": "1791711735235_d5sr1"
+        }
+      ]
+    }
+  ]
+}

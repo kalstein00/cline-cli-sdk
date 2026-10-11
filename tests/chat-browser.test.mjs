@@ -131,3 +131,10 @@ test('disconnect and browser reload restore the same pending question and keep a
  await page.reload();await page.locator('[data-interaction-id]').waitFor();assert.equal(await page.locator('#connection').textContent(),'disconnected');await page.locator('#reconnect').click();await page.locator('#connection').filter({hasText:'connected'}).waitFor();
  await page.waitForFunction(()=>!document.querySelector('#interactions button').disabled);const after=await page.request.get('http://127.0.0.1:4212/api/state').then(r=>r.json());assert.equal(after.snapshot.executionId,before.snapshot.executionId);assert.equal(after.snapshot.sessionId,before.snapshot.sessionId);assert.equal(after.snapshot.interaction.id,before.snapshot.interaction.id);assert.deepEqual(after.snapshot.messages,before.snapshot.messages);
 });
+
+for(const [fault,confirmed] of [['stop-confirmed',true],['stop-unknown',false]])test(`explicit ${fault} preserves history and only confirmed termination enables resume`,{timeout:30000},async t=>{
+ const page=await connectedPage(t,confirmed?4215:4216,fault);await page.locator('#message').fill('Controlled stop');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();const before=await page.request.get(`http://127.0.0.1:${confirmed?4215:4216}/api/state`).then(r=>r.json());
+ await page.getByRole('button',{name:'작업 중단',exact:true}).click();await page.locator('#stopStatus').filter({hasText:confirmed?'중단 확인':'중단 여부 불명'}).waitFor();assert.equal(await page.locator('#send').isDisabled(),!confirmed);assert.equal(await page.locator('[data-message-id="user-first"] .text').textContent(),'Controlled stop');
+ if(confirmed){assert.equal(await page.locator('#send').textContent(),'대화 재개하여 보내기');await page.locator('#message').fill('한'.repeat(38));await page.locator('#send').click();await page.locator('#error').filter({hasText:'UTF-8 112바이트'}).waitFor();}
+ const after=await page.request.get(`http://127.0.0.1:${confirmed?4215:4216}/api/state`).then(r=>r.json());assert.equal(after.snapshot.executionId,before.snapshot.executionId);assert.deepEqual(after.snapshot.messages,before.snapshot.messages);
+});

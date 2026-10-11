@@ -1,0 +1,40 @@
+{
+  "source": "public SDK stop, only the two ticket27 resumed executions",
+  "results": [
+    {
+      "executionId": "run-9f504927-5b6b-4745-9949-2673f880d6b8",
+      "requestId": "cleanup27-run-9f504927-5b6b-4745-9949-2673f880d6b8",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 1,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:13:24.961646+00:00",
+      "targets": [
+        {
+          "pid": 948185,
+          "startTime": "3354963",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    },
+    {
+      "executionId": "run-4c073ed1-7cc9-4f0b-98ef-9367a686ac8a",
+      "requestId": "cleanup27-run-4c073ed1-7cc9-4f0b-98ef-9367a686ac8a",
+      "state": "confirmed",
+      "childrenVerified": true,
+      "trackedCount": 2,
+      "remaining": [],
+      "reason": null,
+      "observedAt": "2026-10-11T10:13:31.691502+00:00",
+      "targets": [
+        {
+          "pid": 949963,
+          "startTime": "3357719",
+          "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+        }
+      ]
+    }
+  ],
+  "historyRetained": true
+}

@@ -1174,7 +1174,12 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           }
           throw new SdkError("resume-input-uncertain", "Composer echo or new user history was not confirmed.");
         };
-        await wait(()=>state.composer?.text === "" && !!composerHash && baseline.every(m=>state.messages.some(n=>m.id===n.id&&m.text===n.text)));
+        let restoredHash:string|null=null;
+        await wait(()=>{
+          if(state.composer?.text!=="" || !composerHash || !baseline.every(m=>state.messages.some(n=>m.id===n.id&&m.text===n.text))){restoredHash=null;return false;}
+          if(restoredHash!==composerHash){restoredHash=composerHash;return false;}
+          return true; // unchanged across consecutive bounded refreshes, separated by the wait interval
+        });
         const composerRevision=state.revision;
         let stepIndex = 0;
         const step = async (inputType:string, text:string, condition:()=>boolean) => {

@@ -15,7 +15,7 @@
 <label>작업 디렉터리<input id="cwd" required placeholder="/remote/workspace" autocomplete="off"></label>
 <label>CLI 데이터 디렉터리<input id="dataDir" placeholder="/remote/isolated-data" autocomplete="off"></label>
 </div><button id="connect" type="submit">연결 확인</button><p id="preflight" role="status"></p></form></details>
-<div class="session-actions"><button id="disconnect" disabled>연결 해제</button><button id="reconnect" disabled>재연결</button><button id="reconfirm" disabled>전달 상태 다시 확인</button></div>
+<div class="session-actions"><button id="disconnect" disabled>연결 해제</button><button id="reconnect" disabled>재연결</button><button id="reconfirm" disabled>전달 상태 다시 확인</button><button id="stop" disabled>작업 중단</button><span id="stopStatus" role="status"></span></div>
 <div id="error" role="alert" hidden></div>
 <section id="timeline" aria-label="메시지 내역"><div id="empty"><h2>무엇을 도와드릴까요?</h2><p>원격 Cline에 요청을 보내고 대화로 결과를 확인하세요.</p></div><div id="messages"></div><section id="interactions" aria-label="질문과 승인"></section></section>
 <button id="newMessages" hidden>새 메시지 보기 ↓</button>

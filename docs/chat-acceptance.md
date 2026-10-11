@@ -62,3 +62,13 @@ generation 증가 시 이전 메시지·질문 카드를 정리하고 대화별 
 통제된 외부 SSH 장애 시험에서는 후속 Enter 뒤 관측 상실과 질문 제출 뒤 acknowledgment 상실을 각각 새 공개 SDK 클라이언트로 복원했다. 새 ID 우회가 거부됐고 재대조 후 원래 수신 근거로 확정했으며 원격 입력 횟수는 증가하지 않았다. ledger 상실/부분 JSON에서 불명 상태·마지막 정상 기록/current=false를 유지하고 정상 재읽기 후 수렴했다. 새 클라이언트 복원 원시 진단의 public replay 비교는 eventDifferences 0, snapshotMatches true였다. SDK build·예제 typecheck, 공개 API/재연결/history/질문/진단 focused 27개와 Chrome 복원·선택 경계 3개 통과. 실제 수신 직후 SSH 단절은 강제하지 않았으며 해당 경계는 통제 장애 근거다.
 
 #26 리뷰 보완: 같은 클라이언트에서 재대조로 확정된 동일 요청은 과거 실패 promise 대신 현재 delivered receipt를 반환한다. 새 원격 실행은 입력 ledger를 명시적으로 초기화하며, missing/corrupt ledger를 정상적인 빈 ledger로 취급하지 않는다. 공개 Snapshot.inputControl.current=false 및 capability/준비 상태로 최초 attach부터 후속 입력과 질문 응답을 잠근다. 원격 예약도 누락 ledger를 자동 재생성하지 않는다. 구형 실행의 ledger가 처음부터 없는 경우 안전한 입력 근거가 없으므로 읽기/중단만 허용한다. 두 보완 경계의 공개 API 회귀와 기존 focused 검증을 통과했다.
+
+## #27 명시적 중단과 종료 대화 재개
+
+작업 중단은 연결 해제와 별도 버튼이며 현재 SID/EID/request ID에 결합한다. SDK stop의 stopping/confirmed/unknown을 표시하고, CLI·추적 자식·supervisor 종료 근거가 없는 경우 성공으로 표시하지 않는다. 기록은 유지한다. 종료가 확인되고 공개 resume capability가 있는 대화에서는 입력창이 `대화 재개하여 보내기`로 바뀐다. 살아 있는 실행은 sendMessage, 종료 확인 실행은 resume를 사용하며 자동 stop→resume는 없다. 재개도 UTF-8 112바이트의 printable 한 줄이며 새 EID를 같은 SID 그룹에 개별 버튼으로 추가한다.
+
+실제 공개 SDK readline start의 정상 종료(exitCode 0) 대화를 브라우저 목록에서 선택해 NORMAL_RESUMED27로 재개했다. SID `1791713491678_f1i9q`를 유지하며 EID `run-ce0e41fa-e98a-4fc4-a0a9-54338d88c6ff`에서 `run-9f504927-5b6b-4745-9949-2673f880d6b8`로 바뀌었다. 별도 브라우저 TUI 대화에서 BEFORE_STOP27 답변 뒤 명시적 stop을 확인하고 STOPPED_RESUMED27로 재개했다. SID `1791713552674_qicb9`에서 `run-dd49efd8-063e-4b3e-acbe-49a851555f9c` → `run-4c073ed1-7cc9-4f0b-98ef-9367a686ac8a`였다. 두 요청은 `2 한글 😀:`로 시작하며 SDK delivered와 정확한 답변, 이전 message ID 보존을 확인했다. 중복 클릭은 실행을 반복 생성하지 않았다(`evidence/chat/stop-resume-browser.{json,png}`).
+
+원격 meta/ownership/proc/history를 읽기 전용으로 대조해 이전 CLI와 자식 종료, 같은 SID·새 EID, 원래 history 경계 뒤 정확한 digest의 user 메시지를 확인했다(`stop-resume-remote.json`). 해당 두 재개 실행은 공개 SDK stop으로 confirmed 정리했고 대화 기록은 보존했다(`stop-resume-cleanup.json`). 원격 근거 파일의 마지막 PID 확인은 이 정리 뒤 수행했다. 원본 provider와 다른 사용자 실행은 변경하지 않았다.
+
+실제 초기 재개 시험에서 composer가 다시 그려져 첫 입력이 거부되는 경우를 불명으로 처리했고 자동 재전송하지 않았다. 첫 쓰기 전 이전 기록과 빈 composer/hash가 연속한 bounded refresh에서 유지되는 것을 요구하도록 보강한 뒤 새 시험 대화에서 정상·중단 재개를 재검증했다. stop/resume과 주기적 읽기 경합도 읽기 완료 뒤 대상/종료를 재검사한다. 오래된 대상·중복 재개·불명 echo 및 실제 원시 재생을 포함한 공개 SDK 중단/재개 11개, Chrome 중단 confirmed/unknown·기록 보존·112바이트·재연결 3개와 typecheck/build 통과. 전체 suite는 #28에서 한 번 실행한다.

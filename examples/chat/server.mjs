@@ -74,6 +74,13 @@ async function perform(action, input) {
   } else if(action==='reconfirm') {
     if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
     await client.reconfirmDelivery();
+  } else if(action==='stop') {
+    if(!client || client.snapshot().executionId!==input.executionId || client.snapshot().sessionId!==input.sessionId)throw problem('selection-changed','현재 선택한 실행을 중단하세요.');
+    try{await client.stop({executionId:input.executionId,requestId:input.requestId});}catch(error){if(['wrong-stop-target','invalid-stop-request','not-connected','execution-not-running','stop-already-requested'].includes(error.code))error.notSubmitted=true;throw error;}
+  } else if(action==='resume') {
+    if(!client || client.snapshot().sessionId!==input.sessionId || client.snapshot().executionId!==input.executionId || !client.capabilities().resume)throw problem('resume-unconfirmed','현재 대화의 종료가 확인되어야 재개할 수 있습니다.');
+    try{await client.resume({executionId:input.executionId,requestId:input.requestId,prompt:input.text});}catch(error){if(['invalid-resume','resume-already-requested','resume-unconfirmed','input-control-unavailable','not-connected','unsupported-json-resume'].includes(error.code))error.notSubmitted=true;throw error;}
+    await listExecutions();
   } else if (action === 'start') {
     if (!client || !preflight?.ready) throw problem('not-ready','연결 설정을 확인하세요.');
     if(selectedId)throw problem('execution-selected','선택한 실행의 전체 상태를 확인하세요. 새 대화 버튼으로 새 요청을 시작하세요.');
@@ -112,7 +119,7 @@ function mutate(action, input) {
   }
   if (input.generation !== generation) throw problem('selection-changed','대화 상태가 변경되었습니다.');
   if(input.serverId!==serverId)throw problem('server-changed','서버가 재시작되었습니다. 현재 연결과 실행을 확인하세요.');
-  if (busy || (refreshing&&!['new','select','list','disconnect','reconnect','reconfirm'].includes(action))) throw problem('operation-busy','진행 중인 상태 확인·전송이 있습니다.');
+  if (busy || (refreshing&&!['new','select','list','disconnect','reconnect','reconfirm','stop','resume'].includes(action))) throw problem('operation-busy','진행 중인 상태 확인·전송이 있습니다.');
   if (requests.size >= 256) throw problem('request-limit','요청 보관 한도에 도달했습니다. 서버를 재시작하고 원격 실행을 확인하세요.');
   busy = true;
   const promise = Promise.resolve().then(async () => {await refreshTask;return perform(action,input);}).finally(() => {busy=false;publish();});
@@ -142,7 +149,7 @@ const server = createServer(async (request,response) => {
       streams.add(response);response.write(`data: ${JSON.stringify(state())}\n\n`);
       request.on('close',() => streams.delete(response));return;
     }
-    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message','/api/respond','/api/new','/api/select','/api/list','/api/disconnect','/api/reconnect','/api/reconfirm'].includes(path)) {
+    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message','/api/respond','/api/new','/api/select','/api/list','/api/disconnect','/api/reconnect','/api/reconfirm','/api/stop','/api/resume'].includes(path)) {
       const origin = request.headers.origin;
       if ((origin && !allowed.has(origin.replace(/^http:\/\//,''))) || request.headers['content-type'] !== 'application/json') {
         json(response,403,{error:'local-json-only'});return;
