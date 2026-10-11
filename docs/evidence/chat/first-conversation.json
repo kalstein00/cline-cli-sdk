@@ -1,0 +1,11 @@
+{
+  "source": "actual Windows Chrome -> standalone installed consumer -> packed SDK -> SSH -> pinned public Cline",
+  "sessionId": "1791709018504_x6bgo",
+  "executionId": "run-8d292c38-c13d-4ad5-a96b-c0cd1e75d6d7",
+  "displayed": [
+    "Reply exactly CHAT_FIRST_READY. Do not call any tools.",
+    "CHAT_FIRST_READY"
+  ],
+  "execution": "running",
+  "companyCompatibility": "unverified"
+}

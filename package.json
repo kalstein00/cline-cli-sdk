@@ -3,16 +3,19 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/sdk"
+    "packages/sdk",
+    "examples/chat"
   ],
   "scripts": {
     "build": "tsc -p packages/sdk/tsconfig.json",
     "test": "npm run build && node --test tests/*.test.mjs",
     "example:node": "npm run build && node examples/node/replay.mjs",
-    "example:web": "npm run build && node examples/web/server.mjs"
+    "example:web": "npm run build && node examples/web/server.mjs",
+    "example:chat": "npm run build && node examples/chat/server.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "playwright": "1.63.0",
     "typescript": "^5.9.3"
   }
 }
