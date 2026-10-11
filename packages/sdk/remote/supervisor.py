@@ -45,7 +45,7 @@ def request_ledger(run):
             try:
                 values = json.loads((run / 'requests.json').read_text())
             except FileNotFoundError:
-                values = {}
+                raise ValueError('Input ledger is missing; inputs remain blocked')
             yield values
             save(run / 'requests.json', values)
         finally:
@@ -207,6 +207,7 @@ def serve(run):
     except OSError:
         meta.update(exitCode=127, endedAt=now(), startupFailed=True)
         save(run / 'meta.json', meta)
+        save(run / 'requests.json', {})
         return
     if pid == 0:
         if json_mode:
@@ -602,12 +603,15 @@ def handle(request):
             phase = json.loads((run / 'phase.json').read_text())
         except FileNotFoundError:
             phase = dict(epoch=0, active=False)
+        ledger_current = True
         try:
             requests = json.loads((run / 'requests.json').read_text())
-        except FileNotFoundError:
+        except (OSError, ValueError):
             requests = {}
+            ledger_current = False
         if not isinstance(requests, dict) or any(not isinstance(value, dict) or value.get('state') not in ('reserved', 'queued', 'written', 'rejected') or not isinstance(value.get('binding'), dict) or value.get('resolution') not in (None, 'delivered', 'not-submitted') for value in requests.values()):
-            raise ValueError('Response control metadata is incomplete; inputs remain blocked')
+            requests = {}
+            ledger_current = False
         try:
             stop_result = json.loads((run / 'stop-result.json').read_text())
         except FileNotFoundError:
@@ -634,7 +638,7 @@ def handle(request):
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
                     requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), message=value.get('message'), witness=value.get('witness'), baselineMessageCount=value.get('baselineMessageCount'), baselineLastMessageId=value.get('baselineLastMessageId'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
-                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), bootId=meta['bootId'], phaseSupported=meta.get('outputMode')!='json', responseReservation=meta.get('outputMode')!='json'))
+                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), bootId=meta['bootId'], phaseSupported=meta.get('outputMode')!='json', responseReservation=meta.get('outputMode')!='json', inputLedgerCurrent=ledger_current))
     raise ValueError('Unsupported supervisor action')
 
 if len(sys.argv) >= 3 and sys.argv[1] == '--serve':

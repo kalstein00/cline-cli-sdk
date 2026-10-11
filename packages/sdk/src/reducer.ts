@@ -185,6 +185,7 @@ export interface PhaseObservation {
     composerHash?: string | null;
     gap: boolean;
     fullScreen: boolean;
+    ledgerCurrent?: boolean;
     terminal?: Recording["terminal"];
   };
 }
@@ -270,6 +271,8 @@ export interface Snapshot {
   /** Observed focused composer; not a public terminal-input escape hatch. */
   messageInput?: MessageInputState;
   messageDelivery?: MessageDelivery | null;
+  /** Missing/corrupt durable input metadata blocks input, even on a fresh attach. */
+  inputControl?: {current:boolean;reason:"ledger-unavailable"|null};
   composer?: { mode: "tui"; text: string } | null;
   resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" } | null;
   historySync: { current: boolean; warning: string | null };
@@ -1034,6 +1037,10 @@ export function createReducer(options: {
       rawPhase = obs.phase;
       phaseSupported = obs.supported;
       composerEvidence = obs.terminalEvidence;
+      if(typeof obs.terminalEvidence?.ledgerCurrent==="boolean"){
+        const next={current:obs.terminalEvidence.ledgerCurrent,reason:obs.terminalEvidence.ledgerCurrent?null:"ledger-unavailable" as const};
+        if(JSON.stringify(next)!==JSON.stringify(state.inputControl)){state.inputControl=next;emit("state.changed",obs,{inputControl:next});}
+      }
       pendingPhase = null;
     }
     if (
@@ -1121,6 +1128,7 @@ export function createReducer(options: {
       composer: null,
       messageInput: undefined,
       messageDelivery: null,
+      inputControl: undefined,
       resume: null,
     });
     emit("state.changed", obs, {

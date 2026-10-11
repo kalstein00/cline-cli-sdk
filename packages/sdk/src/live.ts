@@ -461,6 +461,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           composerHash: result.composerHash ?? null,
           gap: !!result.gap,
           fullScreen: !!result.screen,
+          ...(typeof result.management?.inputLedgerCurrent==="boolean"?{ledgerCurrent:result.management.inputLedgerCurrent}:{}),
           terminal: result.management?.terminal,
         },
       });
@@ -688,6 +689,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     return refreshing;
   };
   const validateResponse = (request: ResponseRequest) => {
+    if(state.inputControl?.current===false)throw new SdkError("input-control-unavailable","The durable input ledger is unavailable; input is blocked.");
     if (state.resume?.state === "delivery-unknown")
       throw new SdkError("resume-input-uncertain", "The follow-up delivery is unknown; input is blocked.");
     if (!state.historySync.current)
@@ -1027,7 +1029,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         return invalid("invalid-message","Use bound printable one-row text up to 112 UTF-8 bytes without outer whitespace, slash commands or mentions.");
       const binding=JSON.stringify([request.sessionId,request.executionId,request.revision,request.requestId,request.text]);
       const previous=messages.get(request.requestId);
-      if(previous) return previous.binding===binding?previous.promise:invalid("request-conflict","Message identity is already bound.");
+      if(previous) {
+        if(previous.binding!==binding)return invalid("request-conflict","Message identity is already bound.");
+        return state.messageDelivery?.requestId===request.requestId && state.messageDelivery.state==="delivered" ? Promise.resolve(structuredClone(state.messageDelivery)) : previous.promise;
+      }
       const durable=remoteRequests.find((r:any)=>r.requestId===request.requestId && r.message===true);
       if(durable) {
         if(durable.binding.sessionId!==request.sessionId || durable.binding.executionId!==request.executionId || durable.binding.revision!==request.revision || durable.binding.answerDigest!==createHash("sha256").update(request.text).digest("hex"))return invalid("request-conflict","Message identity is already durably bound.");
@@ -1216,10 +1221,10 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         outputModes:{terminal:!!report?.ready,json:!!report?.ready},
         replay: false,
         live: true,
-        responses: !!report?.ready && outputMode !== "json",
+        responses: !!report?.ready && outputMode !== "json" && state.inputControl?.current!==false,
         sendMessage: !!state.messageInput?.ready && !messageActive && !activeRequest && !resumeActive,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
-        resume: outputMode !== "json" && !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
+        resume: state.inputControl?.current!==false && outputMode !== "json" && !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
           !!state.sessionId && ["completed","stopped"].includes(state.execution) &&
           processEvidence?.alive === false && processEvidence.identityConfirmed === true &&
           processEvidence.supervisorAlive === false && processEvidence.childrenVerified === true &&

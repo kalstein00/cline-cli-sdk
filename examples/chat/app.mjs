@@ -5,7 +5,7 @@ let transportConnected=true;
 let restoringServer=false;
 const drafts=new Map();
 const draftKey=packet=>packet.snapshot?.sessionId ?? packet.executions?.find(e=>e.executionId===packet.selectedId)?.sessionId ?? packet.selectedId ?? 'new';
-function selectionBlocked(packet) {return !transportConnected||sending||!!pending||packet.busy||(packet.launchReserved&&!packet.snapshot?.executionId)||[packet.snapshot?.response,packet.snapshot?.messageDelivery,packet.snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state));}
+function selectionBlocked(packet) {return !transportConnected||sending||!!pending||packet.busy||packet.snapshot?.inputControl?.current===false||(packet.launchReserved&&!packet.snapshot?.executionId)||[packet.snapshot?.response,packet.snapshot?.messageDelivery,packet.snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state));}
 function renderConversations(packet) {
   const nav=element('conversations'),groups=new Map();
   for(const run of packet.executions ?? []){const key=run.sessionId ?? run.executionId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(run);}
@@ -122,6 +122,7 @@ function render(packet) {
   if(snapshot?.interaction)element('hint').textContent=questionText?'현재 질문 응답 · UTF-8 1,024바이트 이내의 한 줄':snapshot.interaction.kind==='unsupported'?'지원하지 않는 상호작용입니다. 일반 전송과 응답을 차단합니다.':'현재 질문/승인의 선택 버튼을 사용하세요.';
   if(packet.launchReserved && !snapshot?.executionId)element('hint').textContent='시작 여부를 확인해야 합니다. 새 요청을 자동 전송하지 않습니다.';
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';
+  if(snapshot?.inputControl?.current===false)element('hint').textContent='입력 전달 기록을 확인할 수 없습니다. 기존 요청을 재전송하지 않습니다.';
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
 }
 async function invoke(action,input) {

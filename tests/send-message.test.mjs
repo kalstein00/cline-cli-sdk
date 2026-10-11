@@ -32,7 +32,7 @@ async function controlledComposer(t,{lostEcho=false,lostSubmit=false,directory}=
   const raw=Buffer.from(brokenHistory?'{':JSON.stringify({version:1,sessionId:'composer-session',messages:history}));
   const frame='\x1b[2J\x1b[H\x1b[35;1H'+'─'.repeat(120)+'\x1b[36;1H❯ '+(composer||'Ask anything...')+'\x1b[37;1H'+'─'.repeat(120)+'\x1b[38;1H● Act (Tab)\x1b[40;1HAuto-approve all disabled (Shift+Tab)\x1b[36;3H';
   value={executionId:eid,sessionId:'composer-session',cursor:++seq,observations:[{kind:'pty',seq,observedAt:new Date().toISOString(),dataBase64:Buffer.from(frame).toString('base64')}],composerHash:'composer-hash',history:{dataBase64:raw.toString('base64'),sha256:createHash('sha256').update(raw).digest('hex')},
-   process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,supervisorAlive:true,exitCode:null,manifestStatus:busy?'running':'idle',children:[],trackingError:null},management:{phaseSupported:true,phase:{active:false},responseReservation:true},
+   process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,supervisorAlive:true,exitCode:null,manifestStatus:busy?'running':'idle',children:[],trackingError:null},management:{phaseSupported:true,phase:{active:false},responseReservation:true,inputLedgerCurrent:!missingLedger},
    requests:pending&&!missingLedger?[{requestId:pending.requestId,state:'written',binding:pending,message:true,baselineMessageCount:pending.baselineMessageCount,baselineLastMessageId:pending.baselineLastMessageId,witness,resolution:witness?'delivered':undefined,steps:writes.filter(w=>w.requestId===pending.requestId).map(w=>({index:w.stepIndex,state:'written'}))}]:[]};
  }else throw Error('unexpected '+r.action);
  p.stdout.end(JSON.stringify(value));queueMicrotask(()=>p.emit('close',0));}catch(error){queueMicrotask(()=>p.emit('error',error));}});return p;});
@@ -78,4 +78,15 @@ test('a fresh client restores uncertain composer delivery and reconfirms from it
  control.setHistoryFault(false);control.recover();await c.reconfirmDelivery();assert.equal(c.snapshot().messageDelivery.state,'delivered');assert.equal(c.snapshot().messageDelivery.messageId,'new-1');assert.equal(control.writes.length,writes);assert.equal(c.capabilities().sendMessage,true);
  assert.equal((await c.sendMessage(req)).messageId,'new-1');assert.equal(control.writes.length,writes);
  const saved=await c.stopDiagnostics(),bundle=await readDiagnostic(saved.path),r=createClient({mode:'replay'}),events=[];r.subscribe(e=>events.push(e));await r.openReplay(bundle.recording);await r.replayAll();assert.deepEqual(compareDiagnostic(bundle,events,r.snapshot()),{matches:true,eventDifferences:0,snapshotMatches:true});r.close();
+});
+
+test('the original client returns reconfirmed delivery for its identical previously uncertain request',async t=>{
+ const control=await controlledComposer(t,{lostSubmit:true});t.after(()=>control.c.close());const req=control.request();await assert.rejects(control.c.sendMessage(req),{code:'message-input-uncertain'});control.recover();await control.c.reconfirmDelivery();assert.equal(control.c.snapshot().messageDelivery.state,'delivered');const count=control.writes.length;assert.equal((await control.c.sendMessage(req)).messageId,'new-1');assert.equal(control.writes.length,count);
+ await assert.rejects(control.c.sendMessage({...req,text:'different'}),{code:'request-conflict'});
+});
+
+test('a first fresh attach with a missing ledger blocks composer and question input without claiming an empty delivery history',async t=>{
+ const control=await controlledComposer(t,{lostSubmit:true});const req=control.request();await assert.rejects(control.c.sendMessage(req));control.c.close();control.setLedgerMissing(true);
+ const c=createClient({mode:'live',connection:{host:'fixture'}});t.after(()=>c.close());await c.connect();await c.attach(req.executionId);assert.deepEqual(c.snapshot().inputControl,{current:false,reason:'ledger-unavailable'});assert.equal(c.capabilities().sendMessage,false);assert.equal(c.capabilities().responses,false);assert.equal(c.snapshot().messageInput.reason,'delivery-pending');const writes=control.writes.length;
+ await assert.rejects(c.sendMessage({...req,requestId:'missing-ledger-bypass',revision:c.snapshot().revision}));await c.reconfirmDelivery();assert.equal(c.snapshot().inputControl.current,false);assert.equal(control.writes.length,writes);
 });

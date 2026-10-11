@@ -28,7 +28,7 @@ function state() {
 async function listExecutions(){executions=await client.listManagedExecutions();}
 function guardSelection() {
   const snapshot=client?.snapshot();
-  if((launchReserved&&!snapshot?.executionId)||[snapshot?.response,snapshot?.messageDelivery,snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state)))
+  if(snapshot?.inputControl?.current===false||(launchReserved&&!snapshot?.executionId)||[snapshot?.response,snapshot?.messageDelivery,snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state)))
     throw problem('delivery-pending','진행 중이거나 전달 여부가 불명인 요청을 먼저 확인하세요.');
 }
 async function selectClient(executionId=null) {
