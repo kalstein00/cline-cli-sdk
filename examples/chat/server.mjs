@@ -8,7 +8,7 @@ let client, preflight = null, generation = 0, unsubscribe;
 let busy = false, refreshing = false, launchReserved = false;
 const streams = new Set();
 const requests = new Map();
-const state = () => ({generation, preflight, busy, launchReserved, snapshot:client?.snapshot() ?? null, capabilities:client?.capabilities() ?? null});
+const state = () => ({generation, preflight, busy:busy||refreshing, launchReserved, snapshot:client?.snapshot() ?? null, capabilities:client?.capabilities() ?? null});
 const publish = () => {
   const packet = `data: ${JSON.stringify(state())}\n\n`;
   for (const response of streams) response.write(packet);
@@ -39,6 +39,13 @@ async function perform(action, input) {
       throw error;
     }
     await client.refresh();
+  } else if (action === 'respond') {
+    if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
+    try{await client.respond({sessionId:input.sessionId,executionId:input.executionId,interactionId:input.interactionId,revision:input.revision,requestId:input.requestId,answer:input.answer});}
+    catch(error){
+      if(['invalid-response','invalid-request-id','response-target-mismatch','stale-interaction','stale-revision','unsupported-answer','interaction-unavailable','history-unconfirmed','stop-in-progress','not-connected','execution-unconfirmed','response-busy','response-request-limit','unsupported-json-input'].includes(error.code) || (client.snapshot().response?.requestId===input.requestId && client.snapshot().response.state==='not-submitted'))error.notSubmitted=true;
+      throw error;
+    }
   } else if (action === 'message') {
     if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
     await client.sendMessage({sessionId:input.sessionId,executionId:input.executionId,revision:input.revision,requestId:input.requestId,text:input.text});
@@ -48,7 +55,7 @@ async function perform(action, input) {
 function mutate(action, input) {
   if (!input || typeof input.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(input.requestId))
     throw problem('invalid-request','요청 식별자가 필요합니다.');
-  const binding = JSON.stringify([action,input.generation,input.host,input.cliPath,input.remoteRoot,input.identityFile,input.cwd,input.dataDir,input.prompt,input.sessionId,input.executionId,input.revision,input.text]);
+  const binding = JSON.stringify([action,input.generation,input.host,input.cliPath,input.remoteRoot,input.identityFile,input.cwd,input.dataDir,input.prompt,input.sessionId,input.executionId,input.revision,input.text,input.interactionId,input.answer]);
   const previous = requests.get(input.requestId);
   if (previous) {
     if (previous.binding !== binding) throw problem('request-conflict','이미 다른 내용에 사용된 요청입니다.');
@@ -85,7 +92,7 @@ const server = createServer(async (request,response) => {
       streams.add(response);response.write(`data: ${JSON.stringify(state())}\n\n`);
       request.on('close',() => streams.delete(response));return;
     }
-    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message'].includes(path)) {
+    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message','/api/respond'].includes(path)) {
       const origin = request.headers.origin;
       if ((origin && !allowed.has(origin.replace(/^http:\/\//,''))) || request.headers['content-type'] !== 'application/json') {
         json(response,403,{error:'local-json-only'});return;
@@ -107,7 +114,7 @@ const server = createServer(async (request,response) => {
 const timer = setInterval(async () => {
   if (!client?.snapshot().executionId || busy || refreshing || client.snapshot().connection !== 'connected') return;
   refreshing=true;
-  try {await client.refresh();publish();} catch {publish();} finally {refreshing=false;}
+  try {await client.refresh();} catch {} finally {refreshing=false;publish();}
 },1000);
 server.listen(port,'127.0.0.1',() => console.log(`Cline chat: http://127.0.0.1:${port}`));
 for (const signal of ['SIGINT','SIGTERM']) process.on(signal,() => {

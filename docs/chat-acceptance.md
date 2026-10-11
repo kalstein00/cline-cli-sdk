@@ -34,3 +34,11 @@ Windows Chrome → SDK → 고정 공개 CLI에서 첫 메시지 뒤 네 번 왕
 별도 실제 공개 SDK 왕복 네 번을 진단 수집하고 정상 finalize했다. 원시 재생/비교는 eventDifferences 0, snapshotMatches true였다(`evidence/chat/followup-api.json`). 검토한 비식별화 기록은 `fixtures/chat/followup.json`이며 공개 재생 시험에서 같은 문구의 서로 다른 user ID와 전달 상태를 복원한다. 브라우저 측 강제 쉘 종료로 미완료인 진단 bundle은 수용 근거에서 제외했다.
 
 SDK build·예제 typecheck 통과. 공개 API의 제한/중복/충돌/동시/대상/새 경계/echo 상실/Enter 후 관찰 상실/진단 비교/실측 재생, 실제 Chrome 회귀와 기존 resume·diagnostic focused 검사 통과. 브라우저는 UTF-8 112바이트 단일 행 제한을 안내하고 잘못된 원문/초안을 유지한다. 동일 문구의 과거 메시지로 pending을 지우지 않고 원격 message ID에 연결한다. 불명 전달은 자동 재전송·다른 ID 우회를 차단한다. packed SDK의 공개 d.ts와 remote/message.py 포함도 확인했다. 새 클라이언트에서 durable 요청 복원은 #26의 수용 범위다.
+
+## #24 질문 응답과 승인·거절
+
+기존 SDK 공개 `respond`를 소비 앱에 연결했다. 현재 SID/EID/interaction ID/snapshot revision/request ID를 결합해 선택을 전달한다. 도구명과 전체 인자는 textContent/JSON으로 표시하고 승인·거절을 직접 선택한다. SDK `responseKinds`와 capability가 자유 응답을 허용할 때만 하단 입력창을 질문 응답 모드로 사용한다(UTF-8 1,024바이트, printable 단일 행, grapheme 64바이트). 일반 후속 전송은 질문/승인 중 차단하며, stale history·제출 중·불명 응답·지원하지 않는 화면도 잠근다. 같은 interaction 갱신은 같은 카드로 유지하고 새 단계는 새 카드다.
+
+실제 Windows Chrome → WSL에서 `printf APPROVED24 > approved24.txt`를 승인하고 `CHAT_CHOICE`에 BLUE를 선택했다. 같은 대화의 다음 요청에서 `touch denied24.txt`를 거절한 뒤 `CHAT_FREE`에 `2 한글 응답 😀 café`를 입력했다. 네 응답 모두 SDK `delivered`이며, SID `1791711007010_jz5fx`/EID `run-c19f2999-5fec-4bb3-95e6-48cf8152d61b`를 유지했다. 원격 history를 읽기 전용으로 대조해 승인 tool result 성공, BLUE, 거절로 실행되지 않은 tool result, 정확한 자유 응답을 확인했다. 승인 파일 내용은 APPROVED24이며 거절 파일은 없었다. `evidence/chat/interactions-browser.{png,json}` 및 `interactions-tool-results.json`에 근거가 있다.
+
+실제 검증 중 주기적 상태 확인과 클릭이 겹쳐 `operation-busy`로 미제출되는 경우를 확인했다. 상태 확인 중에도 화면을 잠그고 완료 후 다시 게시하도록 수정했다. 이 거부를 전달 완료로 표시하지 않으며 원문을 보존한다. 화면 복원 중 일시적인 미지원 카드는 지원 질문으로 확정되면 정리한다. SDK build/예제 typecheck 및 public SDK live/text/Chrome focused 25개가 통과했다. 브라우저는 카드 중복, 자유 응답 모드, 전체 승인 인자, 일반 전송 차단, HTTP 관측 상실 후 선택·응답 잠금을 검사했다. 전체 suite는 최종 티켓에서 실행한다.

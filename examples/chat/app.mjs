@@ -4,6 +4,44 @@ let sending=false, pending=null, requestError=false;
 const settings=['host','cliPath','remoteRoot','cwd','dataDir'];
 try {const saved=JSON.parse(localStorage.getItem('cline-chat-settings') ?? '{}');for(const id of settings)if(typeof saved[id]==='string')element(id).value=saved[id];} catch {}
 const timeline=element('timeline');
+function canRespond(snapshot) {
+  return current.capabilities?.responses && snapshot?.connection==='connected' && snapshot.historySync.current &&
+    snapshot.interaction?.state==='awaiting-response' && snapshot.interaction.kind!=='unsupported' &&
+    !['submitting','delivery-unknown'].includes(snapshot.response?.state) && !snapshot.stop && !sending && !pending && !current.busy;
+}
+function freeResponse(snapshot) {return snapshot?.interaction?.kind==='question' && current.capabilities?.freeText && snapshot.interaction.responseKinds?.includes('text');}
+function renderInteractions(snapshot) {
+  const container=element('interactions'),interaction=snapshot?.interaction;
+  for(const card of [...container.children])if(card.dataset.kind==='unsupported'&&card.dataset.interactionId!==interaction?.id)card.remove();
+  if(interaction) {
+    let card=[...container.children].find(n=>n.dataset.interactionId===interaction.id);
+    if(!card) {card=document.createElement('article');card.className='interaction';card.dataset.interactionId=interaction.id;card.dataset.kind=interaction.kind;card.dataset.sessionId=snapshot.sessionId;card.dataset.executionId=snapshot.executionId;
+      const title=document.createElement('h3'),prompt=document.createElement('p'),args=document.createElement('pre'),buttons=document.createElement('div'),status=document.createElement('p');
+      title.textContent=interaction.kind==='approval'?'도구 실행 승인':interaction.kind==='unsupported'?'지원하지 않는 상호작용':'Cline의 질문';
+      prompt.className='prompt';args.className='arguments';buttons.className='choices';status.className='interaction-status';card.append(title,prompt,args,buttons,status);container.append(card);
+    }
+    card.querySelector('.prompt').textContent=interaction.prompt;
+    const args=card.querySelector('.arguments');args.hidden=interaction.kind!=='approval';args.textContent=interaction.kind==='approval'?`${interaction.toolName}\n${JSON.stringify(interaction.toolInput,null,2)}`:'';
+    const buttons=card.querySelector('.choices');
+    if(card.dataset.choices!==JSON.stringify(interaction.choices)){buttons.replaceChildren();card.dataset.choices=JSON.stringify(interaction.choices);for(const answer of interaction.choices){const button=document.createElement('button');button.type='button';button.textContent=interaction.kind==='approval'?(answer==='Approve'?'승인':answer==='Deny'?'거절':answer):answer;button.onclick=()=>respondChoice(answer,interaction.id);buttons.append(button);}}
+  }
+  for(const card of container.children){
+    const active=card.dataset.interactionId===interaction?.id && card.dataset.executionId===snapshot?.executionId;
+    for(const button of card.querySelectorAll('button'))button.disabled=!active||!canRespond(snapshot);
+    const response=snapshot?.response?.interactionId===card.dataset.interactionId?snapshot.response:null;
+    if(response)card.dataset.delivery=response.state;
+    const delivery=response?.state ?? card.dataset.delivery;
+    card.querySelector('.interaction-status').textContent=delivery==='delivery-unknown'?'응답 전달 여부를 확인해야 합니다.':delivery==='submitting'?'응답 전송 중':delivery==='delivered'?'응답 전달 확인':delivery==='not-submitted'?'제출되지 않았습니다. 현재 질문을 확인하세요.':!active?'지난 단계':interaction?.kind==='unsupported'?'현재 CLI 화면을 안전하게 처리할 수 없습니다.':!snapshot?.historySync.current?'대화 기록 확인 중':snapshot?.connection!=='connected'?'연결 복구 후 응답할 수 있습니다.':'현재 질문에 응답하세요.';
+  }
+}
+async function respondChoice(answer,interactionId) {
+  const snapshot=current.snapshot;
+  if(!canRespond(snapshot)||snapshot.interaction.id!==interactionId)return;
+  pending={action:'respond',text:answer,fromComposer:false,requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
+  try{await invoke('respond',{generation:pending.generation,requestId:pending.requestId,sessionId:snapshot.sessionId,executionId:snapshot.executionId,interactionId,revision:snapshot.revision,answer});}
+  catch(error){requestError=true;showError(error);if(error.notSubmitted===true)pending=null;}
+  finally{sending=false;render(current);}
+}
 function render(packet) {
   if (packet.generation < current.generation) return;
   if (packet.generation === current.generation && packet.snapshot && current.snapshot && packet.snapshot.revision < current.snapshot.revision) return;
@@ -37,17 +75,22 @@ function render(packet) {
   }
   for(const node of [...messages.children])if(!visible.has(node.dataset.messageId)){node.remove();changed=true;}
   element('empty').hidden=!!snapshot?.messages.length;
-  if(pending && (pending.action==='message' ? snapshot?.messageDelivery?.requestId===pending.requestId && snapshot.messageDelivery.state==='delivered' && snapshot.messages.some(m=>m.id===snapshot.messageDelivery.messageId) : snapshot?.messages.some(message=>message.role==='user'&&message.text===pending.text&&!pending.baseline.includes(message.id)))) {
-    if(element('message').value===pending.text)element('message').value='';pending=null;requestError=false;
+  if(pending && (pending.action==='respond' ? snapshot?.response?.requestId===pending.requestId && snapshot.response.state==='delivered' : pending.action==='message' ? snapshot?.messageDelivery?.requestId===pending.requestId && snapshot.messageDelivery.state==='delivered' && snapshot.messages.some(m=>m.id===snapshot.messageDelivery.messageId) : snapshot?.messages.some(message=>message.role==='user'&&message.text===pending.text&&!pending.baseline.includes(message.id)))) {
+    if(pending.fromComposer!==false && element('message').value===pending.text)element('message').value='';pending=null;requestError=false;
   }
+  if(pending?.action==='respond' && snapshot?.response?.requestId===pending.requestId && snapshot.response.state==='not-submitted'){pending=null;showError(Error('응답이 제출되지 않았습니다. 현재 질문을 확인하세요.'));}
+  renderInteractions(snapshot);
   element('pending').hidden=!pending;
   element('pending').textContent=pending ? `${requestError?'전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.':'전송 중'}\n${pending.text}` : '';
   const canStart=packet.preflight?.ready && snapshot?.connection==='connected' && !snapshot.executionId;
   const canMessage=packet.capabilities?.sendMessage && snapshot?.messageInput?.ready;
-  element('send').textContent=snapshot?.executionId?'메시지 보내기':'첫 메시지 보내기';
-  element('send').disabled=!(canStart||canMessage) || sending || packet.busy || (packet.launchReserved&&!snapshot?.executionId) || !!pending;
+  const questionText=freeResponse(snapshot),canAnswer=questionText&&canRespond(snapshot);
+  element('composerLabel').textContent=questionText?'현재 질문에 자유 응답':'메시지';
+  element('send').textContent=questionText?'질문 응답 보내기':snapshot?.executionId?'메시지 보내기':'첫 메시지 보내기';
+  element('send').disabled=!(canStart||canMessage||canAnswer) || sending || packet.busy || (packet.launchReserved&&!snapshot?.executionId) || !!pending;
   const reasons={'ready':'다음 메시지 입력 준비 완료 · UTF-8 112바이트 이내의 한 줄','agent-busy':'Cline이 답변을 생성하거나 도구를 실행 중입니다.','interaction-pending':'대기 중인 질문이나 승인을 먼저 처리하세요.','delivery-pending':'이전 요청의 전달 상태를 확인 중입니다.','not-connected':'연결 복구 후 입력 상태를 다시 확인합니다.','history-unavailable':'대화 기록을 다시 확인 중입니다.','process-unconfirmed':'원격 프로세스를 확인 중입니다.','composer-unconfirmed':'빈 입력창을 확인 중입니다.','unsupported-profile':'이 CLI 프로필에서는 후속 입력을 지원하지 않습니다.'};
   element('hint').textContent=snapshot?.executionId ? (reasons[snapshot.messageInput?.reason] ?? '후속 입력 상태를 확인 중입니다.') : '첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
+  if(snapshot?.interaction)element('hint').textContent=questionText?'현재 질문 응답 · UTF-8 1,024바이트 이내의 한 줄':snapshot.interaction.kind==='unsupported'?'지원하지 않는 상호작용입니다. 일반 전송과 응답을 차단합니다.':'현재 질문/승인의 선택 버튼을 사용하세요.';
   if(packet.launchReserved && !snapshot?.executionId)element('hint').textContent='시작 여부를 확인해야 합니다. 새 요청을 자동 전송하지 않습니다.';
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
@@ -69,11 +112,13 @@ element('connectForm').onsubmit=async event=>{
 element('composer').onsubmit=async event=>{
   event.preventDefault();if(element('send').disabled || sending)return;
   const text=element('message').value;
-  const followup=!!current.snapshot?.executionId;
+  const answerMode=freeResponse(current.snapshot);
+  const followup=!!current.snapshot?.executionId&&!answerMode;
+  if(answerMode && (!text||text.trim()!==text||new TextEncoder().encode(text).length>1024||/[\p{Cc}\p{Cs}]/u.test(text)||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error('질문 응답은 UTF-8 1,024바이트 이내의 printable 한 줄입니다.'));return;}
   if(followup && (!text||text.trim()!==text||new TextEncoder().encode(text).length>112||/[\p{Cc}\p{Cs}]/u.test(text)||text.startsWith('/')||text.includes('@')||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error('후속 메시지는 UTF-8 112바이트 이내의 한 줄입니다. 앞뒤 공백, 제어 문자, slash command, @ mention을 제외하세요.'));return;}
   if(!text.trim()||text.length>100000){showError(Error('비어 있지 않은 100,000자 이내의 첫 요청을 입력하세요.'));return;}
-  pending={text,action:followup?'message':'start',baseline:(current.snapshot?.messages??[]).map(m=>m.id),requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
-  try{await invoke(pending.action,{requestId:pending.requestId,generation:pending.generation,...(followup?{text,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:{cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text})});}
+  pending={text,action:answerMode?'respond':followup?'message':'start',baseline:(current.snapshot?.messages??[]).map(m=>m.id),requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
+  try{await invoke(pending.action,{requestId:pending.requestId,generation:pending.generation,...(answerMode?{answer:text,interactionId:current.snapshot.interaction.id,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:followup?{text,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:{cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text})});}
   catch(error){requestError=true;showError(error);if(error.notSubmitted===true)pending=null;}
   finally{sending=false;render(current);}
 };
