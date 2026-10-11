@@ -5,6 +5,7 @@ import {EventEmitter} from 'node:events';
 import {createHash} from 'node:crypto';
 import {pinned} from './remote.mjs';
 const native = cp.spawn;
+const fault = process.env.CLINE_CHAT_FAULT;
 let executionId, prompt;
 cp.spawn = (...args) => {
   if (!['ssh', 'ssh.exe'].includes(args[0])) return native(...args);
@@ -19,7 +20,7 @@ cp.spawn = (...args) => {
     if (!request.action) result = pinned;
     else if (request.action === 'start') {
       executionId = request.executionId; prompt = request.prompt;
-      result = {executionId, remoteRoot: '/fixture/control'};
+      result = {executionId:fault==='launch-identity'?'unexpected-execution':executionId, remoteRoot: '/fixture/control'};
     } else if (request.action === 'status') {
       const history = Buffer.from(JSON.stringify({version:1, sessionId:'chat-fixture-session', messages:[
         {id:'user-first',role:'user',content:[{type:'text',text:prompt}]},

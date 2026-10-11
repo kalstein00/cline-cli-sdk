@@ -14,7 +14,7 @@ function render(packet) {
   element('connection').textContent=snapshot?.connection ?? '연결 전';
   element('status').textContent=snapshot?.executionId ? `${snapshot.execution} · ${snapshot.sessionId ?? '대화 확인 중'}` : '새 대화를 시작할 수 있습니다.';
   element('preflight').textContent=packet.preflight ? packet.preflight.ready ? '연결 준비 완료' : packet.preflight.problems.join(' · ') : '';
-  element('connect').disabled=sending || !!pending || !!snapshot?.executionId;
+  element('connect').disabled=sending || !!pending || packet.launchReserved || !!snapshot?.executionId;
   const messages=element('messages');
   let changed=false;
   const visible=new Set();
@@ -43,8 +43,9 @@ function render(packet) {
   element('pending').hidden=!pending;
   element('pending').textContent=pending ? `${requestError?'전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.':'전송 중'}\n${pending.text}` : '';
   const canStart=packet.preflight?.ready && snapshot?.connection==='connected' && !snapshot.executionId;
-  element('send').disabled=!canStart || sending || packet.busy || !!pending;
+  element('send').disabled=!canStart || sending || packet.busy || packet.launchReserved || !!pending;
   element('hint').textContent=snapshot?.executionId ? '후속 메시지 전송은 다음 구현 단계에서 지원합니다.' : '첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
+  if(packet.launchReserved && !snapshot?.executionId)element('hint').textContent='시작 여부를 확인해야 합니다. 새 요청을 자동 전송하지 않습니다.';
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
 }

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
 
-async function connectedPage(t,port) {
+async function connectedPage(t,port,fault='') {
   const server = spawn(process.execPath, ['tests/support/chat-browser.mjs'], {
-    env:{...process.env,CLINE_CHAT_PORT:String(port)},stdio:['ignore','pipe','pipe'],
+    env:{...process.env,CLINE_CHAT_PORT:String(port),CLINE_CHAT_FAULT:fault},stdio:['ignore','pipe','pipe'],
   });
   t.after(() => server.kill());
   await new Promise((resolve,reject) => {
@@ -51,4 +51,13 @@ test('consumer accepts a Korean first request within the SDK character limit', {
   await page.locator('#message').fill(prompt);await page.getByRole('button',{name:'첫 메시지 보내기',exact:true}).click();
   await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
   assert.equal(await page.locator('[data-message-id="user-first"] .text').textContent(),prompt);
+});
+test('consumer does not call a mismatched launch identity an unsubmitted request', {timeout:30000}, async t => {
+  const page=await connectedPage(t,4198,'launch-identity');
+  await page.locator('#message').fill('Unknown launch');await page.getByRole('button',{name:'첫 메시지 보내기',exact:true}).click();
+  await page.getByText('전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.',{exact:false}).waitFor({timeout:5000});
+  assert.equal(await page.locator('#connect').isDisabled(),true);
+  await page.reload();
+  await page.getByText('시작 여부를 확인해야 합니다.',{exact:false}).waitFor({timeout:5000});
+  assert.equal(await page.locator('#connect').isDisabled(),true);assert.equal(await page.locator('#send').isDisabled(),true);
 });

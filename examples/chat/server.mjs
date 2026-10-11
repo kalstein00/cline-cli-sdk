@@ -5,10 +5,10 @@ import {createClient} from '@cline-cli-sdk/sdk';
 const port = Number(process.env.CLINE_CHAT_PORT ?? 4174);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid CLINE_CHAT_PORT');
 let client, preflight = null, generation = 0, unsubscribe;
-let busy = false, refreshing = false;
+let busy = false, refreshing = false, launchReserved = false;
 const streams = new Set();
 const requests = new Map();
-const state = () => ({generation, preflight, busy, snapshot:client?.snapshot() ?? null, capabilities:client?.capabilities() ?? null});
+const state = () => ({generation, preflight, busy, launchReserved, snapshot:client?.snapshot() ?? null, capabilities:client?.capabilities() ?? null});
 const publish = () => {
   const packet = `data: ${JSON.stringify(state())}\n\n`;
   for (const response of streams) response.write(packet);
@@ -18,17 +18,25 @@ function watch() {
   const selected = client;
   unsubscribe = client.subscribe(() => queueMicrotask(() => {if (selected === client) publish();}));
 }
-const problem = (code, message) => Object.assign(new Error(message), {code});
+const problem = (code, message) => Object.assign(new Error(message), {code,notSubmitted:true});
 async function perform(action, input) {
   if (action === 'connect') {
-    if (client?.snapshot().executionId) throw problem('execution-selected','현재 실행을 유지하고 있습니다. 새 연결로 전송 결과를 덮어쓸 수 없습니다.');
+    if (launchReserved || client?.snapshot().executionId) throw problem('execution-selected','현재 실행을 유지하고 있습니다. 새 연결로 전송 결과를 덮어쓸 수 없습니다.');
     client?.close();
     client = createClient({mode:'live', connection:{host:input.host,cliPath:input.cliPath || undefined,
       remoteRoot:input.remoteRoot || undefined,identityFile:input.identityFile || undefined}});
     generation++; watch(); preflight = await client.connect();
   } else if (action === 'start') {
     if (!client || !preflight?.ready) throw problem('not-ready','연결 설정을 확인하세요.');
-    await client.start({cwd:input.cwd,dataDir:input.dataDir || undefined,prompt:input.prompt,terminalMode:'tui'});
+    launchReserved=true;
+    try {await client.start({cwd:input.cwd,dataDir:input.dataDir || undefined,prompt:input.prompt,terminalMode:'tui'});}
+    catch(error) {
+      // Only documented pre-launch validation errors prove no remote write occurred.
+      if(['invalid-task','unsupported-profile','prerequisites-unavailable','not-connected'].includes(error.code)) {
+        launchReserved=false;error.notSubmitted=true;
+      }
+      throw error;
+    }
     await client.refresh();
   } else throw problem('unknown-action','지원하지 않는 행동입니다.');
   return state();
@@ -89,7 +97,7 @@ const server = createServer(async (request,response) => {
     json(response,404,{error:'not-found'});
   } catch (error) {
     json(response,400,{...state(),error:error.code ?? 'invalid-request',message:error.message,
-      notSubmitted:!busy && !client?.snapshot().executionId});
+      notSubmitted:error.notSubmitted===true});
   }
 });
 const timer = setInterval(async () => {
