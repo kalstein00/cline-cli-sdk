@@ -25,6 +25,7 @@ async function perform(action, input) {
     client?.close();
     client = createClient({mode:'live', connection:{host:input.host,cliPath:input.cliPath || undefined,
       remoteRoot:input.remoteRoot || undefined,identityFile:input.identityFile || undefined}});
+    if(process.env.CLINE_CHAT_DIAGNOSTICS)await client.startDiagnostics({directory:process.env.CLINE_CHAT_DIAGNOSTICS});
     generation++; watch(); preflight = await client.connect();
   } else if (action === 'start') {
     if (!client || !preflight?.ready) throw problem('not-ready','연결 설정을 확인하세요.');
@@ -38,13 +39,16 @@ async function perform(action, input) {
       throw error;
     }
     await client.refresh();
+  } else if (action === 'message') {
+    if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
+    await client.sendMessage({sessionId:input.sessionId,executionId:input.executionId,revision:input.revision,requestId:input.requestId,text:input.text});
   } else throw problem('unknown-action','지원하지 않는 행동입니다.');
   return state();
 }
 function mutate(action, input) {
   if (!input || typeof input.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(input.requestId))
     throw problem('invalid-request','요청 식별자가 필요합니다.');
-  const binding = JSON.stringify([action,input.generation,input.host,input.cliPath,input.remoteRoot,input.identityFile,input.cwd,input.dataDir,input.prompt]);
+  const binding = JSON.stringify([action,input.generation,input.host,input.cliPath,input.remoteRoot,input.identityFile,input.cwd,input.dataDir,input.prompt,input.sessionId,input.executionId,input.revision,input.text]);
   const previous = requests.get(input.requestId);
   if (previous) {
     if (previous.binding !== binding) throw problem('request-conflict','이미 다른 내용에 사용된 요청입니다.');
@@ -81,7 +85,7 @@ const server = createServer(async (request,response) => {
       streams.add(response);response.write(`data: ${JSON.stringify(state())}\n\n`);
       request.on('close',() => streams.delete(response));return;
     }
-    if (request.method === 'POST' && ['/api/connect','/api/start'].includes(path)) {
+    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message'].includes(path)) {
       const origin = request.headers.origin;
       if ((origin && !allowed.has(origin.replace(/^http:\/\//,''))) || request.headers['content-type'] !== 'application/json') {
         json(response,403,{error:'local-json-only'});return;

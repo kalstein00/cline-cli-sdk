@@ -86,12 +86,36 @@ def composer_witness(meta):
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
 
+def message_idle(run, meta, empty=False):
+    sid, manifest, path = session_files(meta)
+    if meta.get('terminalMode')!='tui' or meta.get('outputMode')=='json' or not manifest or manifest.get('status')!='idle' or not sid or not path:
+        return 'agent-not-idle'
+    expected=meta.get('identity')
+    if not expected or identity(expected['pid'])!=expected or not meta.get('supervisorIdentity') or identity(meta['supervisorIdentity']['pid'])!=meta['supervisorIdentity']:
+        return 'process-unconfirmed'
+    try:
+        ownership=json.loads((run/'ownership.json').read_text())
+        phase=json.loads((run/'phase.json').read_text()) if (run/'phase.json').exists() else {}
+        if ownership.get('trackingError') or any(child!=expected for child in ownership.get('owned',[])) or (run/'stop-request.json').exists() or phase.get('active'):
+            return 'agent-busy'
+    except (OSError,ValueError): return 'process-unconfirmed'
+    if modal_witness(meta): return 'modal-active'
+    witness=composer_witness(meta)
+    if not witness: return 'composer-unconfirmed'
+    if empty:
+        line=base64.b64decode(witness['dataBase64']).decode().splitlines()[-5][2:].rstrip()
+        if line not in ('','Ask anything...'): return 'composer-not-empty'
+    return None
+
 def input_binding(run, meta, request, cursor):
     expected = meta.get('identity')
     if request.get('executionId') != meta['executionId'] or not expected or request.get('processIdentity') != expected or identity(expected['pid']) != expected:
         return 'process-identity-changed'
     if meta.get('terminalMode') == 'tui':
         input_type = request.get('inputType')
+        if isinstance(input_type,str) and input_type.startswith('composer-') and request.get('requestId') != (meta.get('resume') or {}).get('requestId'):
+            reason=message_idle(run,meta)
+            if reason: return reason
         witness = composer_witness(meta) if isinstance(input_type, str) and input_type.startswith('composer-') else modal_witness(meta)
         if not witness or not request.get('modalHash') or request['modalHash'] != witness['sha256']:
             return 'terminal-modal-changed'
@@ -367,8 +391,14 @@ def handle(request):
     meta = json.loads((run / 'meta.json').read_text())
     if meta['executionId'] != request['executionId']:
         raise ValueError('Execution identity mismatch')
-    if meta.get('outputMode') == 'json' and action in ('reserve-response','respond','settle-response'):
+    if meta.get('outputMode') == 'json' and action in ('reserve-response','respond','settle-response','reserve-message','settle-message'):
         raise ValueError('JSON output has no verified input path')
+    if action == 'reserve-message':
+        from message import reserve_message
+        return reserve_message(request,run,meta,request_ledger,input_binding,session_files,read_history,message_idle)
+    if action == 'settle-message':
+        from message import settle_message
+        return settle_message(request,run,meta,request_ledger,session_files,read_history)
     if action == 'settle-resume':
         from resume import settle_resume
         return settle_resume(request, run, meta, session_files)
@@ -442,7 +472,10 @@ def handle(request):
         input_type = request.get('inputType')
         step_index = request.get('stepIndex')
         if input_type in ('composer-text', 'composer-submit'):
-            valid = meta.get('terminalMode') == 'tui' and meta.get('resume') and request.get('kind') == 'composer' and type(step_index) is int and 0 <= step_index < 128 and request_id == meta['resume']['requestId']
+            with request_ledger(run) as ledger:
+                reservation=ledger.get(request_id)
+            authorized=(meta.get('resume') or {}).get('requestId')==request_id or (reservation and reservation.get('message') and not reservation.get('resolution'))
+            valid = meta.get('terminalMode') == 'tui' and authorized and request.get('kind') == 'composer' and type(step_index) is int and 0 <= step_index < 128
             if input_type == 'composer-submit': valid = valid and payload == b'\r'
             else:
                 text = payload.decode('utf8')
@@ -484,7 +517,7 @@ def handle(request):
             if not prior and len(ledger) >= 256:
                 raise ValueError('Response request limit reached')
             phase = ('sessionId', 'executionId', 'toolId', 'kind')
-            if any(key != request_id and value['state'] in ('queued', 'written') and all(value['binding'].get(field) == binding.get(field) for field in phase) for key,value in ledger.items()):
+            if any(key != request_id and not value.get('resolution') and value['state'] in ('queued', 'written') and all(value['binding'].get(field) == binding.get(field) for field in phase) for key,value in ledger.items()):
                 if prior and prior['state'] == 'reserved':
                     prior.update(state='rejected', reason='interaction-already-submitted')
                 return dict(requestId=request_id, state='rejected', reason='interaction-already-submitted')
@@ -600,7 +633,7 @@ def handle(request):
                                  children=[value for value in ownership.get('owned', []) if value != expected], trackingError=ownership.get('trackingError'),
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
-                    requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
+                    requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), message=value.get('message'), witness=value.get('witness'), baselineMessageCount=value.get('baselineMessageCount'), baselineLastMessageId=value.get('baselineLastMessageId'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
                     management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), bootId=meta['bootId'], phaseSupported=meta.get('outputMode')!='json', responseReservation=meta.get('outputMode')!='json'))
     raise ValueError('Unsupported supervisor action')
 

@@ -24,3 +24,13 @@ Windows → SSH → 고정 공개 CLI에서 첫 요청, 도구 승인, 8초 Pyth
 `Snapshot.messageInput`은 `{ready, reason, maxBytes:112}`를 제공한다. 정확한 3.0.69 TUI 프로필, 40×120 화면, 최신 기록, 살아 있는 동일 identity/supervisor, manifest `idle`, 자식 프로세스·미완료 도구·질문·이전 불명 요청 부재, 관찰된 빈 focused composer/hash를 함께 요구한다. 근거가 없으면 활성화하지 않는다. 구형 기록에 terminal witness가 없으면 필드는 없으며 소비자는 이를 확인 중으로 취급한다. replay의 준비 상태는 기록 해석이며 `capabilities().sendMessage`는 항상 false다. 전송 API는 #23에서 추가한다.
 
 SDK build와 예제 typecheck 통과. 공개 API 준비 상태 10개, 브라우저 6개, resume/diagnostic 회귀 9개 통과. 생성·도구·질문 대기, stale history, 단절, 프로필/identity 불명은 각각 차단 이유를 제공한다. 준비 상태 변화는 revision과 `state.changed`로 전달한다. 기존 기록의 질문/응답 및 resume 진단의 live/replay 비교도 통과했다. 실제 브라우저 근거는 `evidence/chat/readiness-browser.{png,json}`, 실제 단계 요약은 `evidence/chat/readiness.json`에 기록한다.
+
+## #23 같은 실행에 후속 메시지 전송
+
+공개 `sendMessage({sessionId,executionId,revision,requestId,text})`와 `SendMessageRequest`/`MessageDelivery` 타입을 추가했다. 같은 ID·같은 요청은 기존 promise/결과로 반환하며, 충돌·오래된 revision·다른 대상·동시 입력을 전송 전에 거부한다. 원격 ledger에 history count/마지막 message ID와 원문 digest를 먼저 예약한다. grapheme 경계 청크의 정확한 composer echo 후에만 별도 Enter를 쓰고, 예약 경계 뒤 새 user 메시지 하나의 ID/digest로 delivered를 판정한다. CLI/SID/EID는 바꾸지 않는다. 전달은 답변 완료와 다르며 새 user 메시지만 관찰된 구간은 입력 준비로 취급하지 않는다.
+
+Windows Chrome → SDK → 고정 공개 CLI에서 첫 메시지 뒤 네 번 왕복했다. 숫자 선행 `2 한글 😀 café: Reply exactly CHAT_FOLLOWUP_ONE. No tools.`, 서로 다른 두 번째 요청, 동일 문구 요청 두 번을 그대로 전송했다. 같은 SID `1791710324301_qfpa1`/EID `run-247873e4-d528-4473-b7a1-564c52c81335`에서 각 요청이 서로 다른 새 message ID에 연결됐다. 중복 클릭에서도 원격 쓰기는 한 번이었다. `evidence/chat/followup-browser.{png,json}`에 실제 화면과 결과가 있다.
+
+별도 실제 공개 SDK 왕복 네 번을 진단 수집하고 정상 finalize했다. 원시 재생/비교는 eventDifferences 0, snapshotMatches true였다(`evidence/chat/followup-api.json`). 검토한 비식별화 기록은 `fixtures/chat/followup.json`이며 공개 재생 시험에서 같은 문구의 서로 다른 user ID와 전달 상태를 복원한다. 브라우저 측 강제 쉘 종료로 미완료인 진단 bundle은 수용 근거에서 제외했다.
+
+SDK build·예제 typecheck 통과. 공개 API의 제한/중복/충돌/동시/대상/새 경계/echo 상실/Enter 후 관찰 상실/진단 비교/실측 재생, 실제 Chrome 회귀와 기존 resume·diagnostic focused 검사 통과. 브라우저는 UTF-8 112바이트 단일 행 제한을 안내하고 잘못된 원문/초안을 유지한다. 동일 문구의 과거 메시지로 pending을 지우지 않고 원격 message ID에 연결한다. 불명 전달은 자동 재전송·다른 ID 우회를 차단한다. packed SDK의 공개 d.ts와 remote/message.py 포함도 확인했다. 새 클라이언트에서 durable 요청 복원은 #26의 수용 범위다.

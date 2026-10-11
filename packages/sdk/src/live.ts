@@ -2,7 +2,7 @@ import childProcess from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { randomUUID, createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
-import { inputChunks } from "./input-chunks.js";
+import { inputChunks, validComposerText } from "./input-chunks.js";
 import {cliFeatures, type CliFeatures, type DeclaredFeatures} from "./capabilities.js";
 import {prepareResult,resultPrompt,type ResultFormat,type ResultRequest} from "./structured-result.js";
 import {
@@ -20,6 +20,8 @@ import {
   type StopRequest,
   type StopResult,
 } from "./reducer.js";
+
+import type {SendMessageRequest,MessageDelivery} from "./message.js";
 
 export interface ConnectionOptions {
   /** Declarations never authorize an unknown executable or input protocol. */
@@ -98,6 +100,7 @@ export interface LiveClient {
   reconfirmDelivery(): Promise<Snapshot>;
   start(request: StartRequest): Promise<Snapshot>;
   resume(request: ResumeRequest): Promise<Snapshot>;
+  sendMessage(request: SendMessageRequest): Promise<MessageDelivery>;
   refresh(): Promise<Snapshot>;
   snapshot(): Snapshot;
   subscribe(listener: (event: SdkEvent) => void): () => void;
@@ -183,6 +186,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let modalHash: string | null = null;
   let composerHash: string | null = null;
   let resumeActive = false;
+  let messageActive=false;
+  const messages = new Map<string,{binding:string;promise:Promise<MessageDelivery>}>();
   const resumes = new Map<string, { binding: string; promise: Promise<Snapshot> }>();
   const requests = new Map<
     string,
@@ -375,6 +380,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     const ownership = await readFile(
       new URL("../remote/ownership.py", import.meta.url),
     );
+    const messageSource = await readFile(new URL("../remote/message.py", import.meta.url));
     const resumeSource = await readFile(new URL("../remote/resume.py", import.meta.url));
     if (closed || generation !== helperGeneration)
       throw new SdkError(
@@ -382,11 +388,12 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         "The local connection was detached before this operation.",
       );
     return execute(
-      `import base64,io,json,sys,types;request=json.load(sys.stdin);module=types.ModuleType('resume');exec(base64.b64decode(request['resumeSourceBase64']),module.__dict__);sys.modules['resume']=module;sys.stdin=io.StringIO(json.dumps(request));exec(base64.b64decode(request['sourceBase64']))`,
+      `import base64,io,json,sys,types;request=json.load(sys.stdin);module=types.ModuleType('resume');exec(base64.b64decode(request['resumeSourceBase64']),module.__dict__);sys.modules['resume']=module;message=types.ModuleType('message');exec(base64.b64decode(request['messageSourceBase64']),message.__dict__);sys.modules['message']=message;sys.stdin=io.StringIO(json.dumps(request));exec(base64.b64decode(request['sourceBase64']))`,
       {
         sourceBase64: source.toString("base64"),
         ownershipSourceBase64: ownership.toString("base64"),
         resumeSourceBase64: resumeSource.toString("base64"),
+        messageSourceBase64: messageSource.toString("base64"),
         ...(input as object),
       },
     );
@@ -1001,18 +1008,82 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       state = { ...reducer.snapshot(), mode: "live" };
       return snapshot();
     },
+    sendMessage(input) {
+      const request=structuredClone(input);
+      const invalid=(code:string,message:string)=>Promise.reject(Object.assign(new SdkError(code,message),{notSubmitted:true}));
+      if(!request || !validComposerText(request.text) || typeof request.requestId!=="string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(request.requestId) || !Number.isSafeInteger(request.revision))
+        return invalid("invalid-message","Use bound printable one-row text up to 112 UTF-8 bytes without outer whitespace, slash commands or mentions.");
+      const binding=JSON.stringify([request.sessionId,request.executionId,request.revision,request.requestId,request.text]);
+      const previous=messages.get(request.requestId);
+      if(previous) return previous.binding===binding?previous.promise:invalid("request-conflict","Message identity is already bound.");
+      if(!managed || request.executionId!==state.executionId || request.sessionId!==state.sessionId || request.revision!==state.revision)
+        return invalid("message-target-mismatch","Use the current conversation, execution and revision.");
+      if(messageActive || activeRequest || resumeActive || messages.size>=256)
+        return invalid("message-pending","Resolve the previous input before sending another request.");
+      if(outputMode==="json" || terminalMode!=="tui" || !report?.ready || !state.messageInput?.ready)
+        return invalid("message-not-ready","A verified idle TUI composer is required.");
+      messageActive=true; // reserve synchronously before a refresh can yield to another caller
+      let reserved=false;
+      const digest=createHash("sha256").update(request.text).digest("hex");
+      const action=(operation:"requested"|"receipt"|"fault"|"input",fields:any={})=>reducer.executionAction({kind:"execution-action",seq:++sequence,observedAt:new Date().toISOString(),action:"message",operation,executionId:request.executionId,sessionId:request.sessionId,requestId:request.requestId,promptDigest:digest,...fields});
+      const promise=(async()=>{
+        try {
+          await refresh();
+          if(state.executionId!==request.executionId || state.sessionId!==request.sessionId || !state.messageInput?.ready)
+            throw Object.assign(new SdkError("message-not-ready","The refreshed input destination is no longer ready."),{notSubmitted:true});
+          reserved=true;action("requested");
+          const receipt=await helper({action:"reserve-message",root:managed!.remoteRoot,executionId:request.executionId,sessionId:request.sessionId,
+            requestId:request.requestId,interactionId:`${request.executionId}:composer`,revision:request.revision,kind:"composer",answerDigest:digest,
+            modalHash:composerHash,historyHash,processIdentity:processEvidence.identity,expectedCursor:cursor});
+          if(receipt.state==="rejected") throw new SdkError("message-input-uncertain",receipt.reason ?? "Remote reservation rejected.");
+          if(!receipt.fresh) throw new SdkError("message-input-uncertain","An existing reservation can only be reconfirmed; input is never repeated.");
+          const wait=async(condition:()=>boolean)=>{
+            const deadline=Date.now()+(config.responseTimeoutMs ?? 30000);
+            while(Date.now()<deadline){
+              await refresh();
+              if(!state.historySync.current || state.executionId!==request.executionId || state.sessionId!==request.sessionId || !processEvidence?.alive || !processEvidence.identityConfirmed || observationGap)
+                throw new SdkError("message-input-uncertain","Process, history or terminal observation was lost.");
+              if(condition())return;
+              if(state.interaction)throw new SdkError("message-input-uncertain","A modal owns the input destination.");
+              await new Promise(ok=>setTimeout(ok,100));
+            }
+            throw new SdkError("message-input-uncertain","Composer echo or new user history was not confirmed.");
+          };
+          const baseline=new Set(state.messages.map(m=>m.id));let stepIndex=0;
+          const step=async(inputType:string,text:string,condition:()=>boolean)=>{
+            const index=stepIndex++;action("input",{dataBase64:Buffer.from(text).toString("base64"),inputType,stepIndex:index});
+            const queued=await helper({action:"respond",root:managed!.remoteRoot,executionId:request.executionId,sessionId:request.sessionId,
+              requestId:request.requestId,interactionId:`${request.executionId}:composer`,revision:request.revision,kind:"composer",answerDigest:digest,
+              stepIndex:index,inputType,dataBase64:Buffer.from(text).toString("base64"),modalHash:composerHash,historyHash,processIdentity:processEvidence.identity,expectedCursor:cursor});
+            if(queued.state==="rejected")throw new SdkError("message-input-uncertain",queued.reason ?? "Input rejected.");
+            await wait(()=>remoteRequests.some(r=>r.requestId===request.requestId&&r.steps?.some((s:any)=>s.index===index&&s.state==="written"))&&condition());
+          };
+          let accumulated="";
+          for(const chunk of inputChunks(request.text)){accumulated+=chunk;await step("composer-text",chunk,()=>state.composer?.text===accumulated);}
+          await step("composer-submit","\r",()=>state.messages.some(m=>m.role==="user"&&m.text===request.text&&!baseline.has(m.id)));
+          const witness=await helper({action:"settle-message",root:managed!.remoteRoot,executionId:request.executionId,requestId:request.requestId});
+          action("receipt",{receipt:witness});
+          if(reducer.snapshot().messageDelivery?.state!=="delivered")throw new SdkError("message-input-uncertain","The durable history witness is not current.");
+          messageActive=false;state={...reducer.snapshot(),mode:"live",connection:state.connection};
+          return structuredClone(state.messageDelivery!);
+        }catch(error){
+          if(reserved)action("fault",{reason:error instanceof SdkError?error.code:"message-input-uncertain"});
+          else messageActive=false;
+          state={...reducer.snapshot(),mode:"live",connection:state.connection};throw error;
+        }
+      })();
+      messages.set(request.requestId,{binding,promise});promise.catch(()=>{if(!reserved)messages.delete(request.requestId);});return promise;
+    },
     resume(input) {
       if(outputMode === "json") return Promise.reject(new SdkError("unsupported-json-resume","Pinned JSON mode cannot resume through TUI."));
       const request = structuredClone(input);
       if (!request || typeof request.requestId !== "string" || typeof request.executionId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(request.requestId) ||
-          typeof request.prompt !== "string" || !request.prompt || request.prompt.trim() !== request.prompt ||
-          Buffer.byteLength(request.prompt) > 112 || /[\p{Cc}\p{Cs}]/u.test(request.prompt) || request.prompt.startsWith("/") || request.prompt.includes("@") ||
-          [...new Intl.Segmenter(undefined,{granularity:"grapheme"}).segment(request.prompt)].some(({segment})=>Buffer.byteLength(segment)>64))
+          !validComposerText(request.prompt))
         return Promise.reject(new SdkError("invalid-resume", "Use printable one-row text up to 112 UTF-8 bytes without outer whitespace, slash commands or mentions."));
       const binding = JSON.stringify([request.executionId, request.requestId, request.prompt]);
       const previous = resumes.get(request.requestId);
       if (previous) return previous.binding === binding ? previous.promise : Promise.reject(new SdkError("request-conflict", "Resume request identity is already bound."));
-      if (resumeActive || resumes.size >= 256)
+      if (resumeActive || messageActive || resumes.size >= 256)
         return Promise.reject(new SdkError("resume-already-requested", "A resume launch has already been reserved; do not retry another identity."));
       if (!report?.profile.supported || !report.ready)
         return Promise.reject(new SdkError("unsupported-profile", "Resume requires the verified CLI profile."));
@@ -1128,13 +1199,13 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         replay: false,
         live: true,
         responses: !!report?.ready && outputMode !== "json",
-        sendMessage: false,
+        sendMessage: !!state.messageInput?.ready && !messageActive && !activeRequest && !resumeActive,
         freeText: !!state.interaction?.responseKinds?.includes("text"),
         resume: outputMode !== "json" && !!report?.profile.supported && report.ready && state.historySync.current && state.connection === "connected" &&
           !!state.sessionId && ["completed","stopped"].includes(state.execution) &&
           processEvidence?.alive === false && processEvidence.identityConfirmed === true &&
           processEvidence.supervisorAlive === false && processEvidence.childrenVerified === true &&
-          !processEvidence.children?.length && !resumeActive && !activeRequest,
+          !processEvidence.children?.length && !resumeActive && !messageActive && !activeRequest,
         companyCompatibility: "unverified",
       };
     },
@@ -1210,7 +1281,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           state: resolved,
         };
       }
-      if (activeRequest || state.response?.state === "delivery-unknown")
+      if (activeRequest || messageActive || state.response?.state === "delivery-unknown")
         throw new SdkError(
           "response-busy",
           "A response is submitting or its delivery is unknown.",

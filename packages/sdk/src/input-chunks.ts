@@ -1,4 +1,10 @@
-/** Both callers validate their own total length and maximum grapheme first. */
+/** Callers validate their own total length and maximum grapheme first. */
+export function validComposerText(text: unknown): text is string {
+  return typeof text === 'string' && !!text && text.trim() === text && Buffer.byteLength(text) <= 112 &&
+    !/[\p{Cc}\p{Cs}]/u.test(text) && !text.startsWith('/') && !text.includes('@') &&
+    ![...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>Buffer.byteLength(segment)>64);
+}
+
 export function inputChunks(text: string): string[] {
   const chunks: string[] = [];
   let chunk = "";

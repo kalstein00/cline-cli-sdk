@@ -63,9 +63,21 @@ test('consumer does not call a mismatched launch identity an unsubmitted request
 });
 
 for(const [fault,hint] of [['ready','다음 메시지 입력 준비 완료'],['busy','Cline이 답변을 생성하거나 도구를 실행 중입니다.']]) {
- test(`browser shows public ${fault} input status without enabling unimplemented send`,{timeout:30000},async t=>{
+ test(`browser shows public ${fault} input status and enables only witnessed idle send`,{timeout:30000},async t=>{
   const page=await connectedPage(t,fault==='ready'?4200:4201,fault);
   await page.locator('#message').fill('Reply exactly CHAT_BROWSER_READY.');await page.locator('#send').click();
-  await page.locator('#hint').filter({hasText:hint}).waitFor();assert.equal(await page.locator('#send').isDisabled(),true);
+  await page.locator('#hint').filter({hasText:hint}).waitFor();assert.equal(await page.locator('#send').isDisabled(),fault!=='ready');
  });
 }
+
+test('consumer keeps an identical followup pending when HTTP is lost and preserves invalid followup drafts',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4203,'ready');const text='Reply exactly CHAT_BROWSER_READY.';
+ await page.locator('#message').fill(text);await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ await page.waitForFunction(()=>!document.querySelector('#send').disabled);
+ const invalid='한'.repeat(38);await page.locator('#message').fill(invalid);await page.locator('#send').click();
+ await page.locator('#error').filter({hasText:'UTF-8 112바이트'}).waitFor();assert.equal(await page.locator('#message').inputValue(),invalid);
+ await page.route('**/api/message',route=>route.abort());await page.locator('#message').fill(text);await page.locator('#send').click();
+ await page.getByText('전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.',{exact:false}).waitFor();
+ await page.waitForTimeout(1100);assert.equal(await page.locator('#pending').isVisible(),true);assert.equal(await page.locator('#send').isDisabled(),true);
+ assert.equal(await page.locator('[data-message-id="user-first"]').count(),1);assert.equal(await page.locator('#message').inputValue(),text);
+});

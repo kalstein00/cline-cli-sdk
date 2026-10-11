@@ -1,0 +1,153 @@
+{
+  "source": "actual Windows Chrome -> public SDK -> SSH -> pinned Cline 3.0.69",
+  "sessionId": "1791710324301_qfpa1",
+  "executionId": "run-247873e4-d528-4473-b7a1-564c52c81335",
+  "deliveries": [
+    {
+      "requestId": "92ea9c89-8bdc-489d-b4a8-eab83a1a1152",
+      "executionId": "run-247873e4-d528-4473-b7a1-564c52c81335",
+      "sessionId": "1791710324301_qfpa1",
+      "state": "delivered",
+      "messageId": "ea4501e3-0c61-4de7-8387-b1d95b3e0f92"
+    },
+    {
+      "requestId": "b4358f9c-2f96-4fd5-a75b-76d4f2402e31",
+      "executionId": "run-247873e4-d528-4473-b7a1-564c52c81335",
+      "sessionId": "1791710324301_qfpa1",
+      "state": "delivered",
+      "messageId": "348c2154-5279-4649-8a0f-20ff6a16475c"
+    },
+    {
+      "requestId": "1b87624a-a78a-496b-9a81-44070c164849",
+      "executionId": "run-247873e4-d528-4473-b7a1-564c52c81335",
+      "sessionId": "1791710324301_qfpa1",
+      "state": "delivered",
+      "messageId": "f24c9dd4-252f-4bb4-b78d-5f72f075881e"
+    },
+    {
+      "requestId": "0047235b-ae97-4202-9255-0a08d938dd03",
+      "executionId": "run-247873e4-d528-4473-b7a1-564c52c81335",
+      "sessionId": "1791710324301_qfpa1",
+      "state": "delivered",
+      "messageId": "a2705aaf-8048-4648-ba4a-60134cd969df"
+    }
+  ],
+  "messages": [
+    {
+      "id": "aacaeaa8-77ac-40a7-a895-3810208e46f7",
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<user_input mode=\"act\">Reply exactly CHAT_FIRST_READY. Do not call any tools.</user_input>"
+        }
+      ],
+      "text": "Reply exactly CHAT_FIRST_READY. Do not call any tools."
+    },
+    {
+      "id": "msg_OpT3kEqE",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "CHAT_FIRST_READY"
+        }
+      ],
+      "text": "CHAT_FIRST_READY"
+    },
+    {
+      "id": "ea4501e3-0c61-4de7-8387-b1d95b3e0f92",
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<user_input mode=\"act\">2 한글 😀 café: Reply exactly CHAT_FOLLOWUP_ONE. No tools.</user_input>"
+        }
+      ],
+      "text": "2 한글 😀 café: Reply exactly CHAT_FOLLOWUP_ONE. No tools."
+    },
+    {
+      "id": "msg_mOlFxOZW",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "CHAT_FOLLOWUP_ONE"
+        }
+      ],
+      "text": "CHAT_FOLLOWUP_ONE"
+    },
+    {
+      "id": "348c2154-5279-4649-8a0f-20ff6a16475c",
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<user_input mode=\"act\">Reply exactly CHAT_FOLLOWUP_TWO. No tools.</user_input>"
+        }
+      ],
+      "text": "Reply exactly CHAT_FOLLOWUP_TWO. No tools."
+    },
+    {
+      "id": "msg_hJjAkzT9",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "CHAT_FOLLOWUP_TWO"
+        }
+      ],
+      "text": "CHAT_FOLLOWUP_TWO"
+    },
+    {
+      "id": "f24c9dd4-252f-4bb4-b78d-5f72f075881e",
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<user_input mode=\"act\">Reply exactly CHAT_IDENTICAL. No tools.</user_input>"
+        }
+      ],
+      "text": "Reply exactly CHAT_IDENTICAL. No tools."
+    },
+    {
+      "id": "msg_bXo-6BXf",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "CHAT_IDENTICAL"
+        }
+      ],
+      "text": "CHAT_IDENTICAL"
+    },
+    {
+      "id": "a2705aaf-8048-4648-ba4a-60134cd969df",
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<user_input mode=\"act\">Reply exactly CHAT_IDENTICAL. No tools.</user_input>"
+        }
+      ],
+      "text": "Reply exactly CHAT_IDENTICAL. No tools."
+    },
+    {
+      "id": "msg_hMu8qGZM",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "CHAT_IDENTICAL"
+        }
+      ],
+      "text": "CHAT_IDENTICAL"
+    }
+  ],
+  "execution": "running",
+  "input": {
+    "ready": true,
+    "reason": "ready",
+    "maxBytes": 112
+  }
+}

@@ -37,14 +37,16 @@ function render(packet) {
   }
   for(const node of [...messages.children])if(!visible.has(node.dataset.messageId)){node.remove();changed=true;}
   element('empty').hidden=!!snapshot?.messages.length;
-  if(pending && snapshot?.messages.some(message=>message.role==='user'&&message.text===pending.text)) {
+  if(pending && (pending.action==='message' ? snapshot?.messageDelivery?.requestId===pending.requestId && snapshot.messageDelivery.state==='delivered' && snapshot.messages.some(m=>m.id===snapshot.messageDelivery.messageId) : snapshot?.messages.some(message=>message.role==='user'&&message.text===pending.text&&!pending.baseline.includes(message.id)))) {
     if(element('message').value===pending.text)element('message').value='';pending=null;requestError=false;
   }
   element('pending').hidden=!pending;
   element('pending').textContent=pending ? `${requestError?'전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.':'전송 중'}\n${pending.text}` : '';
   const canStart=packet.preflight?.ready && snapshot?.connection==='connected' && !snapshot.executionId;
-  element('send').disabled=!canStart || sending || packet.busy || packet.launchReserved || !!pending;
-  const reasons={'ready':'다음 메시지 입력 준비 완료 (전송은 다음 구현 단계에서 지원합니다).','agent-busy':'Cline이 답변을 생성하거나 도구를 실행 중입니다.','interaction-pending':'대기 중인 질문이나 승인을 먼저 처리하세요.','delivery-pending':'이전 요청의 전달 상태를 확인 중입니다.','not-connected':'연결 복구 후 입력 상태를 다시 확인합니다.','history-unavailable':'대화 기록을 다시 확인 중입니다.','process-unconfirmed':'원격 프로세스를 확인 중입니다.','composer-unconfirmed':'빈 입력창을 확인 중입니다.','unsupported-profile':'이 CLI 프로필에서는 후속 입력을 지원하지 않습니다.'};
+  const canMessage=packet.capabilities?.sendMessage && snapshot?.messageInput?.ready;
+  element('send').textContent=snapshot?.executionId?'메시지 보내기':'첫 메시지 보내기';
+  element('send').disabled=!(canStart||canMessage) || sending || packet.busy || (packet.launchReserved&&!snapshot?.executionId) || !!pending;
+  const reasons={'ready':'다음 메시지 입력 준비 완료 · UTF-8 112바이트 이내의 한 줄','agent-busy':'Cline이 답변을 생성하거나 도구를 실행 중입니다.','interaction-pending':'대기 중인 질문이나 승인을 먼저 처리하세요.','delivery-pending':'이전 요청의 전달 상태를 확인 중입니다.','not-connected':'연결 복구 후 입력 상태를 다시 확인합니다.','history-unavailable':'대화 기록을 다시 확인 중입니다.','process-unconfirmed':'원격 프로세스를 확인 중입니다.','composer-unconfirmed':'빈 입력창을 확인 중입니다.','unsupported-profile':'이 CLI 프로필에서는 후속 입력을 지원하지 않습니다.'};
   element('hint').textContent=snapshot?.executionId ? (reasons[snapshot.messageInput?.reason] ?? '후속 입력 상태를 확인 중입니다.') : '첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
   if(packet.launchReserved && !snapshot?.executionId)element('hint').textContent='시작 여부를 확인해야 합니다. 새 요청을 자동 전송하지 않습니다.';
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';
@@ -67,9 +69,11 @@ element('connectForm').onsubmit=async event=>{
 element('composer').onsubmit=async event=>{
   event.preventDefault();if(element('send').disabled || sending)return;
   const text=element('message').value;
+  const followup=!!current.snapshot?.executionId;
+  if(followup && (!text||text.trim()!==text||new TextEncoder().encode(text).length>112||/[\p{Cc}\p{Cs}]/u.test(text)||text.startsWith('/')||text.includes('@')||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error('후속 메시지는 UTF-8 112바이트 이내의 한 줄입니다. 앞뒤 공백, 제어 문자, slash command, @ mention을 제외하세요.'));return;}
   if(!text.trim()||text.length>100000){showError(Error('비어 있지 않은 100,000자 이내의 첫 요청을 입력하세요.'));return;}
-  pending={text,requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
-  try{await invoke('start',{requestId:pending.requestId,generation:pending.generation,cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text});}
+  pending={text,action:followup?'message':'start',baseline:(current.snapshot?.messages??[]).map(m=>m.id),requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
+  try{await invoke(pending.action,{requestId:pending.requestId,generation:pending.generation,...(followup?{text,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:{cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text})});}
   catch(error){requestError=true;showError(error);if(error.notSubmitted===true)pending=null;}
   finally{sending=false;render(current);}
 };

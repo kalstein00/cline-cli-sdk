@@ -1,4 +1,5 @@
 import {messageInput, type MessageInputState} from "./message-input.js";
+import type {SendMessageRequest, MessageDelivery} from "./message.js";
 import xterm from "@xterm/headless";
 import unicode11 from "@xterm/addon-unicode11";
 import { createHash } from "node:crypto";
@@ -111,7 +112,7 @@ export interface ExecutionActionObservation {
   kind: "execution-action";
   seq: number;
   observedAt: string;
-  action: "stop" | "resume";
+  action: "stop" | "resume" | "message";
   operation: "requested" | "receipt" | "fault" | "input";
   executionId: string;
   requestId: string;
@@ -268,6 +269,7 @@ export interface Snapshot {
   executionEvidence: ProcessObservation | null;
   /** Observed focused composer; not a public terminal-input escape hatch. */
   messageInput?: MessageInputState;
+  messageDelivery?: MessageDelivery | null;
   composer?: { mode: "tui"; text: string } | null;
   resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" } | null;
   historySync: { current: boolean; warning: string | null };
@@ -319,6 +321,7 @@ export interface Client {
   subscribe(listener: (event: SdkEvent) => void): () => void;
   respond(request: ResponseRequest): Promise<never>;
   stop(request: StopRequest): Promise<never>;
+  sendMessage(request: SendMessageRequest): Promise<never>;
   capabilities(): {
     structuredResults:{json:true;schemaValidation:true;nativeSchema:false};
     replay: true;
@@ -450,7 +453,7 @@ function validateRecording(input: Recording): void {
         invalid();
       if (
         obs.kind === "execution-action" &&
-        (!["stop", "resume"].includes(obs.action) ||
+        (!["stop", "resume", "message"].includes(obs.action) ||
           !["requested", "receipt", "fault", "input"].includes(obs.operation))
       )
         invalid();
@@ -489,6 +492,7 @@ export function createReducer(options: {
     historySync: { current: true, warning: null },
     composer: null,
     messageInput: undefined,
+    messageDelivery: null,
     resume: null,
     replay: { position: 0, total: 0, complete: false, truncated: false },
   };
@@ -531,6 +535,8 @@ export function createReducer(options: {
   let results = new Map<string, { digest: string; rejected: boolean }>();
   let responseBinding: ResponseInputObservation["binding"] | null = null;
   let resumeDigest: string | null = null;
+  let messageDigest: string | null = null;
+  let messageBaseline = new Set<string>();
   let latestProcess: ProcessObservation | null = null;
   const listeners = new Set<(event: SdkEvent) => void>();
   let observationEvents: SdkEvent[] = [];
@@ -1093,6 +1099,7 @@ export function createReducer(options: {
     pendingPhase = null;
     responseBinding = null;
     resumeDigest = null;
+    messageDigest = null;messageBaseline.clear();
     latestProcess = null;
     jsonParser=jsonOutputParser();
     resultRequest=prepareResult(obs.resultRequest,obs.resultRequest?.baselineMessageIds);
@@ -1112,6 +1119,7 @@ export function createReducer(options: {
       historySync: { current: true, warning: null },
       composer: null,
       messageInput: undefined,
+      messageDelivery: null,
       resume: null,
     });
     emit("state.changed", obs, {
@@ -1221,6 +1229,24 @@ export function createReducer(options: {
         stop: state.stop,
       });
     }
+    if (obs.action === "message") {
+      const previous=JSON.stringify(state.messageDelivery);
+      if(obs.operation==="requested") {
+        messageDigest=obs.promptDigest ?? null;
+        messageBaseline=new Set(state.messages.map(m=>m.id));
+        state.messageDelivery={requestId:obs.requestId,executionId:obs.executionId,sessionId:obs.sessionId ?? "unknown",state:"submitting",messageId:null};
+      } else if(state.messageDelivery?.requestId===obs.requestId) {
+        const witness=obs.receipt;
+        const matched=obs.operation==="receipt" && witness && "messageId" in witness && witness.state==="delivered" &&
+          witness.executionId===state.executionId && witness.sessionId===state.sessionId && witness.promptDigest===messageDigest &&
+          state.historySync.current && state.messages.some(m=>m.id===witness.messageId && !messageBaseline.has(m.id) && m.role==="user" && createHash("sha256").update(m.text).digest("hex")===messageDigest);
+        if(obs.operation==="receipt" || obs.operation==="fault") {
+          state.messageDelivery.state=matched?"delivered":"delivery-unknown";
+          state.messageDelivery.messageId=matched && witness && "messageId" in witness ? witness.messageId ?? null : null;
+        }
+      }
+      if(previous!==JSON.stringify(state.messageDelivery)) emit("state.changed",obs,{messageDelivery:state.messageDelivery});
+    }
     if (obs.action === "resume") {
       const previous = JSON.stringify(state.resume);
       if (obs.operation === "requested") {
@@ -1281,6 +1307,7 @@ export function createReducer(options: {
       pendingPhase = null;
       responseBinding = null;
       resumeDigest = null;
+    messageDigest = null;messageBaseline.clear();
       latestProcess = null;
       jsonParser=jsonOutputParser();
       resultRequest=preparedResult;
@@ -1313,6 +1340,7 @@ export function createReducer(options: {
         historySync: { current: true, warning: null },
             composer: null,
         messageInput: undefined,
+        messageDelivery: null,
         resume: null,
         replay: {
           position: 0,
@@ -1639,6 +1667,9 @@ export function createReducer(options: {
         "replay-read-only",
         "Replay never sends remote input.",
       );
+    },
+    async sendMessage() {
+      throw new SdkError("replay-read-only", "Replay never controls remote execution.");
     },
     async stop() {
       throw new SdkError(
