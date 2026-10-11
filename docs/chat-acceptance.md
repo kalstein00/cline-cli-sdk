@@ -50,3 +50,13 @@ SDK build·예제 typecheck 통과. 공개 API의 제한/중복/충돌/동시/�
 generation 증가 시 이전 메시지·질문 카드를 정리하고 대화별 메모리 초안을 복원한다. 지난 generation의 snapshot·HTTP 결과·오류·입력은 무시하거나 거부한다. submitting/불명 전달 중에는 선택과 새 대화를 잠근다. localStorage에는 연결의 최소 설정과 마지막 EID만 남기며 키 경로·history·초안·PTY는 저장하지 않는다.
 
 실제 Windows Chrome → WSL에서 CHAT_LIST_A/B 두 대화를 만들고 각각 새 클라이언트로 전환하여 서로 다른 SID/EID와 각 초안을 확인했다(`evidence/chat/conversations-browser.{json,png}`). 원격 실행은 살아 있었다. Chrome 통제 시험으로 늦은 이전 snapshot 주입, 오래된 대상 입력 거부, A/B 메시지와 초안 분리를 확인했다. 기존 Chrome 9개와 새 선택 시험, 예제 typecheck 통과. durable 불명 전달의 새 클라이언트 복원과 재시작은 #26에서 검증한다.
+
+## #26 단절·재시작 후 복원
+
+`reconfirmDelivery()`는 후속 composer 예약도 재대조한다. 새 클라이언트는 최소 원격 ledger의 SID/EID/request ID/digest/history count/마지막 ID와 수신 witness를 원시 receipt로 복원한다. 원래 history 경계 뒤 같은 원문의 새 user ID를 확인해야 delivered다. 미확정 예약·ledger 상실은 불명 상태로 유지하고 새 ID 입력을 막는다. 재대조는 원문·Enter·승인을 쓰지 않으며 알려진 같은 요청을 새 클라이언트에서 확인해도 입력하지 않는다. 진행 중인 전송과 재대조는 분리한다.
+
+연결 해제/재연결/전달 상태 다시 확인 버튼을 추가했다. 브라우저와 서버가 단절되면 응답 버튼도 잠근다. Node 프로세스별 server ID와 generation을 함께 결합하여 재시작 후 이전 요청이 새 서버를 조작하지 못하게 한다. 브라우저에 저장된 마지막 EID를 같은 관리 목록에서 찾은 뒤 공개 attach로 복원한다. 새 서버로 연결할 때 로컬 pending 원문은 재전송하지 않는다.
+
+실제 Windows Chrome → WSL에서 살아 있는 Cline의 CHAT_RECONNECT 질문을 기다린 뒤 연결 해제·재연결, 별도 임시 프로필의 Chrome 프로세스 종료·재시작, Node 서버 프로세스 종료·재시작을 차례로 수행했다. 모두 SID `1791712254185_ro62h`/EID `run-c2895633-495a-4eab-a590-57db6c4e9585`, 질문 ID와 메시지가 같았고 새 CLI·user 메시지·응답은 없었다(`evidence/chat/reconnect-browser.{json,png}`). 이는 SSH/로컬 소비자 복구 근거이며 원격 머신 재부팅 근거는 아니다.
+
+통제된 외부 SSH 장애 시험에서는 후속 Enter 뒤 관측 상실과 질문 제출 뒤 acknowledgment 상실을 각각 새 공개 SDK 클라이언트로 복원했다. 새 ID 우회가 거부됐고 재대조 후 원래 수신 근거로 확정했으며 원격 입력 횟수는 증가하지 않았다. ledger 상실/부분 JSON에서 불명 상태·마지막 정상 기록/current=false를 유지하고 정상 재읽기 후 수렴했다. 새 클라이언트 복원 원시 진단의 public replay 비교는 eventDifferences 0, snapshotMatches true였다. SDK build·예제 typecheck, 공개 API/재연결/history/질문/진단 focused 27개와 Chrome 복원·선택 경계 3개 통과. 실제 수신 직후 SSH 단절은 강제하지 않았으며 해당 경계는 통제 장애 근거다.

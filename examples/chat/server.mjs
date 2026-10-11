@@ -1,8 +1,10 @@
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
 import {createClient} from '@cline-cli-sdk/sdk';
 
 const port = Number(process.env.CLINE_CHAT_PORT ?? 4174);
+const serverId=randomUUID();
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid CLINE_CHAT_PORT');
 let client, preflight = null, generation = 0, unsubscribe;
 let busy = false, refreshing = false, launchReserved = false;
@@ -20,7 +22,7 @@ function state() {
     const title=snapshot.messages.find(m=>m.role==='user')?.text;
     if(title)titles.set(snapshot.sessionId ?? selectedId,title.slice(0,80));
   }
-  return {generation,preflight,busy:busy||refreshing,launchReserved,selectedId,
+  return {serverId,generation,preflight,busy:busy||refreshing,launchReserved,selectedId,
     executions:executions.map(e=>({...e,title:titles.get(e.sessionId ?? e.executionId) ?? e.sessionId ?? e.executionId})),snapshot,capabilities:client?.capabilities() ?? null};
 }
 async function listExecutions(){executions=await client.listManagedExecutions();}
@@ -52,6 +54,7 @@ async function perform(action, input) {
     connectionOptions={host:input.host,cliPath:input.cliPath || undefined,
       remoteRoot:input.remoteRoot || undefined,identityFile:input.identityFile || undefined};
     await selectClient();
+    if(input.executionId && executions.some(e=>e.executionId===input.executionId)){selectedId=input.executionId;await client.attach(input.executionId);}
     if(process.env.CLINE_CHAT_DIAGNOSTICS)await client.startDiagnostics({directory:process.env.CLINE_CHAT_DIAGNOSTICS});
   } else if(action==='new'||action==='select') {
     if(!connectionOptions)throw problem('not-ready','연결 설정을 확인하세요.');
@@ -60,6 +63,17 @@ async function perform(action, input) {
   } else if(action==='list') {
     if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
     await listExecutions();
+  } else if(action==='disconnect') {
+    if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
+    client.disconnect();
+  } else if(action==='reconnect') {
+    if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
+    preflight=await client.connect();
+    if(selectedId)await client.attach(selectedId);
+    await listExecutions();
+  } else if(action==='reconfirm') {
+    if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
+    await client.reconfirmDelivery();
   } else if (action === 'start') {
     if (!client || !preflight?.ready) throw problem('not-ready','연결 설정을 확인하세요.');
     if(selectedId)throw problem('execution-selected','선택한 실행의 전체 상태를 확인하세요. 새 대화 버튼으로 새 요청을 시작하세요.');
@@ -97,6 +111,7 @@ function mutate(action, input) {
     return previous.promise;
   }
   if (input.generation !== generation) throw problem('selection-changed','대화 상태가 변경되었습니다.');
+  if(input.serverId!==serverId)throw problem('server-changed','서버가 재시작되었습니다. 현재 연결과 실행을 확인하세요.');
   if (busy || (refreshing&&!['new','select','list'].includes(action))) throw problem('operation-busy','진행 중인 상태 확인·전송이 있습니다.');
   if (requests.size >= 256) throw problem('request-limit','요청 보관 한도에 도달했습니다. 서버를 재시작하고 원격 실행을 확인하세요.');
   busy = true;
@@ -127,7 +142,7 @@ const server = createServer(async (request,response) => {
       streams.add(response);response.write(`data: ${JSON.stringify(state())}\n\n`);
       request.on('close',() => streams.delete(response));return;
     }
-    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message','/api/respond','/api/new','/api/select','/api/list'].includes(path)) {
+    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message','/api/respond','/api/new','/api/select','/api/list','/api/disconnect','/api/reconnect','/api/reconfirm'].includes(path)) {
       const origin = request.headers.origin;
       if ((origin && !allowed.has(origin.replace(/^http:\/\//,''))) || request.headers['content-type'] !== 'application/json') {
         json(response,403,{error:'local-json-only'});return;

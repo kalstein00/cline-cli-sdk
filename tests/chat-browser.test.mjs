@@ -124,3 +124,10 @@ test('incomplete attach blocks first input and an old transport error cannot lea
  await page.evaluate(p=>window.testEvents.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({...p,generation:p.generation+2,busy:false,selectedId:'run-incomplete',snapshot:{...p.snapshot,executionId:null,sessionId:null,messages:[]}})})),packet);
  release();await page.waitForTimeout(250);assert.equal(await page.locator('#error').isVisible(),false);assert.equal(await page.locator('#send').isDisabled(),true);
 });
+
+test('disconnect and browser reload restore the same pending question and keep all input blocked while detached',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4212,'question');await page.locator('#message').fill('Ask a reconnect question');await page.locator('#send').click();await page.locator('[data-interaction-id]').waitFor();
+ const before=await page.request.get('http://127.0.0.1:4212/api/state').then(r=>r.json());await page.locator('#disconnect').click();await page.locator('#connection').filter({hasText:'disconnected'}).waitFor();assert.equal(await page.locator('#send').isDisabled(),true);assert.equal(await page.getByRole('button',{name:'BLUE',exact:true}).isDisabled(),true);
+ await page.reload();await page.locator('[data-interaction-id]').waitFor();assert.equal(await page.locator('#connection').textContent(),'disconnected');await page.locator('#reconnect').click();await page.locator('#connection').filter({hasText:'connected'}).waitFor();
+ await page.waitForFunction(()=>!document.querySelector('#interactions button').disabled);const after=await page.request.get('http://127.0.0.1:4212/api/state').then(r=>r.json());assert.equal(after.snapshot.executionId,before.snapshot.executionId);assert.equal(after.snapshot.sessionId,before.snapshot.sessionId);assert.equal(after.snapshot.interaction.id,before.snapshot.interaction.id);assert.deepEqual(after.snapshot.messages,before.snapshot.messages);
+});

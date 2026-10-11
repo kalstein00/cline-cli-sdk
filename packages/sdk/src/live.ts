@@ -187,6 +187,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   let composerHash: string | null = null;
   let resumeActive = false;
   let messageActive=false;
+  let messageSending=false;
   const messages = new Map<string,{binding:string;promise:Promise<MessageDelivery>}>();
   const resumes = new Map<string, { binding: string; promise: Promise<Snapshot> }>();
   const requests = new Map<
@@ -591,6 +592,17 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         });
       }
       state = { ...reducer.snapshot(), mode: "live", connection: "connected" };
+      if(!messageSending) {
+        const composerReceipts=remoteRequests.filter((r:any)=>r.message===true && r.binding?.kind==="composer" && r.binding.executionId===managed!.executionId && r.binding.sessionId===state.sessionId);
+        const receipt=composerReceipts.filter(r=>!r.resolution).at(-1) ?? composerReceipts.at(-1);
+        if(receipt && !receipt.resolution && ["queued","written"].includes(receipt.state) && state.historySync.current) {
+          const witness=await helper({action:"settle-message",root:managed!.remoteRoot,executionId:managed!.executionId,requestId:receipt.requestId});
+          if(witness.state==="delivered"){Object.assign(receipt,{witness,resolution:"delivered"});}
+          reducer.responseObservation({kind:"response-receipt",seq:++sequence,observedAt:new Date().toISOString(),receipts:[receipt],final:true});
+          state={...reducer.snapshot(),mode:"live",connection:"connected"};
+        }
+        messageActive=!!state.messageDelivery && state.messageDelivery.state!=="delivered";
+      }
       if (!activeRequest) {
         const receipts = remoteRequests.filter(
           (receipt): receipt is DurableResponse =>
@@ -1016,6 +1028,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       const binding=JSON.stringify([request.sessionId,request.executionId,request.revision,request.requestId,request.text]);
       const previous=messages.get(request.requestId);
       if(previous) return previous.binding===binding?previous.promise:invalid("request-conflict","Message identity is already bound.");
+      const durable=remoteRequests.find((r:any)=>r.requestId===request.requestId && r.message===true);
+      if(durable) {
+        if(durable.binding.sessionId!==request.sessionId || durable.binding.executionId!==request.executionId || durable.binding.revision!==request.revision || durable.binding.answerDigest!==createHash("sha256").update(request.text).digest("hex"))return invalid("request-conflict","Message identity is already durably bound.");
+        return state.messageDelivery?.requestId===request.requestId && state.messageDelivery.state==="delivered" ? Promise.resolve(structuredClone(state.messageDelivery)) : invalid("message-input-uncertain","Reconfirm the original reservation; input is never repeated.");
+      }
       if(!managed || request.executionId!==state.executionId || request.sessionId!==state.sessionId || request.revision!==state.revision)
         return invalid("message-target-mismatch","Use the current conversation, execution and revision.");
       if(messageActive || activeRequest || resumeActive || messages.size>=256)
@@ -1023,6 +1040,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       if(outputMode==="json" || terminalMode!=="tui" || !report?.ready || !state.messageInput?.ready)
         return invalid("message-not-ready","A verified idle TUI composer is required.");
       messageActive=true; // reserve synchronously before a refresh can yield to another caller
+      messageSending=true;
       let reserved=false;
       const digest=createHash("sha256").update(request.text).digest("hex");
       const action=(operation:"requested"|"receipt"|"fault"|"input",fields:any={})=>reducer.executionAction({kind:"execution-action",seq:++sequence,observedAt:new Date().toISOString(),action:"message",operation,executionId:request.executionId,sessionId:request.sessionId,requestId:request.requestId,promptDigest:digest,...fields});
@@ -1070,7 +1088,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           if(reserved)action("fault",{reason:error instanceof SdkError?error.code:"message-input-uncertain"});
           else messageActive=false;
           state={...reducer.snapshot(),mode:"live",connection:state.connection};throw error;
-        }
+        } finally {messageSending=false;}
       })();
       messages.set(request.requestId,{binding,promise});promise.catch(()=>{if(!reserved)messages.delete(request.requestId);});return promise;
     },

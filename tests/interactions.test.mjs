@@ -416,3 +416,21 @@ test("transport loss while submitting preserves delivery unknown and never resen
   assert.equal(writes, 1);
   client.close();
 });
+
+test('a new client recovers an uncertain question response from durable receipt and readonly reconfirmation',async t=>{
+ const record=await fixture('choice');let eid,receipt,writes=0,position=18;
+ boundary(t,r=>{
+  if(!r.action)return pinned;
+  if(r.action==='start'){eid=r.executionId;return {executionId:eid,remoteRoot:'/fixture/control'};}
+  if(r.action==='list')return {executions:[{executionId:eid,sessionId:record.sessionId,remoteRoot:'/fixture/control',terminalMode:'readline',terminal:{rows:40,cols:120},cliHash:pinned.cliHash}]};
+  if(r.action==='respond'){writes++;receipt={requestId:r.requestId,state:'written',binding:r};return {error:'ssh-failed',message:'Controlled loss after input handoff'};}
+  if(r.action==='status')return {...status(r,record,r.cursor,position),requests:receipt?[receipt]:[]};
+  if(r.action==='settle-response'){receipt.resolution=r.resolution;return {resolution:r.resolution};}
+  throw Error('unexpected '+r.action);
+ });
+ const first=createClient({mode:'live',connection:{host:'fixture'}});await first.connect();await first.start({cwd:'/fixture',prompt:'controlled'});await first.refresh();const s=first.snapshot();
+ await assert.rejects(first.respond({sessionId:s.sessionId,executionId:s.executionId,interactionId:s.interaction.id,revision:s.revision,requestId:'durable-question',answer:'BLUE'}),{code:'ssh-failed'});first.close();
+ const c=createClient({mode:'live',connection:{host:'fixture'}});t.after(()=>c.close());await c.connect();await c.attach(eid);assert.equal(c.snapshot().response.state,'delivery-unknown');
+ const recovered=c.snapshot();await assert.rejects(c.respond({sessionId:recovered.sessionId,executionId:eid,interactionId:recovered.interaction.id,revision:recovered.revision,requestId:'different-question',answer:'BLUE'}));assert.equal(writes,1);
+ position=30;await c.reconfirmDelivery();assert.equal(c.snapshot().response.state,'delivered');assert.equal(c.snapshot().response.requestId,'durable-question');assert.equal(writes,1);
+});

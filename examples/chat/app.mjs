@@ -1,9 +1,11 @@
 const element = id => document.getElementById(id);
 let current = {generation:0,snapshot:null,preflight:null,busy:false};
 let sending=false, pending=null, requestError=false;
+let transportConnected=true;
+let restoringServer=false;
 const drafts=new Map();
 const draftKey=packet=>packet.snapshot?.sessionId ?? packet.executions?.find(e=>e.executionId===packet.selectedId)?.sessionId ?? packet.selectedId ?? 'new';
-function selectionBlocked(packet) {return sending||!!pending||packet.busy||(packet.launchReserved&&!packet.snapshot?.executionId)||[packet.snapshot?.response,packet.snapshot?.messageDelivery,packet.snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state));}
+function selectionBlocked(packet) {return !transportConnected||sending||!!pending||packet.busy||(packet.launchReserved&&!packet.snapshot?.executionId)||[packet.snapshot?.response,packet.snapshot?.messageDelivery,packet.snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state));}
 function renderConversations(packet) {
   const nav=element('conversations'),groups=new Map();
   for(const run of packet.executions ?? []){const key=run.sessionId ?? run.executionId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(run);}
@@ -22,7 +24,7 @@ const settings=['host','cliPath','remoteRoot','cwd','dataDir'];
 try {const saved=JSON.parse(localStorage.getItem('cline-chat-settings') ?? '{}');for(const id of settings)if(typeof saved[id]==='string')element(id).value=saved[id];} catch {}
 const timeline=element('timeline');
 function canRespond(snapshot) {
-  return current.capabilities?.responses && snapshot?.connection==='connected' && snapshot.historySync.current &&
+  return transportConnected && current.capabilities?.responses && snapshot?.connection==='connected' && snapshot.historySync.current &&
     snapshot.interaction?.state==='awaiting-response' && snapshot.interaction.kind!=='unsupported' &&
     !['submitting','delivery-unknown'].includes(snapshot.response?.state) && !snapshot.stop && !sending && !pending && !current.busy;
 }
@@ -60,6 +62,7 @@ async function respondChoice(answer,interactionId) {
   finally{sending=false;render(current);}
 }
 function render(packet) {
+  if(current.serverId && packet.serverId!==current.serverId)return;
   if (packet.generation < current.generation) return;
   if (packet.generation === current.generation && packet.snapshot && current.snapshot && packet.snapshot.revision < current.snapshot.revision) return;
   if(packet.generation>current.generation){drafts.set(draftKey(current),element('message').value);element('messages').replaceChildren();element('interactions').replaceChildren();element('message').value=drafts.get(draftKey(packet)) ?? '';element('error').hidden=true;requestError=false;}
@@ -67,6 +70,7 @@ function render(packet) {
   if(packet.generation===current.generation && current.selectedId && !current.snapshot?.sessionId && packet.snapshot?.sessionId){const saved=drafts.get(current.selectedId);if(saved!==undefined)drafts.set(packet.snapshot.sessionId,saved);}
   current=packet;
   const snapshot=packet.snapshot;
+  if(snapshot?.executionId && snapshot.historySync.current)restoringServer=false;
   renderConversations(packet);
   if(snapshot?.executionId)try{localStorage.setItem('cline-chat-selected',snapshot.executionId);}catch{}
   const atBottom=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop < 80;
@@ -74,7 +78,10 @@ function render(packet) {
   element('connection').textContent=snapshot?.connection ?? '연결 전';
   element('status').textContent=snapshot?.executionId ? `${snapshot.execution} · ${snapshot.sessionId ?? '대화 확인 중'}` : '새 대화를 시작할 수 있습니다.';
   element('preflight').textContent=packet.preflight ? packet.preflight.ready ? '연결 준비 완료' : packet.preflight.problems.join(' · ') : '';
-  element('connect').disabled=sending || !!pending || packet.launchReserved || !!snapshot?.executionId;
+  element('connect').disabled=!transportConnected||sending || (!!pending&&!restoringServer) || packet.launchReserved || !!snapshot?.executionId;
+  element('disconnect').disabled=!transportConnected||sending||packet.busy||snapshot?.connection!=='connected';
+  element('reconnect').disabled=!transportConnected||sending||packet.busy||!snapshot||snapshot.connection==='connected';
+  element('reconfirm').disabled=!transportConnected||sending||packet.busy||snapshot?.connection!=='connected'||!snapshot?.executionId;
   const messages=element('messages');
   let changed=false;
   const visible=new Set();
@@ -109,7 +116,7 @@ function render(packet) {
   const questionText=freeResponse(snapshot),canAnswer=questionText&&canRespond(snapshot);
   element('composerLabel').textContent=questionText?'현재 질문에 자유 응답':'메시지';
   element('send').textContent=questionText?'질문 응답 보내기':snapshot?.executionId?'메시지 보내기':'첫 메시지 보내기';
-  element('send').disabled=!(canStart||canMessage||canAnswer) || sending || packet.busy || (packet.launchReserved&&!snapshot?.executionId) || !!pending;
+  element('send').disabled=!transportConnected||!(canStart||canMessage||canAnswer) || sending || packet.busy || (packet.launchReserved&&!snapshot?.executionId) || !!pending;
   const reasons={'ready':'다음 메시지 입력 준비 완료 · UTF-8 112바이트 이내의 한 줄','agent-busy':'Cline이 답변을 생성하거나 도구를 실행 중입니다.','interaction-pending':'대기 중인 질문이나 승인을 먼저 처리하세요.','delivery-pending':'이전 요청의 전달 상태를 확인 중입니다.','not-connected':'연결 복구 후 입력 상태를 다시 확인합니다.','history-unavailable':'대화 기록을 다시 확인 중입니다.','process-unconfirmed':'원격 프로세스를 확인 중입니다.','composer-unconfirmed':'빈 입력창을 확인 중입니다.','unsupported-profile':'이 CLI 프로필에서는 후속 입력을 지원하지 않습니다.'};
   element('hint').textContent=snapshot?.executionId ? (reasons[snapshot.messageInput?.reason] ?? '후속 입력 상태를 확인 중입니다.') : '첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
   if(snapshot?.interaction)element('hint').textContent=questionText?'현재 질문 응답 · UTF-8 1,024바이트 이내의 한 줄':snapshot.interaction.kind==='unsupported'?'지원하지 않는 상호작용입니다. 일반 전송과 응답을 차단합니다.':'현재 질문/승인의 선택 버튼을 사용하세요.';
@@ -118,20 +125,20 @@ function render(packet) {
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
 }
 async function invoke(action,input) {
-  const started=current.generation,maxGeneration=started+(['connect','select','new'].includes(action)?1:0);
+  const started=current.generation,startedServer=current.serverId,maxGeneration=started+(['connect','select','new'].includes(action)?1:0);
   try {
-    const response=await fetch(`/api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({generation:started,requestId:crypto.randomUUID(),...input})});
-    const packet=await response.json();if(current.generation>maxGeneration||packet.generation<current.generation)return;render(packet);
+    const response=await fetch(`/api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({serverId:startedServer,generation:started,requestId:crypto.randomUUID(),...input})});
+    const packet=await response.json();if(current.serverId!==startedServer||current.generation>maxGeneration||packet.generation<current.generation)return;render(packet);
     if(!response.ok)throw Object.assign(Error(`${packet.error}: ${packet.message ?? ''}`),{notSubmitted:packet.notSubmitted===true});
     return packet;
-  }catch(error){if(current.generation>maxGeneration)return;throw error;}
+  }catch(error){if(current.serverId!==startedServer||current.generation>maxGeneration)return;throw error;}
 }
 function showError(error){element('error').hidden=false;element('error').textContent=error.message;}
 element('connectForm').onsubmit=async event=>{
   event.preventDefault();if(sending)return;sending=true;element('error').hidden=true;render(current);
   try {
     localStorage.setItem('cline-chat-settings',JSON.stringify(Object.fromEntries(settings.map(id=>[id,element(id).value]))));
-    await invoke('connect',Object.fromEntries(['host','cliPath','remoteRoot','identityFile'].map(id=>[id,element(id).value])));
+    await invoke('connect',{...Object.fromEntries(['host','cliPath','remoteRoot','identityFile'].map(id=>[id,element(id).value])),executionId:localStorage.getItem('cline-chat-selected') ?? undefined});
   }catch(error){showError(error);}finally{sending=false;render(current);}
 };
 element('composer').onsubmit=async event=>{
@@ -150,6 +157,7 @@ element('composer').onsubmit=async event=>{
 element('message').onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229&&!event.shiftKey){event.preventDefault();element('composer').requestSubmit();}};
 element('newMessages').onclick=()=>{timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;};
 element('new').onclick=()=>changeSelection('new');element('list').onclick=()=>changeSelection('list');
-const events=new EventSource('/api/events');events.onmessage=event=>render(JSON.parse(event.data));
-events.onerror=()=>{element('connection').textContent='서버 연결 확인 중';element('send').disabled=true;};
+for(const action of ['disconnect','reconnect','reconfirm'])element(action).onclick=async()=>{if(sending||current.busy)return;sending=true;element('error').hidden=true;render(current);try{await invoke(action,{});}catch(error){showError(error);}finally{sending=false;render(current);}};
+const events=new EventSource('/api/events');events.onmessage=event=>{const packet=JSON.parse(event.data);if(current.serverId&&packet.serverId!==current.serverId){restoringServer=true;current={...current,generation:-1,serverId:packet.serverId};}transportConnected=true;render(packet);};
+events.onerror=()=>{transportConnected=false;render(current);element('connection').textContent='서버 연결 확인 중';for(const button of document.querySelectorAll('button'))button.disabled=true;};
 render(current);

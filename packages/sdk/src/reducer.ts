@@ -537,6 +537,7 @@ export function createReducer(options: {
   let resumeDigest: string | null = null;
   let messageDigest: string | null = null;
   let messageBaseline = new Set<string>();
+  let historyIds: string[] = [];
   let latestProcess: ProcessObservation | null = null;
   const listeners = new Set<(event: SdkEvent) => void>();
   let observationEvents: SdkEvent[] = [];
@@ -1099,7 +1100,7 @@ export function createReducer(options: {
     pendingPhase = null;
     responseBinding = null;
     resumeDigest = null;
-    messageDigest = null;messageBaseline.clear();
+    messageDigest = null;messageBaseline.clear();historyIds=[];
     latestProcess = null;
     jsonParser=jsonOutputParser();
     resultRequest=prepareResult(obs.resultRequest,obs.resultRequest?.baselineMessageIds);
@@ -1151,6 +1152,19 @@ export function createReducer(options: {
     )
       next = obs.beforeWrite ? "not-submitted" : "delivery-unknown";
     if (obs.kind === "response-receipt") {
+      const composerReceipts=obs.receipts.filter(r=>r.message===true && r.binding?.kind==="composer" && r.binding.executionId===state.executionId && r.binding.sessionId===state.sessionId);
+      const composerReceipt=state.messageDelivery ? composerReceipts.find(r=>r.requestId===state.messageDelivery!.requestId) ?? (obs.final?composerReceipts.at(-1):undefined) : composerReceipts.filter(r=>!r.resolution).at(-1) ?? composerReceipts.at(-1);
+      if(composerReceipt && (state.messageDelivery?.state!=="submitting" || obs.final)) {
+        const r=composerReceipt,w=r.witness,count=r.baselineMessageCount;
+        const matched=state.historySync.current && Number.isSafeInteger(count) && count>=0 && historyIds.length>=count && (!count || historyIds[count-1]===r.baselineLastMessageId) &&
+          w?.state==="delivered" && w.executionId===state.executionId && w.sessionId===state.sessionId && w.promptDigest===r.binding.answerDigest && historyIds.indexOf(w.messageId)>=count &&
+          state.messages.some(m=>m.id===w.messageId && m.role==="user" && createHash("sha256").update(m.text).digest("hex")===w.promptDigest);
+        const nextMessage:MessageDelivery={requestId:r.requestId,executionId:r.binding.executionId,sessionId:r.binding.sessionId,state:matched?"delivered":"delivery-unknown",messageId:matched?w.messageId:null};
+        // A temporary read failure does not erase a previously confirmed witness.
+        const prior=state.messageDelivery;
+        if(!state.historySync.current && prior && prior.requestId===r.requestId && prior.state==="delivered"){nextMessage.state="delivered";nextMessage.messageId=prior.messageId;}
+        if(JSON.stringify(nextMessage)!==JSON.stringify(state.messageDelivery)){state.messageDelivery=nextMessage;emit("state.changed",obs,{messageDelivery:nextMessage});}
+      }
       const receipts = obs.receipts.filter(r=>r.binding?.kind !== "composer");
       const receipt =
         (obs.final ? receipts.at(-1) : undefined) ??
@@ -1307,7 +1321,7 @@ export function createReducer(options: {
       pendingPhase = null;
       responseBinding = null;
       resumeDigest = null;
-    messageDigest = null;messageBaseline.clear();
+    messageDigest = null;messageBaseline.clear();historyIds=[];
       latestProcess = null;
       jsonParser=jsonOutputParser();
       resultRequest=preparedResult;
@@ -1398,6 +1412,7 @@ export function createReducer(options: {
       }
       if (obs.kind === "history") {
         let messages: Message[];
+        let nextHistoryIds:string[];
         let nextTools: typeof pendingTools = [];
         const nextResults = new Map<
           string,
@@ -1413,6 +1428,7 @@ export function createReducer(options: {
             !Array.isArray(doc.messages)
           )
             throw new Error("Invalid envelope");
+          nextHistoryIds=doc.messages.map((m:{id:string})=>m.id);
           for (const raw of doc.messages) {
             if (!Array.isArray(raw.content)) throw new Error("Invalid content");
             for (const part of raw.content) {
@@ -1492,6 +1508,7 @@ export function createReducer(options: {
             "History observation was incomplete or incompatible; the last valid conversation is preserved.",
           );
         }
+        historyIds=nextHistoryIds;
         results = nextResults;
         resultHistorySeq=obs.seq;
         if (!state.historySync.current) {
