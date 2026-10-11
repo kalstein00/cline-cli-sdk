@@ -80,7 +80,7 @@ const server = createServer(async (request,response) => {
       }
       let bytes=0; const chunks=[];
       for await (const chunk of request) {
-        bytes+=chunk.length;if(bytes>128000){json(response,413,{error:'request-too-large'});return;}chunks.push(chunk);
+        bytes+=chunk.length;if(bytes>1048576){json(response,413,{error:'request-too-large',notSubmitted:true});return;}chunks.push(chunk);
       }
       const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
       await mutate(path.slice(5),input);
@@ -88,7 +88,8 @@ const server = createServer(async (request,response) => {
     }
     json(response,404,{error:'not-found'});
   } catch (error) {
-    json(response,400,{...state(),error:error.code ?? 'invalid-request',message:error.message});
+    json(response,400,{...state(),error:error.code ?? 'invalid-request',message:error.message,
+      notSubmitted:!busy && !client?.snapshot().executionId});
   }
 });
 const timer = setInterval(async () => {

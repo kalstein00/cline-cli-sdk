@@ -14,7 +14,7 @@ function render(packet) {
   element('connection').textContent=snapshot?.connection ?? '연결 전';
   element('status').textContent=snapshot?.executionId ? `${snapshot.execution} · ${snapshot.sessionId ?? '대화 확인 중'}` : '새 대화를 시작할 수 있습니다.';
   element('preflight').textContent=packet.preflight ? packet.preflight.ready ? '연결 준비 완료' : packet.preflight.problems.join(' · ') : '';
-  element('connect').disabled=sending || !!snapshot?.executionId;
+  element('connect').disabled=sending || !!pending || !!snapshot?.executionId;
   const messages=element('messages');
   let changed=false;
   const visible=new Set();
@@ -51,7 +51,7 @@ function render(packet) {
 async function invoke(action,input) {
   const response=await fetch(`/api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({generation:current.generation,requestId:crypto.randomUUID(),...input})});
   const packet=await response.json();render(packet);
-  if(!response.ok)throw Error(`${packet.error}: ${packet.message ?? ''}`);
+  if(!response.ok)throw Object.assign(Error(`${packet.error}: ${packet.message ?? ''}`),{notSubmitted:packet.notSubmitted===true});
   return packet;
 }
 function showError(error){element('error').hidden=false;element('error').textContent=error.message;}
@@ -66,9 +66,9 @@ element('composer').onsubmit=async event=>{
   event.preventDefault();if(element('send').disabled || sending)return;
   const text=element('message').value;
   if(!text.trim()||text.length>100000){showError(Error('비어 있지 않은 100,000자 이내의 첫 요청을 입력하세요.'));return;}
-  pending={text};sending=true;requestError=false;element('error').hidden=true;render(current);
-  try{await invoke('start',{cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text});}
-  catch(error){requestError=true;showError(error);if(!current.snapshot?.executionId)pending=null;}
+  pending={text,requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
+  try{await invoke('start',{requestId:pending.requestId,generation:pending.generation,cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text});}
+  catch(error){requestError=true;showError(error);if(error.notSubmitted===true)pending=null;}
   finally{sending=false;render(current);}
 };
 element('message').onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229&&!event.shiftKey){event.preventDefault();element('composer').requestSubmit();}};
