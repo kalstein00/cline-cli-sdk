@@ -11,6 +11,7 @@ const approval=JSON.parse(await readFile(new URL('../../fixtures/chat/readiness.
 const native = cp.spawn;
 const fault = process.env.CLINE_CHAT_FAULT;
 let executionId, prompt;
+const runs=new Map();
 cp.spawn = (...args) => {
   if (!['ssh', 'ssh.exe'].includes(args[0])) return native(...args);
   const process = new EventEmitter();
@@ -23,18 +24,21 @@ cp.spawn = (...args) => {
     let result;
     if (!request.action) result = pinned;
     else if (request.action === 'start') {
-      executionId = request.executionId; prompt = request.prompt;
+      executionId = request.executionId; prompt = request.prompt;runs.set(executionId,{prompt,sessionId:'chat-fixture-session-'+runs.size});
       result = {executionId:fault==='launch-identity'?'unexpected-execution':executionId, remoteRoot: '/fixture/control'};
+    } else if(request.action==='list') {result={executions:[...runs].map(([id,run])=>({executionId:id,remoteRoot:'/fixture/control',sessionId:run.sessionId,terminalMode:'tui',terminal:{rows:40,cols:120},cliHash:pinned.cliHash,alive:true,identityConfirmed:true}))};
     } else if (request.action === 'status') {
-      const history = Buffer.from(JSON.stringify({version:1, sessionId:'chat-fixture-session', messages:[
+      if(fault==='multi'){executionId=request.executionId;prompt=runs.get(executionId)?.prompt;}
+      const sid=fault==='multi'?runs.get(executionId)?.sessionId:'chat-fixture-session';
+      const history = Buffer.from(JSON.stringify({version:1, sessionId:sid, messages:[
         {id:'user-first',role:'user',content:[{type:'text',text:prompt}]},
         {id:'assistant-first',role:'assistant',content:[{type:'text',text:'CHAT_BROWSER_READY'}]},
       ]}));
-      result = {executionId,sessionId:'chat-fixture-session',cursor:composer.observations.at(-1).seq,observations:['ready','busy'].includes(fault)?composer.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor):[],
-        composerHash:['ready','busy'].includes(fault)?'controlled-composer':null,
+      result = {executionId,sessionId:sid,cursor:composer.observations.at(-1).seq,observations:['ready','busy','multi'].includes(fault)?composer.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor):[],
+        composerHash:['ready','busy','multi'].includes(fault)?'controlled-composer':null,
         management:{phaseSupported:true,phase:{active:false},responseReservation:true},
         history:{dataBase64:history.toString('base64'),sha256:createHash('sha256').update(history).digest('hex')},
-        process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:fault==='ready'?'idle':'running',supervisorAlive:true,children:[],trackingError:null}};
+        process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,exitCode:null,manifestStatus:['ready','multi'].includes(fault)?'idle':'running',supervisorAlive:true,children:[],trackingError:null}};
     } else result = {error:'fixture-no-operation',message:'Unsupported controlled operation'};
     if(request.action==='status' && ['question','approval'].includes(fault)) {
       const record=fault==='question'?question:approval;const end=fault==='question'?98:record.observations.find(o=>o.kind==='response-input').seq-1;const rows=record.observations.filter(o=>o.seq<=end);

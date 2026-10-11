@@ -17,6 +17,7 @@ async function connectedPage(t,port,fault='') {
   const browser=await chromium.launch({channel:'chrome',headless:process.env.CLINE_CHAT_HEADLESS === '1'});
   t.after(() => browser.close());
   const page=await browser.newPage();
+  await page.addInitScript(()=>{const Native=window.EventSource;window.EventSource=class extends Native{constructor(...args){super(...args);window.testEvents=this;}};});
   await page.goto(`http://127.0.0.1:${port}`);
   await page.getByLabel('SSH 별칭').fill('fixture');
   await page.getByLabel('CLI 경로').fill('/fixture/cline');
@@ -44,6 +45,7 @@ test('consumer preserves an uncertain first request when its HTTP response is un
   await page.getByText('전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.',{exact:false}).waitFor({timeout:5000});
   assert.equal(await page.locator('#send').isDisabled(),true);assert.equal(await page.locator('#connect').isDisabled(),true);
   assert.equal(await page.locator('#message').inputValue(),'Response unknown');
+  assert.equal(await page.locator('#new').isDisabled(),true);
 });
 test('consumer accepts a Korean first request within the SDK character limit', {timeout:30000}, async t => {
   const page=await connectedPage(t,4197);
@@ -97,4 +99,19 @@ test('consumer shows full approval arguments and requires an explicit decision w
  await page.waitForFunction(()=>!document.querySelector('#interactions button').disabled);
  assert.equal(await page.locator('#send').isDisabled(),true);const args=await page.locator('.arguments').textContent();assert.ok(args.includes('run_commands'));assert.ok(args.includes('time.sleep(8); print(123)'));
  await page.route('**/api/respond',route=>route.abort());await deny.click();await page.getByText('전달 여부를 확인해야 합니다. 자동 재전송하지 않습니다.',{exact:false}).waitFor();assert.equal(await approve.isDisabled(),true);assert.equal(await deny.isDisabled(),true);
+});
+
+test('managed conversation selection keeps drafts and filters stale prior snapshots and input',{timeout:45000},async t=>{
+ const page=await connectedPage(t,4209,'multi');await page.locator('#message').fill('Conversation A');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ const first=await page.request.get('http://127.0.0.1:4209/api/state').then(r=>r.json());await page.locator('#message').fill('A draft');
+ await page.getByRole('button',{name:'＋ 새 대화',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('#send').disabled&&document.querySelector('#send').textContent==='첫 메시지 보내기');
+ await page.locator('#message').fill('Conversation B');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ await page.locator('#message').fill('B draft');const second=await page.request.get('http://127.0.0.1:4209/api/state').then(r=>r.json());
+ await page.locator('#conversations button').filter({hasText:'Conversation A'}).click();await page.locator('article[data-role=user] .text').filter({hasText:'Conversation A'}).waitFor();assert.equal(await page.locator('#message').inputValue(),'A draft');
+ assert.equal(await page.locator('article[data-role=user] .text').filter({hasText:'Conversation B'}).count(),0);
+ await page.evaluate(packet=>window.testEvents.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({...packet,error:'late-error'})})),second);
+ assert.equal(await page.locator('article[data-role=user] .text').filter({hasText:'Conversation B'}).count(),0);assert.equal(await page.locator('#message').inputValue(),'A draft');
+ const stale=await page.request.post('http://127.0.0.1:4209/api/message',{data:{generation:second.generation,requestId:'stale-other',sessionId:second.snapshot.sessionId,executionId:second.snapshot.executionId,revision:second.snapshot.revision,text:'stale input'}}).then(r=>r.json());assert.equal(stale.error,'selection-changed');
+ await page.locator('#conversations button').filter({hasText:'Conversation B'}).click();await page.locator('article[data-role=user] .text').filter({hasText:'Conversation B'}).waitFor();assert.equal(await page.locator('#message').inputValue(),'B draft');
+ assert.notEqual(first.snapshot.executionId,second.snapshot.executionId);
 });

@@ -1,6 +1,23 @@
 const element = id => document.getElementById(id);
 let current = {generation:0,snapshot:null,preflight:null,busy:false};
 let sending=false, pending=null, requestError=false;
+const drafts=new Map();
+const draftKey=packet=>packet.snapshot?.sessionId ?? packet.executions?.find(e=>e.executionId===packet.selectedId)?.sessionId ?? packet.selectedId ?? 'new';
+function selectionBlocked(packet) {return sending||!!pending||packet.busy||(packet.launchReserved&&!packet.snapshot?.executionId)||[packet.snapshot?.response,packet.snapshot?.messageDelivery,packet.snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state));}
+function renderConversations(packet) {
+  const nav=element('conversations'),groups=new Map();
+  for(const run of packet.executions ?? []){const key=run.sessionId ?? run.executionId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(run);}
+  nav.replaceChildren();
+  for(const [key,runs] of groups){const group=document.createElement('section'),title=document.createElement('p');title.className='subtle';title.textContent=key;group.append(title);
+    for(const run of runs){const button=document.createElement('button');button.type='button';button.textContent=run.title;button.title=run.executionId;button.dataset.executionId=run.executionId;button.setAttribute('aria-current',String(run.executionId===packet.selectedId));button.disabled=selectionBlocked(packet)||run.executionId===packet.selectedId;button.onclick=()=>changeSelection('select',{executionId:run.executionId});group.append(button);}nav.append(group);
+  }
+  element('new').disabled=!packet.preflight?.ready||selectionBlocked(packet);element('list').disabled=!packet.preflight?.ready||sending||packet.busy;
+  element('title').textContent=(packet.executions ?? []).find(e=>e.executionId===packet.selectedId)?.title ?? '새 대화';
+}
+async function changeSelection(action,input={}) {
+  if(selectionBlocked(current))return;sending=true;element('error').hidden=true;render(current);
+  try{await invoke(action,input);}catch(error){showError(error);}finally{sending=false;render(current);}
+}
 const settings=['host','cliPath','remoteRoot','cwd','dataDir'];
 try {const saved=JSON.parse(localStorage.getItem('cline-chat-settings') ?? '{}');for(const id of settings)if(typeof saved[id]==='string')element(id).value=saved[id];} catch {}
 const timeline=element('timeline');
@@ -45,8 +62,13 @@ async function respondChoice(answer,interactionId) {
 function render(packet) {
   if (packet.generation < current.generation) return;
   if (packet.generation === current.generation && packet.snapshot && current.snapshot && packet.snapshot.revision < current.snapshot.revision) return;
+  if(packet.generation>current.generation){drafts.set(draftKey(current),element('message').value);element('messages').replaceChildren();element('interactions').replaceChildren();element('message').value=drafts.get(draftKey(packet)) ?? '';element('error').hidden=true;requestError=false;}
+  // A provisional execution key becomes its SID once history is confirmed.
+  if(packet.generation===current.generation && current.selectedId && !current.snapshot?.sessionId && packet.snapshot?.sessionId){const saved=drafts.get(current.selectedId);if(saved!==undefined)drafts.set(packet.snapshot.sessionId,saved);}
   current=packet;
   const snapshot=packet.snapshot;
+  renderConversations(packet);
+  if(snapshot?.executionId)try{localStorage.setItem('cline-chat-selected',snapshot.executionId);}catch{}
   const atBottom=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop < 80;
   const oldTop=timeline.scrollTop;
   element('connection').textContent=snapshot?.connection ?? '연결 전';
@@ -97,7 +119,7 @@ function render(packet) {
 }
 async function invoke(action,input) {
   const response=await fetch(`/api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({generation:current.generation,requestId:crypto.randomUUID(),...input})});
-  const packet=await response.json();render(packet);
+  const packet=await response.json();if(packet.generation<current.generation)return;render(packet);
   if(!response.ok)throw Object.assign(Error(`${packet.error}: ${packet.message ?? ''}`),{notSubmitted:packet.notSubmitted===true});
   return packet;
 }
@@ -124,6 +146,7 @@ element('composer').onsubmit=async event=>{
 };
 element('message').onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229&&!event.shiftKey){event.preventDefault();element('composer').requestSubmit();}};
 element('newMessages').onclick=()=>{timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;};
+element('new').onclick=()=>changeSelection('new');element('list').onclick=()=>changeSelection('list');
 const events=new EventSource('/api/events');events.onmessage=event=>render(JSON.parse(event.data));
 events.onerror=()=>{element('connection').textContent='서버 연결 확인 중';element('send').disabled=true;};
 render(current);

@@ -6,9 +6,36 @@ const port = Number(process.env.CLINE_CHAT_PORT ?? 4174);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid CLINE_CHAT_PORT');
 let client, preflight = null, generation = 0, unsubscribe;
 let busy = false, refreshing = false, launchReserved = false;
+let refreshTask;
+let connectionOptions, selectedId = null, executions = [];
+const titles = new Map();
 const streams = new Set();
 const requests = new Map();
-const state = () => ({generation, preflight, busy:busy||refreshing, launchReserved, snapshot:client?.snapshot() ?? null, capabilities:client?.capabilities() ?? null});
+function state() {
+  const snapshot=client?.snapshot() ?? null;
+  if(snapshot?.executionId) {
+    selectedId=snapshot.executionId;
+    const item=executions.find(e=>e.executionId===selectedId);
+    if(item && snapshot.sessionId)item.sessionId=snapshot.sessionId;
+    const title=snapshot.messages.find(m=>m.role==='user')?.text;
+    if(title)titles.set(snapshot.sessionId ?? selectedId,title.slice(0,80));
+  }
+  return {generation,preflight,busy:busy||refreshing,launchReserved,selectedId,
+    executions:executions.map(e=>({...e,title:titles.get(e.sessionId ?? e.executionId) ?? e.sessionId ?? e.executionId})),snapshot,capabilities:client?.capabilities() ?? null};
+}
+async function listExecutions(){executions=await client.listManagedExecutions();}
+function guardSelection() {
+  const snapshot=client?.snapshot();
+  if((launchReserved&&!snapshot?.executionId)||[snapshot?.response,snapshot?.messageDelivery,snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state)))
+    throw problem('delivery-pending','진행 중이거나 전달 여부가 불명인 요청을 먼저 확인하세요.');
+}
+async function selectClient(executionId=null) {
+  guardSelection();unsubscribe?.();client?.close();selectedId=executionId;launchReserved=false;
+  client=createClient({mode:'live',connection:connectionOptions});generation++;watch();
+  preflight=await client.connect();
+  if(executionId)await client.attach(executionId);
+  await listExecutions();
+}
 const publish = () => {
   const packet = `data: ${JSON.stringify(state())}\n\n`;
   for (const response of streams) response.write(packet);
@@ -22,11 +49,17 @@ const problem = (code, message) => Object.assign(new Error(message), {code,notSu
 async function perform(action, input) {
   if (action === 'connect') {
     if (launchReserved || client?.snapshot().executionId) throw problem('execution-selected','현재 실행을 유지하고 있습니다. 새 연결로 전송 결과를 덮어쓸 수 없습니다.');
-    client?.close();
-    client = createClient({mode:'live', connection:{host:input.host,cliPath:input.cliPath || undefined,
-      remoteRoot:input.remoteRoot || undefined,identityFile:input.identityFile || undefined}});
+    connectionOptions={host:input.host,cliPath:input.cliPath || undefined,
+      remoteRoot:input.remoteRoot || undefined,identityFile:input.identityFile || undefined};
+    await selectClient();
     if(process.env.CLINE_CHAT_DIAGNOSTICS)await client.startDiagnostics({directory:process.env.CLINE_CHAT_DIAGNOSTICS});
-    generation++; watch(); preflight = await client.connect();
+  } else if(action==='new'||action==='select') {
+    if(!connectionOptions)throw problem('not-ready','연결 설정을 확인하세요.');
+    if(action==='select'&&!executions.some(e=>e.executionId===input.executionId))throw problem('unknown-execution','관리 실행 목록을 갱신하세요.');
+    await selectClient(action==='select'?input.executionId:null);
+  } else if(action==='list') {
+    if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
+    await listExecutions();
   } else if (action === 'start') {
     if (!client || !preflight?.ready) throw problem('not-ready','연결 설정을 확인하세요.');
     launchReserved=true;
@@ -39,6 +72,7 @@ async function perform(action, input) {
       throw error;
     }
     await client.refresh();
+    await listExecutions();
   } else if (action === 'respond') {
     if(!client)throw problem('not-ready','연결 설정을 확인하세요.');
     try{await client.respond({sessionId:input.sessionId,executionId:input.executionId,interactionId:input.interactionId,revision:input.revision,requestId:input.requestId,answer:input.answer});}
@@ -62,10 +96,10 @@ function mutate(action, input) {
     return previous.promise;
   }
   if (input.generation !== generation) throw problem('selection-changed','대화 상태가 변경되었습니다.');
-  if (busy || refreshing) throw problem('operation-busy','진행 중인 상태 확인·전송이 있습니다.');
+  if (busy || (refreshing&&!['new','select','list'].includes(action))) throw problem('operation-busy','진행 중인 상태 확인·전송이 있습니다.');
   if (requests.size >= 256) throw problem('request-limit','요청 보관 한도에 도달했습니다. 서버를 재시작하고 원격 실행을 확인하세요.');
   busy = true;
-  const promise = Promise.resolve().then(() => perform(action,input)).finally(() => {busy=false;publish();});
+  const promise = Promise.resolve().then(async () => {await refreshTask;return perform(action,input);}).finally(() => {busy=false;publish();});
   requests.set(input.requestId,{binding,promise});
   return promise;
 }
@@ -92,7 +126,7 @@ const server = createServer(async (request,response) => {
       streams.add(response);response.write(`data: ${JSON.stringify(state())}\n\n`);
       request.on('close',() => streams.delete(response));return;
     }
-    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message','/api/respond'].includes(path)) {
+    if (request.method === 'POST' && ['/api/connect','/api/start','/api/message','/api/respond','/api/new','/api/select','/api/list'].includes(path)) {
       const origin = request.headers.origin;
       if ((origin && !allowed.has(origin.replace(/^http:\/\//,''))) || request.headers['content-type'] !== 'application/json') {
         json(response,403,{error:'local-json-only'});return;
@@ -114,7 +148,8 @@ const server = createServer(async (request,response) => {
 const timer = setInterval(async () => {
   if (!client?.snapshot().executionId || busy || refreshing || client.snapshot().connection !== 'connected') return;
   refreshing=true;
-  try {await client.refresh();} catch {} finally {refreshing=false;publish();}
+  refreshTask=client.refresh().catch(()=>{});
+  try {await refreshTask;} finally {refreshing=false;refreshTask=null;publish();}
 },1000);
 server.listen(port,'127.0.0.1',() => console.log(`Cline chat: http://127.0.0.1:${port}`));
 for (const signal of ['SIGINT','SIGTERM']) process.on(signal,() => {

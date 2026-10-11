@@ -42,3 +42,11 @@ SDK build·예제 typecheck 통과. 공개 API의 제한/중복/충돌/동시/�
 실제 Windows Chrome → WSL에서 `printf APPROVED24 > approved24.txt`를 승인하고 `CHAT_CHOICE`에 BLUE를 선택했다. 같은 대화의 다음 요청에서 `touch denied24.txt`를 거절한 뒤 `CHAT_FREE`에 `2 한글 응답 😀 café`를 입력했다. 네 응답 모두 SDK `delivered`이며, SID `1791711007010_jz5fx`/EID `run-c19f2999-5fec-4bb3-95e6-48cf8152d61b`를 유지했다. 원격 history를 읽기 전용으로 대조해 승인 tool result 성공, BLUE, 거절로 실행되지 않은 tool result, 정확한 자유 응답을 확인했다. 승인 파일 내용은 APPROVED24이며 거절 파일은 없었다. `evidence/chat/interactions-browser.{png,json}` 및 `interactions-tool-results.json`에 근거가 있다.
 
 실제 검증 중 주기적 상태 확인과 클릭이 겹쳐 `operation-busy`로 미제출되는 경우를 확인했다. 상태 확인 중에도 화면을 잠그고 완료 후 다시 게시하도록 수정했다. 이 거부를 전달 완료로 표시하지 않으며 원문을 보존한다. 화면 복원 중 일시적인 미지원 카드는 지원 질문으로 확정되면 정리한다. SDK build/예제 typecheck 및 public SDK live/text/Chrome focused 25개가 통과했다. 브라우저는 카드 중복, 자유 응답 모드, 전체 승인 인자, 일반 전송 차단, HTTP 관측 상실 후 선택·응답 잠금을 검사했다. 전체 suite는 최종 티켓에서 실행한다.
+
+## #25 관리 대화 목록과 전환
+
+공개 `listManagedExecutions`만 목록으로 사용하며 SID가 없으면 EID로 임시 그룹을 만든다. SID 확인 후 같은 그룹으로 표시하되 각 EID의 선택 버튼은 유지한다. 제목은 현재 선택의 첫 user 메시지 또는 식별자이며 목록의 다른 history를 미리 읽지 않는다. 선택/새 대화는 이전 구독과 클라이언트를 close하고 새 공개 클라이언트로 connect/attach한다. 원격 stop은 호출하지 않는다. 주기적 refresh와 경합하는 선택은 그 읽기가 끝난 뒤 진행한다.
+
+generation 증가 시 이전 메시지·질문 카드를 정리하고 대화별 메모리 초안을 복원한다. 지난 generation의 snapshot·HTTP 결과·오류·입력은 무시하거나 거부한다. submitting/불명 전달 중에는 선택과 새 대화를 잠근다. localStorage에는 연결의 최소 설정과 마지막 EID만 남기며 키 경로·history·초안·PTY는 저장하지 않는다.
+
+실제 Windows Chrome → WSL에서 CHAT_LIST_A/B 두 대화를 만들고 각각 새 클라이언트로 전환하여 서로 다른 SID/EID와 각 초안을 확인했다(`evidence/chat/conversations-browser.{json,png}`). 원격 실행은 살아 있었다. Chrome 통제 시험으로 늦은 이전 snapshot 주입, 오래된 대상 입력 거부, A/B 메시지와 초안 분리를 확인했다. 기존 Chrome 9개와 새 선택 시험, 예제 typecheck 통과. durable 불명 전달의 새 클라이언트 복원과 재시작은 #26에서 검증한다.
