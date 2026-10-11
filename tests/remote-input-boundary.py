@@ -51,6 +51,7 @@ class RemoteInputBoundary(unittest.TestCase):
                         priorSessions=[])
             if composer: meta['resume'] = dict(requestId='input-controlled')
             (run / 'meta.json').write_text(json.dumps(meta))
+            (run / 'requests.json').write_text('{}')
             ready = root / 'ready'
             command = 'while [ ! -f ' + shlex.quote(str(ready)) + ' ]; do sleep .01; done; exec ' + shlex.join([sys.executable, str(HELPER), '--serve', str(run)])
             subprocess.run(['tmux', '-S', str(socket), 'new-session', '-d', '-s', 'controlled', '-x', '120', '-y', '40', command], check=True)
@@ -100,6 +101,11 @@ class RemoteInputBoundary(unittest.TestCase):
                 self.assertTrue(current['process']['supervisorAlive'])
                 self.assertTrue(any(o['kind'] == 'pty' and b'RECEIVED:' in base64.b64decode(o['dataBase64']) for o in wait_for(lambda: handle(dict(action='status', cursor=0))['observations'])))
                 print(json.dumps(dict(inputType=input_type, composer=composer, receipt='written', supervisorAlive=True)), flush=True)
+                (run / 'requests.json').unlink()
+                self.assertFalse(handle(dict(action='status', cursor=0))['management']['inputLedgerCurrent'])
+                rejected = subprocess.run([sys.executable, str(HELPER)], input=json.dumps(dict(request, action='reserve-response', root=str(root), executionId=run.name, requestId='lost-ledger-bypass')), text=True, capture_output=True, timeout=10)
+                self.assertIn('Input ledger is missing', json.loads(rejected.stdout)['message'])
+                self.assertFalse((run / 'requests.json').exists())
             finally:
                 # This unique test-owned socket has no shared CLI or user sessions.
                 subprocess.run(['tmux', '-S', str(socket), 'kill-server'], capture_output=True, timeout=5)

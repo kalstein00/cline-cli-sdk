@@ -207,7 +207,6 @@ def serve(run):
     except OSError:
         meta.update(exitCode=127, endedAt=now(), startupFailed=True)
         save(run / 'meta.json', meta)
-        save(run / 'requests.json', {})
         return
     if pid == 0:
         if json_mode:
@@ -381,6 +380,7 @@ def handle(request):
                     bootId=boot_id(), tmuxSocket=socket, tmuxSession=run_id, identity=None, exitCode=None)
         # Prompt is launch-only: don't retain it in minimal control metadata after startup.
         save(run / 'meta.json', meta)
+        save(run / 'requests.json', {})
         command = ' '.join(shlex.quote(v) for v in [sys.executable, str(helper), '--serve', str(run)])
         result = subprocess.run(['tmux', '-S', socket, 'new-session', '-d', '-s', run_id, '-x', '120', '-y', '40', command], capture_output=True, text=True)
         if result.returncode:

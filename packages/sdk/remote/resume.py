@@ -22,6 +22,8 @@ def launch_resume(request, root, handle, identity, boot_id, save):
                 raise ValueError('This execution already has a resume reservation; do not create another run')
             return dict(executionId=receipt['executionId'],sessionId=receipt['sessionId'],remoteRoot=str(root),terminalMode='tui',resume=receipt)
         status = handle(dict(request,action='status',cursor=0,fullScreen=False))
+        if status.get('management',{}).get('inputLedgerCurrent') is not True:
+            raise ValueError('Resume requires a current durable input ledger')
         meta = json.loads((old / 'meta.json').read_text())
         proc = status['process']
         stop = proc.get('stop')

@@ -89,4 +89,5 @@ test('a first fresh attach with a missing ledger blocks composer and question in
  const control=await controlledComposer(t,{lostSubmit:true});const req=control.request();await assert.rejects(control.c.sendMessage(req));control.c.close();control.setLedgerMissing(true);
  const c=createClient({mode:'live',connection:{host:'fixture'}});t.after(()=>c.close());await c.connect();await c.attach(req.executionId);assert.deepEqual(c.snapshot().inputControl,{current:false,reason:'ledger-unavailable'});assert.equal(c.capabilities().sendMessage,false);assert.equal(c.capabilities().responses,false);assert.equal(c.snapshot().messageInput.reason,'delivery-pending');const writes=control.writes.length;
  await assert.rejects(c.sendMessage({...req,requestId:'missing-ledger-bypass',revision:c.snapshot().revision}));await c.reconfirmDelivery();assert.equal(c.snapshot().inputControl.current,false);assert.equal(control.writes.length,writes);
+ await assert.rejects(c.resume({executionId:req.executionId,requestId:'resume-missing-ledger',prompt:'bypass'}),{code:'input-control-unavailable'});assert.equal(control.writes.length,writes);
 });

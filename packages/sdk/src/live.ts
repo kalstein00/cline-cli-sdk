@@ -1098,6 +1098,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       messages.set(request.requestId,{binding,promise});promise.catch(()=>{if(!reserved)messages.delete(request.requestId);});return promise;
     },
     resume(input) {
+      if(state.inputControl?.current===false)return Promise.reject(new SdkError("input-control-unavailable","The durable input ledger is unavailable; resume is blocked."));
       if(outputMode === "json") return Promise.reject(new SdkError("unsupported-json-resume","Pinned JSON mode cannot resume through TUI."));
       const request = structuredClone(input);
       if (!request || typeof request.requestId !== "string" || typeof request.executionId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(request.requestId) ||
@@ -1114,6 +1115,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         return Promise.reject(new SdkError("resume-target-mismatch", "Attach the ended managed execution before resuming."));
       const promise = (async () => {
       await refresh();
+        if(state.inputControl?.current===false)throw new SdkError("input-control-unavailable","The durable input ledger is unavailable; resume is blocked.");
       if (!state.historySync.current || !state.sessionId || !["completed", "stopped"].includes(state.execution) ||
           processEvidence?.alive !== false || !processEvidence.identityConfirmed ||
           processEvidence.exitCode === null || processEvidence.supervisorAlive !== false ||
