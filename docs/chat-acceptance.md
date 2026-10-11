@@ -57,7 +57,7 @@ generation 증가 시 이전 메시지·질문 카드를 정리하고 대화별 
 
 연결 해제/재연결/전달 상태 다시 확인 버튼을 추가했다. 브라우저와 서버가 단절되면 응답 버튼도 잠근다. Node 프로세스별 server ID와 generation을 함께 결합하여 재시작 후 이전 요청이 새 서버를 조작하지 못하게 한다. 브라우저에 저장된 마지막 EID를 같은 관리 목록에서 찾은 뒤 공개 attach로 복원한다. 새 서버로 연결할 때 로컬 pending 원문은 재전송하지 않는다.
 
-실제 Windows Chrome → WSL에서 살아 있는 Cline의 CHAT_RECONNECT 질문을 기다린 뒤 연결 해제·재연결, 별도 임시 프로필의 Chrome 프로세스 종료·재시작, Node 서버 프로세스 종료·재시작을 차례로 수행했다. 모두 SID `1791712254185_ro62h`/EID `run-c2895633-495a-4eab-a590-57db6c4e9585`, 질문 ID와 메시지가 같았고 새 CLI·user 메시지·응답은 없었다(`evidence/chat/reconnect-browser.{json,png}`). 이는 SSH/로컬 소비자 복구 근거이며 원격 머신 재부팅 근거는 아니다.
+실제 Windows Chrome → WSL에서 살아 있는 Cline의 CHAT_RECONNECT 질문을 기다린 뒤 연결 해제·재연결, 별도 임시 프로필의 Chrome 프로세스 종료·재시작, Node 서버 프로세스 종료·재시작을 차례로 수행했다. ledger 보완 뒤 새 실제 실행으로 재검증했으며 모두 SID `1791712635349_d1vk1`/EID `run-f097419b-d703-4e5c-b0fc-317f50b16751`, 질문 ID와 메시지가 같았고 새 CLI·user 메시지·응답은 없었다(`evidence/chat/reconnect-browser.{json,png}`). 이는 SSH/로컬 소비자 복구 근거이며 원격 머신 재부팅 근거는 아니다.
 
 통제된 외부 SSH 장애 시험에서는 후속 Enter 뒤 관측 상실과 질문 제출 뒤 acknowledgment 상실을 각각 새 공개 SDK 클라이언트로 복원했다. 새 ID 우회가 거부됐고 재대조 후 원래 수신 근거로 확정했으며 원격 입력 횟수는 증가하지 않았다. ledger 상실/부분 JSON에서 불명 상태·마지막 정상 기록/current=false를 유지하고 정상 재읽기 후 수렴했다. 새 클라이언트 복원 원시 진단의 public replay 비교는 eventDifferences 0, snapshotMatches true였다. SDK build·예제 typecheck, 공개 API/재연결/history/질문/진단 focused 27개와 Chrome 복원·선택 경계 3개 통과. 실제 수신 직후 SSH 단절은 강제하지 않았으며 해당 경계는 통제 장애 근거다.
 
