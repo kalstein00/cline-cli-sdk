@@ -30,11 +30,13 @@ test('installed native CLI works in the browser across questions, approvals, app
   await page.locator('#disconnect').click();await page.locator('#connection').filter({hasText:'disconnected'}).waitFor();assert.equal(await page.getByRole('button',{name:'BLUE',exact:true}).isDisabled(),true);
   await page.reload();await page.locator('#reconnect').click();await page.locator('#connection').filter({hasText:'connected'}).waitFor();
   assert.equal((await state()).snapshot.sessionId,pending.sessionId);assert.deepEqual((await state()).snapshot.executionEvidence.identity,pending.executionEvidence.identity);
-  await page.getByRole('button',{name:'BLUE',exact:true}).click();await page.locator('#messages [data-role=assistant] .text').filter({hasText:'COLOR:BLUE'}).waitFor();await ready();
+  await page.getByRole('button',{name:'BLUE',exact:true}).click();await page.locator('#messages [data-role=assistant] .text').filter({hasText:/COLOR:\s*BLUE/}).waitFor();await ready();
+  assert.equal((await state()).snapshot.response.state,'delivered');
   evidence.steps.push({name:'question-reconnect',snapshot:(await state()).snapshot});
   await send('Use ask_question: Enter an identifier, RED/BLUE choices. Reply IDENTIFIER: plus my exact answer.');
   await page.getByRole('button',{name:'질문 응답 보내기',exact:true}).waitFor();await page.locator('#message').fill('2 한글 identifier');await page.locator('#send').click();
-  await page.locator('#messages [data-role=assistant] .text').filter({hasText:'IDENTIFIER:2 한글 identifier'}).waitFor();await ready();
+  await page.locator('#messages [data-role=assistant] .text').filter({hasText:/IDENTIFIER:\s*2 한글 identifier/}).waitFor();await ready();
+  assert.equal((await state()).snapshot.response.state,'delivered');
   for(const [answer,file] of [['승인','approved-marker'],['거절','denied-marker']]){
    await send(`run_commands: printf SDK_APPROVAL > ${file}. Reply SDK_APPROVAL_DONE. No other tools.`);
    const card=page.locator('#interactions article').filter({has:page.locator('.arguments').filter({hasText:file})});
