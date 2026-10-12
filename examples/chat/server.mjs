@@ -67,7 +67,8 @@ async function perform(action, input) {
   if (action === 'connect') {
     if (launchReserved || client?.snapshot().executionId) throw problem('execution-selected','현재 실행을 유지하고 있습니다. 새 연결로 전송 결과를 덮어쓸 수 없습니다.');
     connectionOptions={host:input.host,cliPath:input.cliPath || undefined,
-      remoteRoot:input.remoteRoot || undefined,identityFile:input.identityFile || undefined};
+      remoteRoot:input.remoteRoot || undefined,identityFile:input.identityFile || undefined,
+      storageMode:input.storageMode ?? 'native',sessionDirectory:input.sessionDirectory || undefined};
     await selectClient();
     if(input.executionId && executions.some(e=>e.executionId===input.executionId)){selectedId=input.executionId;selectedId=currentExecution(input.executionId);await client.attach(selectedId);}
     if(process.env.CLINE_CHAT_DIAGNOSTICS)await client.startDiagnostics({directory:process.env.CLINE_CHAT_DIAGNOSTICS});
@@ -100,10 +101,10 @@ async function perform(action, input) {
     if (!client || !preflight?.ready) throw problem('not-ready','연결 설정을 확인하세요.');
     if(selectedId)throw problem('execution-selected','선택한 실행의 전체 상태를 확인하세요. 새 대화 버튼으로 새 요청을 시작하세요.');
     launchReserved=true;
-    try {await client.start({cwd:input.cwd,dataDir:input.dataDir || undefined,prompt:input.prompt,terminalMode:'tui'});}
+    try {await client.start({cwd:input.cwd,dataDir:connectionOptions.storageMode==='native'?undefined:input.dataDir || undefined,prompt:input.prompt,terminalMode:'tui'});}
     catch(error) {
       // Only documented pre-launch validation errors prove no remote write occurred.
-      if(['invalid-task','unsupported-profile','prerequisites-unavailable','not-connected','cli-option-unavailable'].includes(error.code)) {
+      if(['invalid-task','unsupported-profile','prerequisites-unavailable','not-connected','cli-option-unavailable','working-directory-not-found','working-directory-not-directory','working-directory-access-denied','working-directory-invalid'].includes(error.code)) {
         launchReserved=false;error.notSubmitted=true;
       }
       throw error;
@@ -126,7 +127,7 @@ async function perform(action, input) {
 function mutate(action, input) {
   if (!input || typeof input.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(input.requestId))
     throw problem('invalid-request','요청 식별자가 필요합니다.');
-  const binding = JSON.stringify([action,input.generation,input.host,input.cliPath,input.remoteRoot,input.identityFile,input.cwd,input.dataDir,input.prompt,input.sessionId,input.executionId,input.revision,input.text,input.interactionId,input.answer]);
+  const binding = JSON.stringify([action,input.generation,input.host,input.cliPath,input.remoteRoot,input.identityFile,input.storageMode,input.sessionDirectory,input.cwd,input.dataDir,input.prompt,input.sessionId,input.executionId,input.revision,input.text,input.interactionId,input.answer]);
   const previous = requests.get(input.requestId);
   if (previous) {
     if (previous.binding !== binding) throw problem('request-conflict','이미 다른 내용에 사용된 요청입니다.');

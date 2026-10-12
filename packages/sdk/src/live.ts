@@ -29,6 +29,9 @@ export interface ConnectionOptions {
   declaredFeatures?: DeclaredFeatures;
   host: string;
   cliPath?: string;
+  /** Native mode uses the CLI's existing authentication, settings and history. */
+  storageMode?: "isolated" | "native";
+  sessionDirectory?: string;
   identityFile?: string;
   user?: string;
   port?: number;
@@ -42,6 +45,10 @@ export interface LiveOptions {
   connection: ConnectionOptions;
 }
 export interface PreflightReport {
+  storageMode: "isolated" | "native";
+  sessionDirectory: string | null;
+  help: { state: "success" | "exit-failed" | "timeout" | "execution-failed" | "unparseable" | "truncated" | "unavailable"; exitCode: number | null; channels: string[] };
+  missingOptions: string[] | null;
   features: CliFeatures;
   platform: string;
   python: boolean;
@@ -125,6 +132,8 @@ export interface LiveClient {
 const quote = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
 export function createLiveClient(options: LiveOptions): LiveClient {
   const config = structuredClone(options.connection);
+  if (config.storageMode !== undefined && !["isolated", "native"].includes(config.storageMode))
+    throw new SdkError("invalid-connection", "Unknown CLI storage mode.");
   if (
     !config.host ||
     config.host.startsWith("-") ||
@@ -313,7 +322,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
   const preflight = async () => {
     let found;
     try {
-      found = await execute(PREFLIGHT, { cliPath: config.cliPath ?? null });
+      found = await execute(await readFile(new URL("../remote/preflight.py", import.meta.url), "utf8"), { cliPath: config.cliPath ?? null, sessionDirectory: config.sessionDirectory ?? null });
     } catch (error) {
       if (!(
         error instanceof SdkError &&
@@ -324,6 +333,9 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         throw error;
       report = {
         features:cliFeatures(false,undefined,config.declaredFeatures),
+        storageMode: config.storageMode ?? "isolated", sessionDirectory: null,
+        help: { state: "unavailable", exitCode: null, channels: [] },
+        missingOptions: null,
         platform: "unknown",
         python: false,
         pty: false,
@@ -357,13 +369,27 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       problems.push("noninteractive-path-mismatch");
     const executable = typeof found.cliHash === "string" && /^[a-f0-9]{64}$/.test(found.cliHash);
     if (found.cliPath && !executable) problems.push("cli-not-executable");
-    const requiredOptions = ["--cwd", "--data-dir", "--auto-approve"];
-    const missingOptions = requiredOptions.filter(option => !found.cliFlags?.includes(option));
-    if (missingOptions.length) problems.push("cli-required-options-missing");
-    const supported = executable && !missingOptions.length;
+    const storageMode = config.storageMode ?? "isolated";
+    const sessionDirectory = storageMode === "native" ? found.nativeSessionDirectory ?? null : null;
+    if (storageMode === "native" && !sessionDirectory) problems.push("native-storage-unconfirmed");
+    const requiredOptions = storageMode === "native" ? ["--cwd", "--auto-approve"] : ["--cwd", "--data-dir", "--auto-approve"];
+    const help: PreflightReport["help"] = found.help ?? {
+      state: Array.isArray(found.cliFlags) ? "success" : "unavailable",
+      exitCode: Array.isArray(found.cliFlags) ? 0 : null,
+      channels: [],
+    };
+    const missingOptions = help.state === "success" && Array.isArray(found.cliFlags)
+      ? requiredOptions.filter(option => !found.cliFlags.includes(option)) : null;
+    if (missingOptions?.length) problems.push("cli-required-options-missing");
+    if (missingOptions === null) problems.push("cli-help-" + help.state);
+    const supported = executable && missingOptions !== null && !missingOptions.length;
     if (!supported) problems.push("unsupported-profile");
     report = {
       ...found,
+      storageMode,
+      sessionDirectory,
+      help,
+      missingOptions,
       cliVersion:null,
       features:cliFeatures(found.cliHash === "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",found.cliFlags,config.declaredFeatures),
       python: true,
@@ -923,6 +949,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
       return refresh();
     },
     async start(request) {
+      if (report?.storageMode === "native" && request.dataDir)
+        throw new SdkError("invalid-task", "Native storage uses the CLI's existing settings; do not supply dataDir.");
       if (!report?.profile.supported)
         throw new SdkError(
           "unsupported-profile",
@@ -983,10 +1011,17 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           cliPath: report.cliPath,
           cliHash: report.cliHash,
           ...request,
+          storageMode: report.storageMode,
+          sessionDirectory: report.sessionDirectory,
           resultRequest,
           prompt,
         });
       } catch (error) {
+        if (error instanceof SdkError && ["working-directory-not-found", "working-directory-not-directory", "working-directory-access-denied", "working-directory-invalid"].includes(error.code)) {
+          managed = null;
+          Object.assign(error, { notSubmitted: true });
+          throw error;
+        }
         reducer.binding({
           kind: "binding",
           seq: ++sequence,
@@ -1748,43 +1783,3 @@ export function createLiveClient(options: LiveOptions): LiveClient {
     },
   };
 }
-const PREFLIGHT = String.raw`
-import os,sys,json,platform,shutil,subprocess,hashlib,pty,signal,re
-if sys.version_info<(3,9):
-    print(json.dumps(dict(error='python-version-unsupported',message='Python 3.9 or newer is required.')))
-    sys.exit(0)
-request=json.load(sys.stdin)
-path=request.get('cliPath') or shutil.which('cline')
-discovery='explicit' if request.get('cliPath') else 'noninteractive-path'
-if not path:
-    try:
-        login=subprocess.run(['bash','-lic','printf "\\nCLINE_SDK_PATH=%s\\n" "$(command -v cline)"'],capture_output=True,text=True,timeout=10)
-        matches=[line[len('CLINE_SDK_PATH='):] for line in login.stdout.splitlines() if line.startswith('CLINE_SDK_PATH=')]
-        path=matches[-1] if matches and matches[-1] else None
-        discovery='login-shell' if path else 'not-installed' if login.returncode==0 else 'login-shell-failed'
-    except (OSError,subprocess.TimeoutExpired): discovery='login-shell-failed'
-digest=None
-flags=None
-if path and os.path.isfile(path) and os.access(path,os.X_OK):
-    try:
-        h=hashlib.sha256()
-        with open(path,'rb') as source:
-            for chunk in iter(lambda:source.read(1024*1024),b''):h.update(chunk)
-        digest=h.hexdigest()
-    except (OSError,subprocess.TimeoutExpired): pass
-    try:
-        help_result=subprocess.run([path,'--help'],capture_output=True,text=True,timeout=10,env={**os.environ,'CLINE_NO_AUTO_UPDATE':'1'})
-        if help_result.returncode==0: flags=sorted(set(re.findall(r'(?<!\S)--[a-z][a-z-]*',help_result.stdout[:65536])))
-    except (OSError,subprocess.TimeoutExpired): pass
-working_pty=False
-try:
-    a,b=pty.openpty();os.close(a);os.close(b);working_pty=True
-except OSError: pass
-tmux=shutil.which('tmux')
-working_ownership=False
-try:
-    if hasattr(signal,'pidfd_send_signal'):
-        fd=os.pidfd_open(os.getpid());os.close(fd);working_ownership=True
-except (AttributeError,OSError): pass
-print(json.dumps(dict(platform=platform.system(),pythonVersion=platform.python_version(),pty=working_pty,processOwnership=working_ownership,tmux=subprocess.check_output([tmux,'-V'],text=True).strip() if tmux else None,cliPath=path,cliVersion=None,cliHash=digest,cliFlags=flags,discovery=discovery,bootId=open('/proc/sys/kernel/random/boot_id').read().strip() if platform.system()=='Linux' else '')))
-`;

@@ -32,6 +32,9 @@ cp.spawn = (...args) => {
     let result;
     if (!request.action) result = fault==='company' ? {...pinned,cliVersion:'company-build',cliHash:'a'.repeat(64)} : fault==='missing-options' ? {...pinned,cliFlags:['--cwd']} : fault==='no-tui' ? {...pinned,cliFlags:pinned.cliFlags.filter(flag=>flag!=='--tui')} : pinned;
     else if (request.action === 'start') {
+      if(fault==='cwd-error' && request.cwd==='/missing'){
+        process.stdout.end(JSON.stringify({error:'working-directory-not-found',message:'원격 작업 디렉터리가 없습니다.'}));queueMicrotask(()=>process.emit('close',0));return;
+      }
       executionId = request.executionId; prompt = request.prompt;runs.set(executionId,{prompt,sessionId:'chat-fixture-session-'+runs.size});
       result = {executionId:fault==='launch-identity'?'unexpected-execution':executionId, remoteRoot: '/fixture/control'};
     } else if(request.action==='resume' && fault==='resume-conflict'){
@@ -114,6 +117,7 @@ cp.spawn = (...args) => {
       result.observations=onboarding.observations.filter(o=>o.kind==='pty'&&o.seq>request.cursor);
       result.cursor=onboarding.observations.at(-1).seq;
     }
+    if(!request.action)result.nativeSessionDirectory='/fixture/default/sessions';
     const finish=()=>{process.stdout.end(JSON.stringify(result));queueMicrotask(() => process.emit('close',0));};
     if(fault==='refresh-race' && request.action==='status' && request.cursor>0)setTimeout(finish,1200);else finish();
   });

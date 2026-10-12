@@ -289,3 +289,25 @@ test('IME Enter does not submit and a multiline followup is rejected before HTTP
  let sends=0;await page.route('**/api/message',route=>{sends++;return route.abort();});await page.locator('#message').fill('한글 조합');await page.locator('#message').dispatchEvent('keydown',{key:'Enter',isComposing:true});await page.waitForTimeout(100);assert.equal(sends,0);assert.equal(await page.locator('#pending').isVisible(),false);
  await page.locator('#message').fill('first\nsecond');await page.locator('#send').click();await page.locator('#error').filter({hasText:'한 줄'}).waitFor();assert.equal(sends,0);assert.equal(await page.locator('#message').inputValue(),'first\nsecond');
 });
+
+test('browser reports precise preflight evidence without enabling a blocked first message',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4231,'missing-options');
+ const detail=await page.locator('#preflightDetails').textContent();
+ assert.match(detail,/\/fixture\/cline/);
+ assert.match(detail,/도움말: success/);
+ assert.match(detail,/누락 옵션: --auto-approve/);
+ assert.equal(await page.locator('#send').isDisabled(),true);
+});
+
+test('browser preserves a rejected path draft and permits a corrected first message',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4232,'cwd-error');
+ await page.getByLabel('작업 디렉터리').fill('/missing');await page.locator('#message').fill('Corrected directory request');await page.locator('#send').click();
+ await page.locator('#error').filter({hasText:'원격 작업 디렉터리가 없습니다.'}).waitFor();
+ assert.equal(await page.locator('#pending').isVisible(),false);
+ assert.equal(await page.locator('#message').inputValue(),'Corrected directory request');
+ assert.equal(await page.locator('#send').isDisabled(),false);
+ await page.getByLabel('작업 디렉터리').fill('/fixture/work');await page.locator('#send').click();
+ await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();
+ assert.equal(await page.locator('#error').isVisible(),false);
+ assert.equal(await page.locator('#message').inputValue(),'');
+});

@@ -6,6 +6,27 @@ from contextlib import contextmanager
 
 LIMIT = 512 * 1024
 
+class WorkingDirectoryError(ValueError):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+def working_directory(value):
+    path = Path(value)
+    if not path.is_absolute():
+        raise WorkingDirectoryError('working-directory-invalid', '원격 작업 디렉터리는 절대 경로여야 합니다.')
+    try:
+        info = path.stat()
+    except FileNotFoundError:
+        raise WorkingDirectoryError('working-directory-not-found', '원격 작업 디렉터리가 없습니다.')
+    except (PermissionError, OSError):
+        raise WorkingDirectoryError('working-directory-access-denied', '원격 작업 디렉터리에 접근할 수 없습니다.')
+    if not stat.S_ISDIR(info.st_mode):
+        raise WorkingDirectoryError('working-directory-not-directory', '입력한 원격 경로가 디렉터리가 아닙니다.')
+    if not os.access(path, os.X_OK):
+        raise WorkingDirectoryError('working-directory-access-denied', '원격 작업 디렉터리에 접근할 권한이 없습니다.')
+    return path
+
 def now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -100,7 +121,7 @@ def message_idle(run, meta, empty=False):
         ownership=json.loads((run/'ownership.json').read_text())
         phase=json.loads((run/'phase.json').read_text()) if (run/'phase.json').exists() else {}
         owner = session_owner(meta, manifest.get('pid')) if manifest else resumed_owner
-        if ownership.get('trackingError') or any(child not in (expected, owner) for child in ownership.get('owned',[])) or (run/'stop-request.json').exists() or phase.get('active'):
+        if ownership.get('trackingError') or busy_children(meta, ownership, owner) or (run/'stop-request.json').exists() or phase.get('active'):
             return 'agent-busy'
     except (OSError,ValueError): return 'process-unconfirmed'
     if modal_witness(meta): return 'modal-active'
@@ -190,15 +211,52 @@ def session_owner(meta, pid):
         pass
     return None
 
+def busy_children(meta, ownership, owner):
+    """Only a verified private daemon is idle infrastructure, never tool children."""
+    infrastructure = [meta.get('identity'), owner]
+    if meta.get('storageMode') == 'native':
+        run = Path(meta['tmuxSocket']).parent / meta['executionId']
+        try:
+            daemon_pid = json.loads((run / 'hub.json').read_bytes()).get('pid')
+            for child in ownership.get('owned', []):
+                if child['pid'] != daemon_pid or identity(daemon_pid) != child:
+                    continue
+                proc = Path('/proc') / str(daemon_pid)
+                argv = (proc / 'cmdline').read_bytes().split(b'\0')
+                env = (proc / 'environ').read_bytes().split(b'\0')
+                if (b'--cline-hub-daemon' in argv and
+                        os.fsencode('CLINE_HUB_DISCOVERY_PATH=' + str(run / 'hub.json')) in env and
+                        os.fsencode('CLINE_HUB_PATHNAME=/' + meta['executionId']) in env and
+                        identity(daemon_pid) == child):
+                    infrastructure.append(child)
+        except (OSError, ValueError, TypeError):
+            pass
+    return [child for child in ownership.get('owned', []) if child not in infrastructure]
+
 def session_files(meta):
-    sessions = Path(meta['dataDir']) / 'sessions'
+    sessions = Path(meta.get('sessionDirectory') or (Path(meta['dataDir']) / 'sessions'))
     expected = meta.get('sessionId')
     if not expected:
         expected = session_cache(meta).get('sessionId')
-    candidates = [sessions / expected / (expected + '.json')] if expected else list(sessions.glob('*/*.json'))
+    if expected:
+        candidates = [sessions / expected / (expected + '.json')]
+    else:
+        # Inventory names before reading: never open an existing conversation.
+        try:
+            prior = set(meta.get('priorSessions', []))
+            candidates = []
+            for folder in sessions.iterdir():
+                if folder.name not in prior and folder.is_dir():
+                    candidates.append(folder / (folder.name + '.json'))
+                    if len(candidates) > 256:
+                        return None, None, None
+        except OSError:
+            return None, None, None
     matches = []
     for path in candidates:
         if path.name.endswith(('.messages.json', '.compaction.json')):
+            continue
+        if not expected and path.parent.name in meta.get('priorSessions', []):
             continue
         try:
             manifest = json.loads(path.read_bytes())
@@ -260,7 +318,12 @@ def resume_owner(meta):
             return None
         def matches_args(process):
             argv=(Path('/proc')/str(process['pid'])/'cmdline').read_bytes().decode('utf8').rstrip('\0').split('\0')
-            for flag,value in [('--id',meta['sessionId']),('--cwd',meta['cwd']),('--data-dir',meta['dataDir']),('--auto-approve','false')]:
+            required = [('--id',meta['sessionId']),('--cwd',meta['cwd']),('--auto-approve','false')]
+            if meta.get('storageMode', 'isolated') == 'isolated':
+                required.append(('--data-dir',meta['dataDir']))
+            elif '--data-dir' in argv:
+                return False
+            for flag,value in required:
                 if argv.count(flag)!=1 or argv.index(flag)+1>=len(argv) or argv[argv.index(flag)+1]!=value:
                     return False
             return identity(process['pid']) == process
@@ -312,6 +375,18 @@ def serve(run):
         os.environ['TERM'] = 'xterm-256color'
         os.environ['CLINE_NO_AUTO_UPDATE'] = '1'
         os.environ['CLINE_DISABLE_CLINE_PASS_NOTICE'] = '1'
+        if meta.get('storageMode') == 'native':
+            # The observed TUI explicitly selects auto and ignores backend mode.
+            # Route its daemon through a private discovery file and endpoint.
+            # Subreaper ownership includes that daemon without adopting a user's hub.
+            import socket
+            with socket.socket() as endpoint:
+                endpoint.bind(('127.0.0.1', 0))
+                port = endpoint.getsockname()[1]
+            os.environ['CLINE_HUB_DISCOVERY_PATH'] = str(run / 'hub.json')
+            os.environ['CLINE_HUB_HOST'] = '127.0.0.1'
+            os.environ['CLINE_HUB_PORT'] = str(port)
+            os.environ['CLINE_HUB_PATHNAME'] = '/' + meta['executionId']
         os.execv(meta['cliPath'], meta['argv'])
     if json_mode: os.close(stderr_write)
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', meta['terminal']['rows'], meta['terminal']['cols'], 0, 0))
@@ -420,7 +495,7 @@ def handle(request):
                 executions.append(dict(executionId=candidate.name, remoteRoot=str(root), sessionId=sid,
                     alive=bool(same_boot and expected and actual == expected),
                     identityConfirmed=bool(same_boot and expected and (actual is None or actual == expected)),
-                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), cliHash=meta.get('cliHash'), resultRequest=meta.get('resultRequest'), supersededBy=meta.get('resumedBy')))
+                    terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), cliHash=meta.get('cliHash'), storageMode=meta.get('storageMode','isolated'), resultRequest=meta.get('resultRequest'), supersededBy=meta.get('resumedBy')))
             except (OSError, ValueError, KeyError, TypeError):
                 continue
         return dict(executions=executions)
@@ -428,18 +503,28 @@ def handle(request):
         from resume import launch_resume
         return launch_resume(request, root, handle, identity, boot_id, save)
     if action == 'start':
-        cwd = Path(request['cwd'])
-        if not cwd.is_absolute() or not cwd.is_dir():
-            raise ValueError('Remote working directory must be an existing absolute directory')
+        cwd = working_directory(request['cwd'])
         run_id = request['executionId']
         if not run_id.startswith('run-') or not all(c.isalnum() or c == '-' for c in run_id):
             raise ValueError('Invalid execution identity')
         run = root / run_id
         run.mkdir(mode=0o700)
-        data = Path(request.get('dataDir') or run / 'cli-data').expanduser().absolute()
-        data.mkdir(parents=True, exist_ok=True, mode=0o700)
-        # User explicitly supplies isolated authentication in dataDir. No config reads/copies.
-        prior = [p.name for p in (data / 'sessions').glob('*') if p.is_dir()]
+        storage_mode = request.get('storageMode', 'isolated')
+        if storage_mode not in ('isolated', 'native'):
+            raise ValueError('Unknown CLI storage mode')
+        if storage_mode == 'native':
+            if request.get('dataDir') or not request.get('sessionDirectory'):
+                raise ValueError('Native storage needs an observed session directory and no dataDir')
+            sessions = Path(request['sessionDirectory'])
+            if not sessions.is_absolute() or not sessions.is_dir() or not os.access(sessions, os.R_OK | os.X_OK):
+                raise ValueError('Native CLI session directory is unavailable')
+            data = None
+        else:
+            data = Path(request.get('dataDir') or run / 'cli-data').expanduser().absolute()
+            data.mkdir(parents=True, exist_ok=True, mode=0o700)
+            sessions = data / 'sessions'
+        # Only names are inventoried; existing conversations and credentials are not read.
+        prior = [p.name for p in sessions.iterdir() if p.is_dir()] if sessions.is_dir() else []
         executable = request['cliPath']
         h = hashlib.sha256()
         with open(executable, 'rb') as source:
@@ -454,7 +539,8 @@ def handle(request):
         ownership.write_bytes(base64.b64decode(request['ownershipSourceBase64']))
         os.chmod(ownership, 0o600)
         socket = str(root / 'tmux.sock')
-        argv = [executable, '--data-dir', str(data), '--cwd', str(cwd), '--auto-approve', 'false']
+        argv = [executable, '--cwd', str(cwd), '--auto-approve', 'false']
+        if storage_mode == 'isolated': argv += ['--data-dir', str(data)]
         resume = request.get('_resume')
         if resume: argv += ['--id', resume['sessionId']]
         else: argv += [request['prompt']]
@@ -470,7 +556,7 @@ def handle(request):
             if type(request['retryLimit']) is not int or not 1 <= request['retryLimit'] <= 10:
                 raise ValueError('Retry limit must be an integer from 1 to 10')
             argv[-1:-1] = ['--retries', str(request['retryLimit'])]
-        meta = dict(schemaVersion=1, owner='cline-cli-sdk', executionId=run_id, sessionId=resume['sessionId'] if resume else None, resume=resume, cwd=str(cwd), dataDir=str(data), priorSessions=prior,
+        meta = dict(schemaVersion=1, owner='cline-cli-sdk', executionId=run_id, sessionId=resume['sessionId'] if resume else None, resume=resume, cwd=str(cwd), dataDir=str(data) if data else None, storageMode=storage_mode, sessionDirectory=str(sessions), priorSessions=prior,
                     cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, outputMode=output_mode, resultRequest=request.get('resultRequest'), terminal=dict(rows=40, cols=120),
                     bootId=boot_id(), tmuxSocket=socket, tmuxSession=run_id, identity=None, exitCode=None)
         # Prompt is launch-only: don't retain it in minimal control metadata after startup.
@@ -735,7 +821,7 @@ def handle(request):
                                  composerIdle=composer_idle,
                                  supervisorAlive=bool(meta.get('supervisorIdentity') and identity(meta['supervisorIdentity']['pid']) == meta['supervisorIdentity']),
                                  stop=stop_result,
-                                 children=[value for value in ownership.get('owned', []) if value not in (expected, cli_owner)], trackingError=ownership.get('trackingError'),
+                                 children=busy_children(meta, ownership, cli_owner), trackingError=ownership.get('trackingError'),
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
                     requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), message=value.get('message'), witness=value.get('witness'), baselineMessageCount=value.get('baselineMessageCount'), baselineLastMessageId=value.get('baselineLastMessageId'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
@@ -748,5 +834,5 @@ else:
     try:
         print(json.dumps(handle(json.load(sys.stdin))))
     except Exception as exc:
-        print(json.dumps(dict(error=type(exc).__name__, message=str(exc))))
+        print(json.dumps(dict(error=getattr(exc, 'code', type(exc).__name__), message=str(exc))))
         sys.exit(0)

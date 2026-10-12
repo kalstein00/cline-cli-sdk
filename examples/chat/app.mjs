@@ -24,7 +24,7 @@ async function changeSelection(action,input={}) {
   if(selectionBlocked(current))return;sending=true;element('error').hidden=true;render(current);
   try{await invoke(action,input);}catch(error){showError(error);}finally{sending=false;render(current);}
 }
-const settings=['host','cliPath','remoteRoot','cwd','dataDir'];
+const settings=['host','cliPath','remoteRoot','cwd','dataDir','storageMode','sessionDirectory'];
 try {const saved=JSON.parse(localStorage.getItem('cline-chat-settings') ?? '{}');for(const id of settings)if(typeof saved[id]==='string')element(id).value=saved[id];} catch {}
 const timeline=element('timeline');
 function canRespond(snapshot) {
@@ -83,6 +83,10 @@ function render(packet) {
   const startHint=!packet.preflight?'연결 설정에서 연결 확인을 먼저 실행하세요.':!packet.preflight.ready?`연결 확인 필요 · ${packet.preflight.problems.join(' · ')}`:snapshot?.connection!=='connected'?'연결 복구 후 첫 메시지를 보낼 수 있습니다.':'첫 메시지는 원격 Cline의 새 작업을 시작합니다.';
   element('status').textContent=snapshot?.startup?.state==='provider-setup-required'?'CLI 초기 설정 필요':snapshot?.executionId ? `${snapshot.execution} · ${snapshot.sessionId ?? '대화 확인 중'}` : packet.preflight?.ready && snapshot?.connection==='connected' ? '새 대화를 시작할 수 있습니다.' : '연결 설정을 확인하세요.';
   element('preflight').textContent=packet.preflight ? packet.preflight.ready ? '연결 준비 완료' : packet.preflight.problems.join(' · ') : '';
+  element('preflightDetails').textContent=packet.preflight ? [
+    `CLI: ${packet.preflight.cliPath ?? '확인 불가'}`,`SHA-256: ${packet.preflight.cliHash ?? '확인 불가'}`,
+    `경로 발견: ${packet.preflight.discovery ?? '확인 불가'}`,`도움말: ${packet.preflight.help?.state ?? '확인 불가'} (${packet.preflight.help?.exitCode ?? '종료 코드 불명'})`,
+    packet.preflight.missingOptions === null ? '옵션 지원 확인 불가' : `누락 옵션: ${packet.preflight.missingOptions?.join(', ') || '없음'}`].join(' · ') : '';
   element('connect').disabled=!transportConnected||sending || (!!pending&&!restoringServer) || packet.launchReserved || !!snapshot?.executionId;
   element('disconnect').disabled=!transportConnected||sending||packet.busy||snapshot?.connection!=='connected';
   element('reconnect').disabled=!transportConnected||sending||packet.busy||!snapshot||snapshot.connection==='connected';
@@ -159,7 +163,7 @@ element('connectForm').onsubmit=async event=>{
   event.preventDefault();if(sending)return;sending=true;element('error').hidden=true;render(current);
   try {
     localStorage.setItem('cline-chat-settings',JSON.stringify(Object.fromEntries(settings.map(id=>[id,element(id).value]))));
-    await invoke('connect',{...Object.fromEntries(['host','cliPath','remoteRoot','identityFile'].map(id=>[id,element(id).value])),executionId:localStorage.getItem('cline-chat-selected') ?? undefined});
+    await invoke('connect',{...Object.fromEntries(['host','cliPath','remoteRoot','identityFile','storageMode','sessionDirectory'].map(id=>[id,element(id).value])),executionId:localStorage.getItem('cline-chat-selected') ?? undefined});
   }catch(error){showError(error);}finally{sending=false;render(current);}
 };
 element('composer').onsubmit=async event=>{
@@ -188,3 +192,5 @@ element('stop').onclick=async()=>{if(element('stop').disabled)return;const snaps
 const events=new EventSource('/api/events');events.onmessage=event=>{const packet=JSON.parse(event.data);if(current.serverId&&packet.serverId!==current.serverId){restoringServer=true;current={...current,generation:-1,serverId:packet.serverId};}transportConnected=true;render(packet);};
 events.onerror=()=>{transportConnected=false;render(current);element('connection').textContent='서버 연결 확인 중';for(const button of document.querySelectorAll('button'))button.disabled=true;};
 render(current);
+element('storageMode').onchange=()=>{element('dataDir').disabled=element('storageMode').value==='native';};
+element('storageMode').onchange();

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "source": "installed WSL CLI 2026-10-12",
+    "binaryHash": "ff8383346760e4bcf56fbeb230e6dd7b6b526e6e0231ed6fd7f035e2887f6af7",
+    "transformations": [
+      "Kept current ask_question tool call only",
+      "Anonymized session id and workspace path",
+      "Canonical ANSI full screen from tmux capture and observed cursor; colors omitted"
+    ],
+    "companyCompatibility": "unverified"
+  },
+  "cli": {
+    "name": "cline",
+    "version": "unknown",
+    "profile": "cline-tui"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "wsl-native-observed-question",
+  "executionId": "wsl-native-observed-run",
+  "observations": [
+    {
+      "kind": "history",
+      "seq": 1,
+      "observedAt": "2026-10-12T12:55:40.162Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJ3c2wtbmF0aXZlLW9ic2VydmVkLXF1ZXN0aW9uIiwibWVzc2FnZXMiOlt7ImlkIjoibXNnX1g2VEFnQktYIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0aGlua2luZyIsInRoaW5raW5nIjoiKipBc2tpbmcgYSBxdWVzdGlvbioqIn0seyJ0eXBlIjoidG9vbF91c2UiLCJpZCI6ImNhbGxfcDI3WVoydG9HY3c4NVpaNVdMMUo4b1FLIiwibmFtZSI6ImFza19xdWVzdGlvbiIsImlucHV0Ijp7InF1ZXN0aW9uIjoiUGljayBhIGNvbG9yOiIsIm9wdGlvbnMiOlsiUkVEIiwiQkxVRSJdfX1dLCJ0cyI6MTc5MTgwOTczODQzNCwibW9kZWxJbmZvIjp7ImlkIjoiZ3B0LTYtbHVuYSIsInByb3ZpZGVyIjoib3BlbmFpLWNvZGV4In0sIm1ldHJpY3MiOnsiaW5wdXRUb2tlbnMiOjgwODksIm91dHB1dFRva2VucyI6MzAsImNhY2hlUmVhZFRva2VucyI6MzMyOCwiY2FjaGVXcml0ZVRva2VucyI6MCwiY29zdCI6MC4wMDA1Mjk4Nzk5OTk5OTk5OTk5fX1dfQ==",
+      "sha256": "25f69186c693a10bed584983cdef513ad1b0dbf2ad90a021fdf25ad09224b6fd"
+    },
+    {
+      "kind": "pty",
+      "seq": 2,
+      "observedAt": "2026-10-12T12:55:40.162Z",
+      "dataBase64": "G1syShtbMTsxSBtbMjsxSCDina8gVXNlIGFza19xdWVzdGlvbiB0byBhc2sgUGljayBhIGNvbG9yIHdpdGggUkVEIGFuZCBCTFVFIGNob2ljZXMuIE5vIG90aGVyIHRvb2xzLhtbMzsxSBtbNDsxSCDilrYgVGhpbmtpbmc6ICoqQXNraW5nIGEgcXVlc3Rpb24qKhtbNTsxSBtbNjsxSCDioKcgYXNrX3F1ZXN0aW9uKFBpY2sgYSBjb2xvcjopG1s3OzFIG1s4OzFIG1s5OzFIG1sxMDsxSBtbMTE7MUgbWzEyOzFIG1sxMzsxSBtbMTQ7MUgbWzE1OzFIG1sxNjsxSBtbMTc7MUgbWzE4OzFIG1sxOTsxSBtbMjA7MUgbWzIxOzFIG1syMjsxSBtbMjM7MUgbWzI0OzFIG1syNTsxSBtbMjY7MUgbWzI3OzFIG1syODsxSBtbMjk7MUggQ2xpbmUgaXMgYXNraW5nIGEgcXVlc3Rpb24bWzMwOzFIG1szMTsxSCBQaWNrIGEgY29sb3I6G1szMjsxSBtbMzM7MUggID4gUkVEG1szNDsxSCAgICBCTFVFG1szNTsxSCAgICBUeXBlIGEgcmVzcG9uc2UuLi4bWzM2OzFIG1szNzsxSBtbMzg7MUggR1BULTYgTHVuYSAoaGlnaCkg4paI4paI4paI4paI4paI4paIICg4LDA4OSkgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIOKXiyBQbGFuIOKXjyBBY3QgKFRhYikbWzM5OzFIIGNsaW5lLXNkay1jYXB0dXJlLWc2amFqeXN4G1s0MDsxSCBBdXRvLWFwcHJvdmUgYWxsIGRpc2FibGVkIChTaGlmdCtUYWIpG1s2OzNI",
+      "sha256": "8e10ee9d224e115cc3626dc725e2c3bf9d459ba78f3ba27ce254bdbf9d28ee7f"
+    }
+  ]
+}

@@ -45,7 +45,7 @@ def launch_resume(request, root, handle, identity, boot_id, save):
         save(receipt_path,receipt)  # uncertain launch reserves this identity permanently
         meta.update(sessionId=sid, resumedBy=new_id, ownedManifestStatus=proc['manifestStatus'])
         save(old / 'meta.json',meta)
-        launched = handle(dict(request,action='start',executionId=new_id,cwd=meta['cwd'],dataDir=meta['dataDir'],terminalMode='tui',_resume=receipt))
+        launched = handle(dict(request,action='start',executionId=new_id,cwd=meta['cwd'],dataDir=meta['dataDir'],storageMode=meta.get('storageMode','isolated'),sessionDirectory=meta.get('sessionDirectory'),terminalMode='tui',_resume=receipt))
         receipt['state']='started'
         save(receipt_path,receipt)
         return dict(launched,resume=receipt)

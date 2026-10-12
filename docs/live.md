@@ -1,5 +1,11 @@
 # Windows → SSH → WSL 공개 CLI 실행
 
+## 현재 설치 CLI의 기존 저장 방식
+
+`connection.storageMode: 'native'`는 기존 인증·설정·대화 기록을 사용하며 `--data-dir`을 요구하거나 전달하지 않는다. 현재 `ssh wsl`의 실제 관측·공개 API·브라우저 재현 절차는 [기본 저장 지원 계약](observations/wsl-native-storage.md)을 따른다. `cwd`는 기존 작업 디렉터리이며 경로 오류는 실행 전 원인별로 반환한다. `help.state`와 `missingOptions`로 도움말 실패와 확인된 옵션 누락을 구분한다. 회사 fork는 미검증이다.
+
+아래 내용은 기존 격리 실행과 #3 당시 수용 기록이다.
+
 티켓 #3은 SDK 공개 API의 실제 연결·환경 점검·관리 실행·메시지·종료 상태와 로컬 웹 화면을 구현한다. 현재 SDK는 CLI 버전 조회나 특정 버전·해시 허용 목록을 사용하지 않는다. 기존 실제 실행 근거는 공개 Cline 3.0.69 Linux x64 기준이다. 회사 fork는 미검증이며 질문·승인 응답, 재접속·재개는 후속 티켓 범위다.
 
 ```js
