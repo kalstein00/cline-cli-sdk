@@ -1,0 +1,159 @@
+{
+  "source": "readonly raw CLI history, request ledger, metadata and proc before cleanup",
+  "approvedFile": "APPROVED28",
+  "deniedFileExists": false,
+  "results": [
+    {
+      "sessionId": "1791714068009_sa4n5",
+      "executionId": "run-5f8be793-9aa3-409b-a459-fd1bb1db5c3c",
+      "identity": {
+        "pid": 996414,
+        "startTime": "3425956",
+        "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+      },
+      "manifestPid": 980908,
+      "manifestStatus": "idle",
+      "manifestMatchesCurrentPid": false,
+      "userMessages": [
+        {
+          "id": "c5702154-3d4a-482f-8ef4-36cd568316c6",
+          "text": "Use run_commands to run printf APPROVED28 > approved28.txt. Then ask_question CHAT_CHOICE28 options RED,BLUE. Reply CHOICE28:<answer>. No other tools."
+        },
+        {
+          "id": "26abe46b-c1bc-4b26-9996-9f23398079de",
+          "text": "Run touch denied28.txt; if denied don't retry. Then ask_question CHAT_FREE28 options RED,BLUE."
+        },
+        {
+          "id": "70b66117-7e93-42ed-99b4-0b6159091df1",
+          "text": "2 한글 😀 café: Reply exactly CHAT_FOLLOWUP28. No tools."
+        },
+        {
+          "id": "f6385af7-9664-47c8-a920-6876725351fc",
+          "text": "Reply exactly CHAT_REPEAT28. No tools."
+        },
+        {
+          "id": "aaef62ee-f83f-40d4-a2e6-3fc173d04107",
+          "text": "Reply exactly CHAT_REPEAT28. No tools."
+        },
+        {
+          "id": "4f614089-344a-4c29-9788-c6294e0610df",
+          "text": "Use ask_question CHAT_RESTART28 options RED,BLUE. Then reply RESTART28:<answer>. No other tools."
+        },
+        {
+          "id": "49e06653-4110-4dca-b596-d161dcb3bf2d",
+          "text": "2 한글 😀: Reply exactly CHAT_RESUMED28. No tools."
+        }
+      ],
+      "receipts": [
+        {
+          "requestId": "ab8e2d59-93d9-4eed-8104-722e061feef8",
+          "messageId": "26abe46b-c1bc-4b26-9996-9f23398079de",
+          "historyBoundary": 6,
+          "nextBoundary": 12,
+          "digest": "5ff9da9d860255f62f851d5dd1bc32b5ac62e201411ed8f1b757fa5da964eeb2"
+        },
+        {
+          "requestId": "9c7279cc-2871-4d46-836e-f6b4d7540caf",
+          "messageId": "70b66117-7e93-42ed-99b4-0b6159091df1",
+          "historyBoundary": 12,
+          "nextBoundary": 14,
+          "digest": "b7fd36b7114ce9f1a148852f93e14edea9814888337c003e73396df63e449321"
+        },
+        {
+          "requestId": "e42c4f73-7b72-425d-afe1-0248e87be361",
+          "messageId": "f6385af7-9664-47c8-a920-6876725351fc",
+          "historyBoundary": 14,
+          "nextBoundary": 16,
+          "digest": "00f7c058a9105b52eadd676779df5517f0231943fe4cf683ae030feb22e515d6"
+        },
+        {
+          "requestId": "05b78d63-aed2-4fdb-8508-1689ccfa66cf",
+          "messageId": "aaef62ee-f83f-40d4-a2e6-3fc173d04107",
+          "historyBoundary": 16,
+          "nextBoundary": 18,
+          "digest": "00f7c058a9105b52eadd676779df5517f0231943fe4cf683ae030feb22e515d6"
+        },
+        {
+          "requestId": "3b855092-4338-43b4-a084-77adf60ed3cb",
+          "messageId": "4f614089-344a-4c29-9788-c6294e0610df",
+          "historyBoundary": 18,
+          "nextBoundary": 24,
+          "digest": "81b412cc04dd278733742b9f63673080bd83afa72e403f246633fa6644822ded"
+        }
+      ],
+      "remoteAlive": true,
+      "toolResults": [
+        {
+          "messageId": "msg_IOVaO2zn",
+          "content": [
+            {
+              "query": "printf APPROVED28 > approved28.txt",
+              "result": "",
+              "success": true
+            }
+          ]
+        },
+        {
+          "messageId": "msg_uAOQbIgs",
+          "content": "BLUE"
+        },
+        {
+          "messageId": "msg_D5mSldRR",
+          "content": "{\"error\":\"This tool call was rejected by the user and not executed. -- NOT a tool or system failure. Clarify with user before proceeding.\"}"
+        },
+        {
+          "messageId": "msg_lIhNBly6",
+          "content": "2 한글 응답 😀 café"
+        },
+        {
+          "messageId": "msg_eC6JHRce",
+          "content": "BLUE"
+        }
+      ]
+    },
+    {
+      "sessionId": "1791714796085_a70vj",
+      "executionId": "run-98da3e8b-7fb1-4333-ad26-2d24d9f53968",
+      "identity": {
+        "pid": 1039355,
+        "startTime": "3480870",
+        "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+      },
+      "manifestPid": 1039355,
+      "manifestStatus": "idle",
+      "manifestMatchesCurrentPid": true,
+      "userMessages": [
+        {
+          "id": "b3adee66-f396-4f45-8cda-0633921b4ca2",
+          "text": "Reply exactly ISOLATED_FIRST28. No tools."
+        },
+        {
+          "id": "41cae34e-0b9c-47e7-b23f-4a269331c768",
+          "text": "2 한글 😀: Reply exactly ISOLATED_ONE28. No tools."
+        },
+        {
+          "id": "80fc2ad7-a656-4bd5-a54e-0f778d482760",
+          "text": "Reply exactly ISOLATED_TWO28. No tools."
+        }
+      ],
+      "receipts": [
+        {
+          "requestId": "3e1b0620-2b66-4cbc-8421-9f100739b8f3",
+          "messageId": "41cae34e-0b9c-47e7-b23f-4a269331c768",
+          "historyBoundary": 2,
+          "nextBoundary": 4,
+          "digest": "43da099bec6056861470e59e3b540ef482a612044d3785faa2c8f83ccd2fbbe6"
+        },
+        {
+          "requestId": "706069a7-dd10-469f-a9df-0e4112a704ce",
+          "messageId": "80fc2ad7-a656-4bd5-a54e-0f778d482760",
+          "historyBoundary": 4,
+          "nextBoundary": 6,
+          "digest": "a81590c40f7c9f5c3cc09aa3c59665b4414936b42bb5fbbf545fb04c806c682f"
+        }
+      ],
+      "remoteAlive": true,
+      "toolResults": []
+    }
+  ]
+}

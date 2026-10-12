@@ -1,0 +1,17 @@
+{
+  "source": "actual Windows Chrome -> SDK listManagedExecutions + new-client attach -> SSH WSL",
+  "conversations": [
+    {
+      "label": "CHAT_LIST_A",
+      "sessionId": "1791711717324_a63fh",
+      "executionId": "run-26485e6e-c5e0-4950-b03c-d6383f9c3eb9"
+    },
+    {
+      "label": "CHAT_LIST_B",
+      "sessionId": "1791711735235_d5sr1",
+      "executionId": "run-45b81ac3-19b5-45d7-ac6d-6b0d13360de2"
+    }
+  ],
+  "lastSelected": "run-45b81ac3-19b5-45d7-ac6d-6b0d13360de2",
+  "draftsPreserved": true
+}

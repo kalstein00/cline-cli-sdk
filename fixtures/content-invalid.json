@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-readline"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "content-invalid-session",
+  "executionId": "content-invalid-run",
+  "observations": [
+    {
+      "kind": "history",
+      "seq": 1,
+      "observedAt": "2026-10-09T10:00:00Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJjb250ZW50LWludmFsaWQtc2Vzc2lvbiIsIm1lc3NhZ2VzIjpbeyJpZCI6ImNvbnRlbnQtYW5zd2VyIiwicm9sZSI6ImFzc2lzdGFudCIsImNvbnRlbnQiOlt7InR5cGUiOiJ0aGlua2luZyIsInRoaW5raW5nIjoiU3ludGhldGljIGV4cG9zZWQgdGhpbmsuIO2VnOq4gCA8c2NyaXB0PiBpcyBkaXNwbGF5ZWQgYXMgcGxhaW4gdGV4dC4ifSx7InR5cGUiOiJ0ZXh0IiwidGV4dCI6ImBgYGpzb25cbnt9XG5gYGAifSx7InR5cGUiOiJyZWRhY3RlZF90aGlua2luZyJ9XX1dfQ=="
+    },
+    {
+      "kind": "process",
+      "seq": 2,
+      "observedAt": "2026-10-09T10:00:00Z",
+      "identity": {
+        "pid": 42,
+        "startTime": "100",
+        "bootId": "boot"
+      },
+      "alive": false,
+      "identityConfirmed": true,
+      "exitCode": 0,
+      "manifestStatus": "completed",
+      "children": [],
+      "childrenVerified": true,
+      "supervisorAlive": false
+    }
+  ],
+  "provenance": {
+    "source": "controlled content fixture",
+    "sourceSha256": "synthetic",
+    "review": "No credentials; synthetic SDK contract probe, not company evidence",
+    "transformations": [
+      "synthetic content"
+    ],
+    "complete": false,
+    "truncated": false
+  },
+  "resultRequest": {
+    "type": "json",
+    "requestId": "content-invalid",
+    "baselineMessageIds": [],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "ok"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "items",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "validation": "sdk"
+  }
+}

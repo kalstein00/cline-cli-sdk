@@ -1,0 +1,363 @@
+{
+  "source": "actual Windows Chrome -> public SDK disconnect/connect/list/attach -> SSH WSL, browser and Node process restart",
+  "original": {
+    "mode": "live",
+    "sessionId": "1791712635349_d1vk1",
+    "executionId": "run-f097419b-d703-4e5c-b0fc-317f50b16751",
+    "revision": 12,
+    "connection": "connected",
+    "execution": "awaiting-input",
+    "messages": [
+      {
+        "id": "09d08e8d-60e1-4676-97e5-653af3cb78a4",
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "<user_input mode=\"act\">Use ask_question CHAT_RECONNECT options RED,BLUE. Then reply RECONNECTED:<answer>. No other tools.</user_input>"
+          }
+        ],
+        "text": "Use ask_question CHAT_RECONNECT options RED,BLUE. Then reply RECONNECTED:<answer>. No other tools."
+      }
+    ],
+    "interaction": {
+      "id": "run-f097419b-d703-4e5c-b0fc-317f50b16751:phase:1:f6acbff6f36b0563",
+      "revision": 12,
+      "kind": "question",
+      "state": "awaiting-response",
+      "prompt": "CHAT_RECONNECT",
+      "choices": [
+        "RED",
+        "BLUE"
+      ],
+      "toolId": "call_6Wfxq86UjVrNOg6UD1dwzH42",
+      "toolName": "ask_question",
+      "responseKinds": [
+        "choice",
+        "text"
+      ],
+      "input": {
+        "mode": "tui",
+        "selected": 0,
+        "text": null
+      }
+    },
+    "response": null,
+    "stop": null,
+    "executionEvidence": {
+      "kind": "process",
+      "identity": {
+        "pid": 840640,
+        "startTime": "3265065",
+        "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+      },
+      "alive": true,
+      "identityConfirmed": true,
+      "exitCode": null,
+      "manifestStatus": "running",
+      "supervisorAlive": true,
+      "stop": null,
+      "children": [],
+      "trackingError": null,
+      "childrenVerified": false,
+      "requestedStop": false,
+      "seq": 70,
+      "observedAt": "2026-10-11T09:57:19.299Z"
+    },
+    "historySync": {
+      "current": true,
+      "warning": null
+    },
+    "composer": null,
+    "messageInput": {
+      "ready": false,
+      "reason": "interaction-pending",
+      "maxBytes": 112
+    },
+    "messageDelivery": null,
+    "resume": null,
+    "replay": {
+      "position": 1,
+      "total": 0,
+      "complete": false,
+      "truncated": false
+    },
+    "inputControl": {
+      "current": true,
+      "reason": null
+    }
+  },
+  "results": [
+    {
+      "step": "disconnect-reconnect",
+      "snapshot": {
+        "mode": "live",
+        "sessionId": "1791712635349_d1vk1",
+        "executionId": "run-f097419b-d703-4e5c-b0fc-317f50b16751",
+        "revision": 17,
+        "connection": "connected",
+        "execution": "awaiting-input",
+        "messages": [
+          {
+            "id": "09d08e8d-60e1-4676-97e5-653af3cb78a4",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">Use ask_question CHAT_RECONNECT options RED,BLUE. Then reply RECONNECTED:<answer>. No other tools.</user_input>"
+              }
+            ],
+            "text": "Use ask_question CHAT_RECONNECT options RED,BLUE. Then reply RECONNECTED:<answer>. No other tools."
+          }
+        ],
+        "interaction": {
+          "id": "run-f097419b-d703-4e5c-b0fc-317f50b16751:phase:1:f6acbff6f36b0563",
+          "revision": 12,
+          "kind": "question",
+          "state": "awaiting-response",
+          "prompt": "CHAT_RECONNECT",
+          "choices": [
+            "RED",
+            "BLUE"
+          ],
+          "toolId": "call_6Wfxq86UjVrNOg6UD1dwzH42",
+          "toolName": "ask_question",
+          "responseKinds": [
+            "choice",
+            "text"
+          ],
+          "input": {
+            "mode": "tui",
+            "selected": 0,
+            "text": null
+          }
+        },
+        "response": null,
+        "stop": null,
+        "executionEvidence": {
+          "kind": "process",
+          "identity": {
+            "pid": 840640,
+            "startTime": "3265065",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          "alive": true,
+          "identityConfirmed": true,
+          "exitCode": null,
+          "manifestStatus": "running",
+          "supervisorAlive": true,
+          "stop": null,
+          "children": [],
+          "trackingError": null,
+          "childrenVerified": false,
+          "requestedStop": false,
+          "seq": 214,
+          "observedAt": "2026-10-11T09:57:31.761Z"
+        },
+        "historySync": {
+          "current": true,
+          "warning": null
+        },
+        "composer": null,
+        "messageInput": {
+          "ready": false,
+          "reason": "interaction-pending",
+          "maxBytes": 112
+        },
+        "messageDelivery": null,
+        "resume": null,
+        "replay": {
+          "position": 1,
+          "total": 0,
+          "complete": false,
+          "truncated": false
+        },
+        "inputControl": {
+          "current": true,
+          "reason": null
+        }
+      }
+    },
+    {
+      "step": "browser-restart",
+      "snapshot": {
+        "mode": "live",
+        "sessionId": "1791712635349_d1vk1",
+        "executionId": "run-f097419b-d703-4e5c-b0fc-317f50b16751",
+        "revision": 17,
+        "connection": "connected",
+        "execution": "awaiting-input",
+        "messages": [
+          {
+            "id": "09d08e8d-60e1-4676-97e5-653af3cb78a4",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">Use ask_question CHAT_RECONNECT options RED,BLUE. Then reply RECONNECTED:<answer>. No other tools.</user_input>"
+              }
+            ],
+            "text": "Use ask_question CHAT_RECONNECT options RED,BLUE. Then reply RECONNECTED:<answer>. No other tools."
+          }
+        ],
+        "interaction": {
+          "id": "run-f097419b-d703-4e5c-b0fc-317f50b16751:phase:1:f6acbff6f36b0563",
+          "revision": 12,
+          "kind": "question",
+          "state": "awaiting-response",
+          "prompt": "CHAT_RECONNECT",
+          "choices": [
+            "RED",
+            "BLUE"
+          ],
+          "toolId": "call_6Wfxq86UjVrNOg6UD1dwzH42",
+          "toolName": "ask_question",
+          "responseKinds": [
+            "choice",
+            "text"
+          ],
+          "input": {
+            "mode": "tui",
+            "selected": 0,
+            "text": null
+          }
+        },
+        "response": null,
+        "stop": null,
+        "executionEvidence": {
+          "kind": "process",
+          "identity": {
+            "pid": 840640,
+            "startTime": "3265065",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          "alive": true,
+          "identityConfirmed": true,
+          "exitCode": null,
+          "manifestStatus": "running",
+          "supervisorAlive": true,
+          "stop": null,
+          "children": [],
+          "trackingError": null,
+          "childrenVerified": false,
+          "requestedStop": false,
+          "seq": 214,
+          "observedAt": "2026-10-11T09:57:31.761Z"
+        },
+        "historySync": {
+          "current": true,
+          "warning": null
+        },
+        "composer": null,
+        "messageInput": {
+          "ready": false,
+          "reason": "interaction-pending",
+          "maxBytes": 112
+        },
+        "messageDelivery": null,
+        "resume": null,
+        "replay": {
+          "position": 1,
+          "total": 0,
+          "complete": false,
+          "truncated": false
+        },
+        "inputControl": {
+          "current": true,
+          "reason": null
+        }
+      }
+    },
+    {
+      "step": "node-restart",
+      "snapshot": {
+        "mode": "live",
+        "sessionId": "1791712635349_d1vk1",
+        "executionId": "run-f097419b-d703-4e5c-b0fc-317f50b16751",
+        "revision": 7,
+        "connection": "connected",
+        "execution": "awaiting-input",
+        "messages": [
+          {
+            "id": "09d08e8d-60e1-4676-97e5-653af3cb78a4",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "<user_input mode=\"act\">Use ask_question CHAT_RECONNECT options RED,BLUE. Then reply RECONNECTED:<answer>. No other tools.</user_input>"
+              }
+            ],
+            "text": "Use ask_question CHAT_RECONNECT options RED,BLUE. Then reply RECONNECTED:<answer>. No other tools."
+          }
+        ],
+        "interaction": {
+          "id": "run-f097419b-d703-4e5c-b0fc-317f50b16751:phase:1:f6acbff6f36b0563",
+          "revision": 7,
+          "kind": "question",
+          "state": "awaiting-response",
+          "prompt": "CHAT_RECONNECT",
+          "choices": [
+            "RED",
+            "BLUE"
+          ],
+          "toolId": "call_6Wfxq86UjVrNOg6UD1dwzH42",
+          "toolName": "ask_question",
+          "responseKinds": [
+            "choice",
+            "text"
+          ],
+          "input": {
+            "mode": "tui",
+            "selected": 0,
+            "text": null
+          }
+        },
+        "response": null,
+        "stop": null,
+        "executionEvidence": {
+          "kind": "process",
+          "identity": {
+            "pid": 840640,
+            "startTime": "3265065",
+            "bootId": "3f07e839-5d92-4799-aeda-e83b47a2666b"
+          },
+          "alive": true,
+          "identityConfirmed": true,
+          "exitCode": null,
+          "manifestStatus": "running",
+          "supervisorAlive": true,
+          "stop": null,
+          "children": [],
+          "trackingError": null,
+          "childrenVerified": false,
+          "requestedStop": false,
+          "seq": 365,
+          "observedAt": "2026-10-11T09:57:52.524Z"
+        },
+        "historySync": {
+          "current": true,
+          "warning": null
+        },
+        "composer": null,
+        "messageInput": {
+          "ready": false,
+          "reason": "interaction-pending",
+          "maxBytes": 112
+        },
+        "messageDelivery": null,
+        "resume": null,
+        "replay": {
+          "position": 1,
+          "total": 0,
+          "complete": false,
+          "truncated": false
+        },
+        "inputControl": {
+          "current": true,
+          "reason": null
+        }
+      }
+    }
+  ],
+  "remoteInputRepeated": false
+}

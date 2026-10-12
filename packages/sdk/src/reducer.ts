@@ -1,0 +1,1797 @@
+import {hasCliProtocol} from "./cli-protocol.js";
+import {streamPreview} from './stream-preview.js';
+import {messageInput, type MessageInputState} from "./message-input.js";
+import {messageNotSubmitted} from "./message-evidence.js";
+import type {SendMessageRequest, MessageDelivery} from "./message.js";
+import xterm from "@xterm/headless";
+import unicode11 from "@xterm/addon-unicode11";
+import { createHash } from "node:crypto";
+import { deliveryState, type DurableResponse } from "./delivery.js";
+import {jsonOutputParser, type JsonOutputState} from "./json-output.js";
+import {prepareResult,structuredResult,type ResultRequest,type StructuredResult} from "./structured-result.js";
+export type MessageContent = {type:"text";text:string} | {type:"thinking";thinking:string} | {type:"redacted_thinking"};
+export interface Message {
+  id: string;
+  role: "assistant" | "user";
+  text: string;
+  /** Ordered exposed content. Optional for existing consumer message literals. */
+  content?: MessageContent[];
+  hasToolCalls?:boolean;
+  isToolResult?:boolean;
+}
+export interface HistoryObservation {
+  kind: "history";
+  seq: number;
+  observedAt: string;
+  dataBase64: string;
+  elapsedNs?: string;
+  sourceSha256?: string;
+  sourceBytes?: number;
+}
+export interface JsonOutputObservation {
+  kind:"json-output";
+  seq:number;
+  observedAt:string;
+  dataBase64:string;
+  channel:"stdout" | "stderr";
+  sourceSeq?:number;
+}
+export interface PtyObservation {
+  kind: "pty";
+  seq: number;
+  observedAt: string;
+  dataBase64: string;
+  elapsedNs?: string;
+  sourceSeq?: number;
+  apply?: boolean;
+  source?: "packet" | "screen" | "modal" | "composer";
+  witnessSha256?: string;
+  geometry?: { rows: number; cols: number; cursorX: number; cursorY: number };
+}
+export interface HistoryFailureObservation {
+  kind: "history-failure";
+  seq: number;
+  observedAt: string;
+  reason: string;
+}
+export interface ProcessObservation {
+  kind: "process";
+  seq: number;
+  observedAt: string;
+  identity: { pid: number; startTime: string; bootId: string } | null;
+  alive: boolean;
+  identityConfirmed: boolean;
+  exitCode: number | null;
+  manifestStatus: string | null;
+  /** Resumed owner/arguments, finished text response and current empty composer were verified. */
+  composerIdle?: boolean;
+  requestedStop?: boolean;
+  stop?: StopResult | null;
+  children?: { pid: number; startTime: string; bootId: string }[];
+  trackingError?: string | null;
+  childrenVerified?: boolean;
+  supervisorAlive?: boolean;
+}
+export interface StopRequest {
+  executionId: string;
+  requestId: string;
+}
+export interface StopResult {
+  executionId: string;
+  requestId: string;
+  state: "stopping" | "confirmed" | "unknown";
+  childrenVerified: boolean;
+  trackedCount: number;
+  remaining: { pid: number; startTime: string; bootId: string }[];
+  targets?: { pid: number; startTime: string; bootId: string }[];
+  reason: string | null;
+  observedAt: string;
+}
+export type Observation =
+  | HistoryObservation
+  | JsonOutputObservation
+  | PtyObservation
+  | HistoryFailureObservation
+  | ProcessObservation
+  | ConnectionObservation
+  | InitializeObservation
+  | BindingObservation
+  | PhaseObservation
+  | GapObservation
+  | ResponseInputObservation
+  | ResponseReceiptObservation
+  | ResponseFaultObservation
+  | ExecutionActionObservation
+  | FileObservation;
+export interface FileObservation {
+  kind: "file-read";
+  seq: number;
+  observedAt: string;
+  target: "session-history";
+  result: "read" | "missing" | "error";
+  sha256?: string;
+  bytes?: number;
+  reason?: string;
+}
+export interface ExecutionActionObservation {
+  kind: "execution-action";
+  seq: number;
+  observedAt: string;
+  action: "stop" | "resume" | "message";
+  operation: "requested" | "receipt" | "fault" | "input";
+  executionId: string;
+  requestId: string;
+  sessionId?: string | null;
+  receipt?: StopResult | { state: string; executionId?: string; sessionId?: string; messageId?: string; promptDigest?: string };
+  nextExecutionId?: string;
+  fromExecutionId?: string;
+  promptDigest?: string;
+  reason?: string;
+  dataBase64?: string;
+  inputType?: string;
+  stepIndex?: number;
+}
+export interface ResponseInputObservation {
+  kind: "response-input";
+  seq: number;
+  observedAt: string;
+  binding: Omit<ResponseRequest, "answer"> & {
+    kind: string;
+    toolId: string;
+    answerDigest: string;
+  };
+  dataBase64?: string;
+  inputType?: string;
+  stepIndex?: number;
+}
+export interface ResponseReceiptObservation {
+  kind: "response-receipt";
+  seq: number;
+  observedAt: string;
+  receipts: any[];
+  final?: boolean;
+}
+export interface ResponseFaultObservation {
+  kind: "response-fault";
+  seq: number;
+  observedAt: string;
+  requestId: string;
+  reason: string;
+  beforeWrite?: boolean;
+}
+export interface InitializeObservation {
+  resultRequest?:ResultRequest;
+  kind: "initialize";
+  seq: number;
+  observedAt: string;
+  cli: Recording["cli"];
+  terminal: Recording["terminal"];
+  sessionId: string | null;
+  executionId: string;
+  cliHash?: string | null;
+}
+export interface BindingObservation {
+  kind: "binding";
+  seq: number;
+  observedAt: string;
+  sessionId: string | null;
+  executionId?: string;
+  supersededBy?:string;
+}
+export interface PhaseObservation {
+  kind: "phase";
+  seq: number;
+  observedAt: string;
+  supported: boolean;
+  phase: any;
+  terminalEvidence?: {
+    cursor: number;
+    modalHash: string | null;
+    composerHash?: string | null;
+    gap: boolean;
+    fullScreen: boolean;
+    ledgerCurrent?: boolean;
+    terminal?: Recording["terminal"];
+  };
+}
+export interface GapObservation {
+  kind: "gap";
+  seq: number;
+  observedAt: string;
+  cursor: number;
+  first?: number;
+}
+export interface ConnectionObservation {
+  kind: "connection";
+  seq: number;
+  observedAt: string;
+  action: "connecting" | "connected" | "disconnected" | "closed";
+  reason?: string;
+}
+export interface Recording {
+  resultRequest?:ResultRequest;
+  schemaVersion: 1 | 2;
+  cli: { name: string; version: string; profile: string };
+  terminal: { rows: number; cols: number };
+  sessionId: string | null;
+  executionId: string | null;
+  /** Diagnostic recordings use the same strict bindings as their live source. */
+  interpretation?: "live";
+  observations: Observation[];
+  provenance: {
+    source: string;
+    sourceSha256: string;
+    review: string;
+    transformations: string[];
+    complete: boolean;
+    truncated: boolean;
+  };
+}
+export type ConnectionState =
+  "replay" | "closed" | "connecting" | "connected" | "disconnected";
+export type ExecutionState =
+  "unknown" | "running" | "awaiting-input" | "completed" | "stopped" | "failed";
+export type InteractionState =
+  | "awaiting-response"
+  | "submitting"
+  | "delivered"
+  | "delivery-unknown"
+  | "unsupported";
+export interface Interaction {
+  id: string;
+  revision: number;
+  kind: "question" | "approval" | "recovery" | "unsupported";
+  state: InteractionState;
+  prompt: string;
+  choices: string[];
+  toolId?: string;
+  toolName?: string;
+  toolInput?: unknown;
+  responseKinds?: ("choice" | "approval" | "text")[];
+  /** Observed input destination, never a terminal-input escape hatch. */
+  input?: { mode: "tui"; selected: number | null; text: string | null };
+}
+export interface ResponseResult {
+  requestId: string;
+  sessionId: string;
+  executionId: string;
+  interactionId: string;
+  state: "submitting" | "delivered" | "delivery-unknown" | "not-submitted";
+  revision: number;
+}
+export interface Snapshot {
+  /** Provisional TUI text; never an input or delivery witness. Final history replaces it. */
+  streaming?: import('./stream-preview.js').StreamPreview | null;
+  /** This execution has already been resumed; attach this managed successor to continue. */
+  supersededBy?: string;
+  /** CLI initialization is distinct from a received conversational request. */
+  startup?: {state:"waiting-for-session"|"provider-setup-required"};
+  result?:StructuredResult;
+  jsonOutput?:JsonOutputState;
+  mode: "replay" | "live";
+  sessionId: string | null;
+  executionId: string | null;
+  revision: number;
+  connection: ConnectionState;
+  execution: ExecutionState;
+  messages: Message[];
+  interaction: Interaction | null;
+  response: ResponseResult | null;
+  stop: StopResult | null;
+  executionEvidence: ProcessObservation | null;
+  /** Observed focused composer; not a public terminal-input escape hatch. */
+  messageInput?: MessageInputState;
+  messageDelivery?: MessageDelivery | null;
+  /** Missing/corrupt durable input metadata blocks input, even on a fresh attach. */
+  inputControl?: {current:boolean;reason:"ledger-unavailable"|null};
+  composer?: { mode: "tui"; text: string } | null;
+  resume?: { requestId: string; fromExecutionId: string; executionId: string; sessionId: string; state: "submitting" | "delivered" | "delivery-unknown" | "not-submitted" } | null;
+  historySync: { current: boolean; warning: string | null };
+  replay: {
+    position: number;
+    total: number;
+    complete: boolean;
+    truncated: boolean;
+  };
+}
+export interface SdkEvent {
+  type:
+    | "message.upsert"
+    | "interaction.changed"
+    | "state.changed"
+    | "result.changed"
+    | "response.changed";
+  sessionId: string | null;
+  executionId: string | null;
+  interactionId: string | null;
+  requestId: string | null;
+  revision: number;
+  observationSeq: number;
+  observedAt: string;
+  payload: unknown;
+}
+export interface ResponseRequest {
+  sessionId: string;
+  executionId: string;
+  interactionId: string;
+  revision: number;
+  requestId: string;
+  answer: string;
+}
+export class SdkError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "SdkError";
+  }
+}
+export interface Client {
+  openReplay(recording: Recording): Promise<Snapshot>;
+  nextObservation(): Promise<Snapshot>;
+  replayAll(): Promise<Snapshot>;
+  snapshot(): Snapshot;
+  subscribe(listener: (event: SdkEvent) => void): () => void;
+  respond(request: ResponseRequest): Promise<never>;
+  stop(request: StopRequest): Promise<never>;
+  sendMessage(request: SendMessageRequest): Promise<never>;
+  capabilities(): {
+    structuredResults:{json:true;schemaValidation:true;nativeSchema:false};
+    replay: true;
+    live: false;
+    responses: false;
+    sendMessage: false;
+    companyCompatibility: "unverified";
+  };
+  close(): void;
+}
+interface Reducer extends Client {
+  executionAction(observation: ExecutionActionObservation): Snapshot;
+  responseObservation(
+    observation:
+      | ResponseInputObservation
+      | ResponseReceiptObservation
+      | ResponseFaultObservation,
+  ): Snapshot;
+  initialize(observation: InitializeObservation): Promise<Snapshot>;
+  binding(observation: BindingObservation): Snapshot;
+  phase(observation: PhaseObservation): Snapshot;
+  gap(observation: GapObservation): Snapshot;
+  connection(observation: ConnectionObservation): Snapshot;
+  ingest(observation: Observation): Promise<Snapshot>;
+  setContext(
+    context: Partial<
+      Pick<
+        Snapshot,
+        | "sessionId"
+        | "executionId"
+        | "connection"
+        | "mode"
+        | "execution"
+        | "interaction"
+        | "stop"
+        | "resume"
+      >
+    >,
+  ): Snapshot;
+  setResponse(response: ResponseResult): Snapshot;
+  toolResult(id: string): { digest: string; rejected: boolean } | undefined;
+}
+function validateRecording(input: Recording): void {
+  const invalid = () => {
+    throw new SdkError(
+      "invalid-recording",
+      "Expected schema 1, bounded terminal geometry, and ordered raw observations.",
+    );
+  };
+  if (
+    ![1, 2].includes(input?.schemaVersion) ||
+    (input.schemaVersion === 1 && (!input.sessionId || !input.executionId)) ||
+    !input.cli?.profile ||
+    !input.provenance ||
+    !Array.isArray(input.observations) ||
+    !Number.isInteger(input.terminal?.cols) ||
+    !Number.isInteger(input.terminal?.rows) ||
+    input.terminal.cols < 20 ||
+    input.terminal.cols > 500 ||
+    input.terminal.rows < 5 ||
+    input.terminal.rows > 200
+  )
+    invalid();
+  let last = -1;
+  for (const obs of input.observations) {
+    if (
+      !Number.isSafeInteger(obs.seq) ||
+      obs.seq <= last ||
+      !Number.isFinite(Date.parse(obs.observedAt)) ||
+      ![
+        "pty",
+        "json-output",
+        "history",
+        "process",
+        "connection",
+        "initialize",
+        "binding",
+        "phase",
+        "gap",
+        "response-input",
+        "response-receipt",
+        "response-fault",
+        "execution-action",
+        "file-read",
+        "history-failure",
+      ].includes(obs.kind) ||
+      (obs.kind === "history-failure" &&
+        (typeof obs.reason !== "string" || !obs.reason)) ||
+      (obs.kind === "json-output" && !["stdout","stderr"].includes(obs.channel)) ||
+      ((obs.kind === "pty" || obs.kind === "history" || obs.kind === "json-output") &&
+        (typeof obs.dataBase64 !== "string" ||
+          !/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+            obs.dataBase64,
+          )))
+    )
+      invalid();
+    if (input.schemaVersion === 2) {
+      if (
+        obs.kind === "connection" &&
+        !["connecting", "connected", "disconnected", "closed"].includes(
+          obs.action,
+        )
+      )
+        invalid();
+      if (
+        obs.kind === "initialize" &&
+        (!obs.cli?.profile ||
+          !obs.executionId ||
+          !Number.isInteger(obs.terminal?.cols) ||
+          obs.terminal.cols < 20 ||
+          obs.terminal.cols > 500 ||
+          !Number.isInteger(obs.terminal.rows) ||
+          obs.terminal.rows < 5 ||
+          obs.terminal.rows > 200)
+      )
+        invalid();
+      if (
+        obs.kind === "response-input" &&
+        (!obs.binding ||
+          !["approval", "question", "recovery"].includes(obs.binding.kind) ||
+          !obs.binding.requestId ||
+          !/^[a-f0-9]{64}$/.test(obs.binding.answerDigest))
+      )
+        invalid();
+      if (
+        obs.kind === "response-receipt" &&
+        (!Array.isArray(obs.receipts) || obs.receipts.length > 256)
+      )
+        invalid();
+      if (
+        obs.kind === "execution-action" &&
+        (!["stop", "resume", "message"].includes(obs.action) ||
+          !["requested", "receipt", "fault", "input"].includes(obs.operation))
+      )
+        invalid();
+    }
+    last = obs.seq;
+  }
+}
+export function createReducer(options: {
+  mode: "replay";
+  observe?: (
+    observation: Observation,
+    events: SdkEvent[],
+    snapshot: Snapshot,
+  ) => void;
+  interactionIdentity?: (
+    kind: string,
+    toolId: string | undefined,
+    prompt: string,
+    choices: string[],
+  ) => string | undefined;
+}): Reducer {
+  if (options.mode !== "replay")
+    throw new SdkError("unsupported-mode", "Only replay is available.");
+  let state: Snapshot = {
+    mode: "replay",
+    sessionId: null,
+    executionId: null,
+    revision: 0,
+    connection: "closed",
+    execution: "unknown",
+    messages: [],
+    interaction: null,
+    response: null,
+    stop: null,
+    executionEvidence: null,
+    historySync: { current: true, warning: null },
+    composer: null,
+    messageInput: undefined,
+    messageDelivery: null,
+    resume: null,
+    replay: { position: 0, total: 0, complete: false, truncated: false },
+  };
+  let recording: Recording | null = null;
+  let terminal: import("@xterm/headless").Terminal | null = null;
+  let interactionSerial = 0;
+  let strictBindings = false;
+  let rawPhase: any = null;
+  let phaseSupported = false;
+  let composerEvidence: PhaseObservation["terminalEvidence"];
+  let pendingPhase: any = null;
+  const identify = (
+    kind: string,
+    toolId: string | undefined,
+    prompt: string,
+    choices: string[],
+  ) =>
+    options.interactionIdentity?.(kind, toolId, prompt, choices) ??
+    (() => {
+      if (phaseSupported) {
+        const fingerprint = createHash("sha256")
+          .update(JSON.stringify([kind, toolId, prompt, choices]))
+          .digest("hex");
+        if (rawPhase?.active && rawPhase.fingerprint === fingerprint)
+          return rawPhase.id;
+        pendingPhase = {
+          fingerprint,
+          epoch: (rawPhase?.epoch ?? 0) + 1,
+          id: `${state.executionId}:phase:${(rawPhase?.epoch ?? 0) + 1}:${fingerprint.slice(0, 16)}`,
+          active: true,
+        };
+        return pendingPhase.id;
+      }
+      return `${state.executionId}:interaction:${++interactionSerial}`;
+    })();
+  let pendingTools: { id: string; name: string; input: any }[] = [];
+  let jsonParser=jsonOutputParser();
+  let resultRequest:ResultRequest|undefined;
+  let resultHistorySeq=0;
+  let results = new Map<string, { digest: string; rejected: boolean }>();
+  let responseBinding: ResponseInputObservation["binding"] | null = null;
+  let resumeDigest: string | null = null;
+  let messageDigest: string | null = null;
+  let messageBaseline = new Set<string>();
+  let historyIds: string[] = [];
+  let streamTurn: {id:string; executionId:string|null; baseline:string|null} | null = null;
+  let streamSettled = false;
+  let latestProcess: ProcessObservation | null = null;
+  const listeners = new Set<(event: SdkEvent) => void>();
+  let observationEvents: SdkEvent[] = [];
+  const snapshot = () => structuredClone(state);
+  const historyFailure = (obs: Observation) => {
+    if (!state.historySync.current) return;
+    state.historySync = {
+      current: false,
+      warning:
+        "History synchronization is temporarily unavailable; the last good conversation is preserved. Requery before responding.",
+    };
+    state.execution = "unknown";
+    emit("state.changed", obs, {
+      historySync: state.historySync,
+      execution: state.execution,
+    });
+  };
+  const emit = (type: SdkEvent["type"], obs: Observation, payload: unknown) => {
+    state.revision++;
+    const event: SdkEvent = structuredClone({
+      type,
+      sessionId: state.sessionId,
+      executionId: state.executionId,
+      interactionId:
+        type === "response.changed"
+          ? (state.response?.interactionId ?? null)
+          : (state.interaction?.id ?? null),
+      requestId:
+        type === "result.changed" ? (state.result?.requestId ?? null) :
+        type === "response.changed"
+          ? (state.response?.requestId ?? null)
+          : type === "state.changed"
+            ? (state.stop?.requestId ?? null)
+            : null,
+      revision: state.revision,
+      observationSeq: obs.seq,
+      observedAt: obs.observedAt,
+      payload,
+    });
+    observationEvents.push(event);
+    for (const listener of listeners) listener(structuredClone(event));
+  };
+  const updateMessageInput = (obs: Observation) => {
+    // Legacy recordings without a terminal witness retain their existing event contract.
+    if (!composerEvidence && !state.messageInput) return;
+    const next=messageInput(state,hasCliProtocol(recording?.cli,"tui") && recording?.terminal.rows === 40 && recording.terminal.cols === 120 && phaseSupported,composerEvidence,!!pendingTools.length,!!rawPhase?.active);
+    if(JSON.stringify(next)!==JSON.stringify(state.messageInput)) {
+      state.messageInput=next;emit("state.changed",obs,{messageInput:next});
+    }
+  };
+  const updateResult = (obs:Observation) => {
+    if(!resultRequest) return;
+    const result=structuredResult(resultRequest,state,resultHistorySeq);
+    if(JSON.stringify(result)!==JSON.stringify(state.result)) {
+      state.result=result;emit("result.changed",obs,result);
+    }
+  };
+  const updateStreaming = (obs: Observation) => {
+    if(!terminal || !hasCliProtocol(recording?.cli,'tui'))return;
+    const b=terminal.buffer.active;
+    const lines=Array.from({length:Math.max(0,recording!.terminal.rows-6)},(_,row)=>b.getLine(b.baseY+row)?.translateToString(true) ?? '');
+    const latestFinal=state.messages.filter(m=>m.role==='assistant'&&m.text&&!m.hasToolCalls).at(-1)?.id ?? null;
+    const marker=streamPreview(lines,'candidate',null);
+    if(!marker)streamSettled=false;
+    if(streamTurn && (streamTurn.executionId!==state.executionId || streamTurn.baseline!==latestFinal)) {
+      streamTurn=null;streamSettled=true;
+    }
+    const blocked=!state.historySync.current || state.stop || state.interaction || pendingTools.length || ['stopped','completed','failed'].includes(state.execution);
+    if(blocked)streamTurn=null;
+    // The CLI may persist neither the user prompt nor the assistant until completion.
+    // Anchor the provisional turn to its bound execution and first answer frame.
+    if(!blocked && !streamSettled && !streamTurn && marker && obs.kind==='pty') {
+      streamTurn={id:`${state.executionId}:stream:${obs.seq}`,executionId:state.executionId,baseline:latestFinal};
+    }
+    const next=blocked || !streamTurn ? null : streamPreview(lines,streamTurn.id,state.streaming ?? null);
+    if(JSON.stringify(next)!==JSON.stringify(state.streaming) && (next || state.streaming!==undefined)) {
+      state.streaming=next;emit('state.changed',obs,{streaming:next});
+    }
+  };
+  const interpretScreen = (obs: Observation) => {
+    if(state.startup && !state.sessionId && hasCliProtocol(recording?.cli,"tui")) {
+      const visible=Array.from({length:recording!.terminal.rows},(_,row)=>terminal!.buffer.active.getLine(terminal!.buffer.active.baseY+row)?.translateToString(true).trim() ?? '');
+      const startup:Snapshot["startup"]={state:visible.includes('Welcome to Cline') && visible.includes('Connect a model provider to get started.') ? 'provider-setup-required' : 'waiting-for-session'};
+      if(state.startup.state!==startup.state){state.startup=startup;emit("state.changed",obs,{startup});}
+    }
+    if (!state.historySync.current) return;
+    state.composer = null;
+    const lines = [];
+    const buffer = terminal!.buffer.active;
+    if (
+      hasCliProtocol(recording!.cli,"tui")
+    ) {
+      const visible = Array.from(
+        { length: recording!.terminal.rows },
+        (_, row) =>
+          buffer
+            .getLine(buffer.baseY + row)
+            ?.translateToString(true)
+            .trimEnd() ?? "",
+      );
+      const permission = visible
+        .map((line) => line.trim())
+        .lastIndexOf("Cline needs permission");
+      const popup = visible.some((line) =>
+        line.includes("Press Enter to open, any other key to close"),
+      );
+      if (permission >= 0 && !popup) {
+        const body = visible.slice(permission + 1);
+        const nonempty = body.map((line) => line.trim()).filter(Boolean);
+        // Reconstruct only forced word wraps at the fixed terminal width. Compare
+        // the resulting bytes to history; never normalize whitespace in commands.
+        const footer=body.findIndex(line=>line.trim()==="[y] Approve   [n] Deny");
+        const renderedCommands:string[]=[];
+        let priorRow=-1, validCommands=footer>=0;
+        const cells=(row:number)=>buffer.getLine(buffer.baseY+permission+1+row);
+        const endColumn=(row:number)=>{const line=cells(row);let end=0;for(let col=0;col<recording!.terminal.cols;col++){const cell=line?.getCell(col);if(cell?.getChars().trim())end=col+cell.getWidth();}return end;};
+        const firstWordWidth=(row:number)=>{const line=cells(row);let width=0,started=false;for(let col=0;col<recording!.terminal.cols;col++){const cell=line?.getCell(col),chars=cell?.getChars() ?? '';if(!chars)continue;if(/^\s+$/.test(chars)){if(started)break;continue;}started=true;width+=cell!.getWidth();}return width;};
+        for(let row=0;row<footer;row++){
+          const text=body[row].trim();if(!text)continue;
+          if(text.startsWith('$ ')){renderedCommands.push(text);priorRow=row;}
+          else if(renderedCommands.length){
+            if(row!==priorRow+1 || endColumn(priorRow)+1+firstWordWidth(row)<=recording!.terminal.cols){validCommands=false;break;}
+            renderedCommands[renderedCommands.length-1]+=' '+text;priorRow=row;
+          }
+        }
+        const matches = pendingTools.filter(
+          (tool) =>
+            tool.name === "run_commands" &&
+            nonempty[0] === "Approve tool call?" &&
+            nonempty[1] === tool.name &&
+            Array.isArray(tool.input?.commands) &&
+            tool.input.commands.length > 0 &&
+            tool.input.commands.every(
+              (command: unknown) => typeof command === "string",
+            ) &&
+            validCommands && JSON.stringify(renderedCommands) ===
+              JSON.stringify(
+                tool.input.commands.map((command: string) => `$ ${command}`),
+              ) &&
+            body.some(
+              (line) =>
+                line.includes("[y] Approve") && line.includes("[n] Deny"),
+            ),
+        );
+        if (matches.length === 1) {
+          const tool = matches[0];
+          if (
+            state.interaction?.kind === "approval" &&
+            state.interaction.toolId === tool.id
+          )
+            return;
+          state.interaction = {
+            id: identify("approval", tool.id, `Approve ${tool.name}?`, [
+              "Approve",
+              "Deny",
+            ]),
+            revision: state.revision + 1,
+            kind: "approval",
+            state: "awaiting-response",
+            prompt: `Approve ${tool.name}?`,
+            choices: ["Approve", "Deny"],
+            toolId: tool.id,
+            toolName: tool.name,
+            toolInput: structuredClone(tool.input),
+            responseKinds: ["approval"],
+          };
+          state.execution = "awaiting-input";
+          emit("interaction.changed", obs, state.interaction);
+          return;
+        }
+      }
+      if (popup || permission >= 0) {
+        const prompt = popup
+          ? "An additional TUI dialog owns input."
+          : "Current TUI approval is not uniquely linked to complete visible tool arguments.";
+        if (
+          state.interaction?.kind === "unsupported" &&
+          state.interaction.prompt === prompt
+        )
+          return;
+        state.interaction = {
+          id: identify("unsupported", undefined, prompt, []),
+          revision: state.revision + 1,
+          kind: "unsupported",
+          state: "unsupported",
+          prompt,
+          choices: [],
+        };
+        state.execution = "unknown";
+        emit("interaction.changed", obs, state.interaction);
+        return;
+      }
+      const title = visible
+        .map((line) => line.trim())
+        .lastIndexOf("Cline is asking a question");
+      if (title >= 0) {
+        const body = visible.slice(title + 1);
+        const rows = body
+          .map((line, index) => ({ text: line.trim(), index }))
+          .filter((row) => row.text);
+        const matches = pendingTools.filter(
+          (tool) =>
+            tool.name === "ask_question" &&
+            typeof tool.input?.question === "string" &&
+            Array.isArray(tool.input?.options) &&
+            rows[0]?.text === tool.input.question &&
+            tool.input.options.every(
+              (option: unknown, index: number) =>
+                typeof option === "string" &&
+                (rows[index + 1]?.text === option ||
+                  rows[index + 1]?.text === `> ${option}`),
+            ),
+        );
+        const tool = matches.length === 1 ? matches[0] : undefined;
+        if (
+          tool &&
+          tool.input.options.length <= 9 &&
+          new Set(tool.input.options).size === tool.input.options.length
+        ) {
+          const choices: string[] = tool.input.options;
+          const last = rows[choices.length].index;
+          const custom = body.slice(last + 1);
+          const customRow = custom.findIndex((line) => /^\s*> /.test(line));
+          const selected =
+            customRow >= 0
+              ? choices.length
+              : choices.findIndex(
+                  (option, index) => rows[index + 1]?.text === `> ${option}`,
+                );
+          let text: string | null = null;
+          if (customRow >= 0) {
+            const prefix = custom[customRow].match(/^\s*> /)![0];
+            const first = custom[customRow].slice(prefix.length);
+            if (
+              first === "Type a response..." ||
+              first === "Type a response first..."
+            )
+              text = "";
+            else {
+              const parts = [first];
+              for (const line of custom.slice(customRow + 1)) {
+                if (!line.trim()) break;
+                parts.push(line.slice(prefix.length));
+                if (line.trimEnd().endsWith("|")) break;
+              }
+              const joined = parts.join("");
+              if (joined.endsWith("|")) text = joined.slice(0, -1);
+            }
+          }
+          const input = {
+            mode: "tui" as const,
+            selected: selected < 0 ? null : selected,
+            text,
+          };
+          if (
+            state.interaction?.kind === "question" &&
+            state.interaction.toolId === tool.id
+          ) {
+            state.interaction.input = input;
+            return;
+          }
+          state.interaction = {
+            id: identify("question", tool.id, tool.input.question, choices),
+            revision: state.revision + 1,
+            kind: "question",
+            state: "awaiting-response",
+            prompt: tool.input.question,
+            choices,
+            toolId: tool.id,
+            toolName: tool.name,
+            responseKinds: ["choice", "text"],
+            input,
+          };
+          state.execution = "awaiting-input";
+          emit("interaction.changed", obs, state.interaction);
+          return;
+        }
+        const prompt =
+          "Current TUI question is not uniquely linked to history.";
+        if (
+          state.interaction?.kind === "unsupported" &&
+          state.interaction.prompt === prompt
+        )
+          return;
+        state.interaction = {
+          id: identify("unsupported", undefined, prompt, []),
+          revision: state.revision + 1,
+          kind: "unsupported",
+          state: "unsupported",
+          prompt,
+          choices: [],
+        };
+        state.execution = "unknown";
+        emit("interaction.changed", obs, state.interaction);
+        return;
+      }
+      if (state.interaction) {
+        state.interaction = null;
+        state.execution = "unknown";
+        emit("interaction.changed", obs, null);
+      }
+      const bottom = recording!.terminal.rows - 4;
+      const rule = (line: string) => /^─{20,}$/.test(line.trim());
+      if (!state.interaction && rule(visible[bottom]) &&
+          visible.at(-1)?.trim() === "Auto-approve all disabled (Shift+Tab)" &&
+          visible[bottom + 1].includes("● Act (Tab)") &&
+          buffer.cursorY === bottom - 1 && buffer.cursorX >= 2 &&
+          rule(visible[bottom - 2]) && visible[bottom - 1].startsWith("❯ ")) {
+        const line=buffer.getLine(buffer.baseY+bottom-1)!;
+        let end=recording!.terminal.cols;
+        while(end>2 && !line.getCell(end-1)?.getChars().trim())end--;
+        // Intermediate chunks can end in a space. trimEnd() loses that echo,
+        // while the cursor still witnesses the occupied input cells.
+        const text = visible[bottom - 1].slice(2)==='Ask anything...' ? 'Ask anything...'
+          : line.translateToString(false,2,Math.max(end,buffer.cursorX));
+        state.composer = { mode: "tui", text: text === "Ask anything..." ? "" : text };
+      }
+      return;
+    }
+    const cursorRow = buffer.baseY + buffer.cursorY;
+    for (let row = 0; row <= cursorRow; row++)
+      lines.push(buffer.getLine(row)?.translateToString(true) ?? "");
+    const screen = lines.join("\n");
+    const current = lines.at(-1) ?? "";
+    const previous = lines.at(-2) ?? "";
+    const questionComplete = /^Choose 1-\d+ or type a custom answer:$/.test(
+      previous.trim(),
+    );
+    const verified =
+      hasCliProtocol(recording!.cli,"readline");
+    const approval = current
+      .trim()
+      .match(/^Approve "(ask_question|run_commands)" (.+) \[y\/N\]$/);
+    let approvedTool: (typeof pendingTools)[number] | undefined;
+    if (approval) {
+      try {
+        const input = JSON.parse(approval[2]);
+        const matches = pendingTools.filter(
+          (tool) =>
+            tool.name === approval[1] &&
+            JSON.stringify(tool.input) === JSON.stringify(input),
+        );
+        if (matches.length === 1) approvedTool = matches[0];
+      } catch {
+        const prefix = approval[2].replace(/\.\.\.$/, "").trimEnd();
+        if (approval[2].endsWith("...") && prefix.length >= 32) {
+          const matches = pendingTools.filter(
+            (tool) =>
+              tool.name === approval[1] &&
+              JSON.stringify(tool.input).startsWith(prefix),
+          );
+          if (matches.length === 1) approvedTool = matches[0];
+        }
+      }
+    }
+    const unsupported =
+      (!verified && screen.trim()) ||
+      (current.includes("[y/N]") && !approvedTool) ||
+      (!questionComplete && /^>\s*$/.test(current));
+    if (unsupported) {
+      const prompt = !verified
+        ? "CLI profile is not verified."
+        : current.includes("[y/N]")
+          ? "Approval input is not supported by this replay baseline."
+          : "Input prompt syntax is not verified.";
+      if (
+        state.interaction?.kind === "unsupported" &&
+        state.interaction.prompt === prompt
+      )
+        return;
+      state.interaction = {
+        id: identify("unsupported", undefined, prompt, []),
+        revision: state.revision + 1,
+        kind: "unsupported",
+        state: "unsupported",
+        prompt,
+        choices: [],
+      };
+      state.execution = "unknown";
+      emit("interaction.changed", obs, state.interaction);
+      return;
+    }
+    if (verified && approvedTool) {
+      if (
+        state.interaction?.kind === "approval" &&
+        state.interaction.toolId === approvedTool.id
+      )
+        return;
+      state.interaction = {
+        id: identify(
+          "approval",
+          approvedTool.id,
+          `Approve ${approvedTool.name}?`,
+          ["Approve", "Deny"],
+        ),
+        revision: state.revision + 1,
+        kind: "approval",
+        state: "awaiting-response",
+        prompt: `Approve ${approvedTool.name}?`,
+        choices: ["Approve", "Deny"],
+        toolId: approvedTool.id,
+        toolName: approvedTool.name,
+        toolInput: structuredClone(approvedTool.input),
+        responseKinds: ["approval"],
+      };
+      state.execution = "awaiting-input";
+      emit("interaction.changed", obs, state.interaction);
+      return;
+    }
+    if (!questionComplete) {
+      // This verified readline CLI can print the last assistant line after opening
+      // recovery. Its unanswered prompt remains active while the cursor advances
+      // exactly one row; this is not permission to rediscover a scrollback menu.
+      const lateRecoveryOutput =
+        state.interaction?.kind === "recovery" &&
+        (state.response?.interactionId !== state.interaction.id ||
+          state.response?.state === "not-submitted") &&
+        current.trim() === "" &&
+        previous.trim() !== "" &&
+        /^Choose 1-2 or type a custom answer:$/.test(
+          (lines.at(-3) ?? "").trim(),
+        );
+      if (lateRecoveryOutput) return;
+      if (state.interaction) {
+        state.interaction = null;
+        state.execution = "unknown";
+        emit("interaction.changed", obs, null);
+      }
+      return;
+    }
+    const start = screen.lastIndexOf("[follow-up]");
+    if (start < 0) return;
+    const block = screen.slice(start);
+    if (!/Choose 1-\d+ or type a custom answer:/.test(block)) return;
+    const prompt = block
+      .slice(0, block.indexOf("Choose 1-"))
+      .replace(/^\[follow-up\]\s*/, "")
+      .replace(/^\s+\d+\.\s+.+$/gm, "")
+      .trim();
+    const choices = [
+      ...block
+        .slice(0, block.indexOf("Choose 1-"))
+        .matchAll(/^\s+\d+\.\s+(.+)$/gm),
+    ].map((match) => match[1].trim());
+    if (!choices.length) return;
+    const firstLine = block.split("\n")[0].slice("[follow-up]".length).trim();
+    const recovery =
+      /^mistake_limit_reached \(\d+\/\d+\)$/.test(firstLine) &&
+      prompt.includes("How should Cline continue?") &&
+      JSON.stringify(choices) ===
+        JSON.stringify(["Try a different approach", "Stop this run"]);
+    const matches = pendingTools.filter(
+      (tool) =>
+        tool.name === "ask_question" &&
+        tool.input?.question === firstLine &&
+        JSON.stringify(tool.input?.options) === JSON.stringify(choices),
+    );
+    const tool = matches.length === 1 ? matches[0] : undefined;
+    const rejectedId = recovery
+      ? [...results.entries()]
+          .filter(([, result]) => result.rejected)
+          .at(-1)?.[0]
+      : undefined;
+    if (
+      (strictBindings || state.mode === "live") &&
+      ((!tool && !rejectedId) ||
+        choices.length > 9 ||
+        new Set(choices).size !== choices.length)
+    ) {
+      const unresolved = `${firstLine}\nSafe response target is not uniquely linked to current history.`;
+      if (
+        state.interaction?.kind === "unsupported" &&
+        state.interaction.prompt === unresolved
+      )
+        return;
+      state.interaction = {
+        id: identify("unsupported", undefined, unresolved, []),
+        revision: state.revision + 1,
+        kind: "unsupported",
+        state: "unsupported",
+        prompt: unresolved,
+        choices: [],
+        responseKinds: [],
+      };
+      state.execution = "unknown";
+      emit("interaction.changed", obs, state.interaction);
+      return;
+    }
+    if (
+      state.interaction?.prompt === (recovery ? prompt : firstLine) &&
+      state.interaction?.toolId === (tool?.id ?? rejectedId) &&
+      JSON.stringify(state.interaction.choices) === JSON.stringify(choices)
+    )
+      return;
+    state.interaction = {
+      id: identify(
+        recovery ? "recovery" : "question",
+        tool?.id ?? rejectedId,
+        recovery ? prompt : firstLine,
+        choices,
+      ),
+      revision: state.revision + 1,
+      kind: "question",
+      state: "awaiting-response",
+      prompt: recovery ? prompt : firstLine,
+      choices,
+      responseKinds:
+        (tool || rejectedId) &&
+        choices.length <= 9 &&
+        new Set(choices).size === choices.length
+          ? recovery
+            ? ["choice"]
+            : ["choice", "text"]
+          : [],
+      ...(tool ? { toolId: tool.id, toolName: tool.name } : {}),
+      ...(recovery ? { kind: "recovery" as const, toolId: rejectedId } : {}),
+    };
+    state.execution = "awaiting-input";
+    emit("interaction.changed", obs, state.interaction);
+  };
+  const rawContext = (
+    obs: BindingObservation | PhaseObservation | GapObservation,
+  ) => {
+    observationEvents = [];
+    if (obs.kind === "binding") {
+      if(obs.supersededBy && resultRequest) resultRequest.supersededBy=obs.supersededBy;
+      const next = {
+        sessionId: obs.sessionId,
+        ...(obs.supersededBy ? {supersededBy:obs.supersededBy} : {}),
+        ...(obs.executionId ? { executionId: obs.executionId } : {}),
+      };
+      if (
+        Object.entries(next).some(([k, v]) => state[k as keyof Snapshot] !== v)
+      ) {
+        Object.assign(state, next);
+        if(state.sessionId)state.startup=undefined;
+        emit("state.changed", obs, next);
+      }
+    }
+    if (obs.kind === "phase") {
+      rawPhase = obs.phase;
+      phaseSupported = obs.supported;
+      composerEvidence = obs.terminalEvidence;
+      if(typeof obs.terminalEvidence?.ledgerCurrent==="boolean"){
+        const next={current:obs.terminalEvidence.ledgerCurrent,reason:obs.terminalEvidence.ledgerCurrent?null:"ledger-unavailable" as const};
+        if(JSON.stringify(next)!==JSON.stringify(state.inputControl)){state.inputControl=next;emit("state.changed",obs,{inputControl:next});}
+      }
+      pendingPhase = null;
+    }
+    if (
+      obs.kind === "gap" &&
+      state.interaction?.id !== `${state.executionId}:observation-gap`
+    ) {
+      if(state.jsonOutput) {jsonParser.gap();state.jsonOutput=jsonParser.state();}
+      state.execution = "unknown";
+      state.interaction = {
+        id: `${state.executionId}:observation-gap`,
+        revision: state.revision + 1,
+        kind: "unsupported",
+        state: "unsupported",
+        prompt:
+          "Terminal observations were dropped. Resynchronization is required before responding.",
+        choices: [],
+      };
+      emit("state.changed", obs, {
+        execution: state.execution,
+        interaction: state.interaction,
+        ...(state.jsonOutput?{jsonOutput:state.jsonOutput}:{}),
+      });
+    }
+    updateResult(obs);
+    updateMessageInput(obs);
+    options.observe?.(obs, observationEvents, snapshot());
+    return snapshot();
+  };
+  const initialize = async (obs: InitializeObservation) => {
+    if (!recording)
+      recording = {
+        schemaVersion: 2,
+        cli: obs.cli,
+        terminal: obs.terminal,
+        sessionId: obs.sessionId,
+        executionId: obs.executionId,
+        observations: [],
+        provenance: {
+          source: "live",
+          sourceSha256: "",
+          review: "",
+          transformations: [],
+          complete: false,
+          truncated: false,
+        },
+      };
+    recording.cli = obs.cli;
+    recording.terminal = obs.terminal;
+    strictBindings = true;
+    terminal?.dispose();
+    terminal = new xterm.Terminal({
+      ...obs.terminal,
+      allowProposedApi: true,
+      scrollback: 1000,
+    });
+    terminal.loadAddon(new unicode11.Unicode11Addon());
+    terminal.unicode.activeVersion = "11";
+    interactionSerial = 0;
+    pendingTools = [];
+    results = new Map();
+    rawPhase = null;
+    phaseSupported = false;
+    composerEvidence = undefined;
+    pendingPhase = null;
+    responseBinding = null;
+    resumeDigest = null;
+    messageDigest = null;messageBaseline.clear();historyIds=[];streamTurn=null;streamSettled=false;
+    latestProcess = null;
+    jsonParser=jsonOutputParser();
+    resultRequest=prepareResult(obs.resultRequest,obs.resultRequest?.baselineMessageIds);
+    resultHistorySeq=0;
+    observationEvents = [];
+    Object.assign(state, {
+      sessionId: obs.sessionId,
+      executionId: obs.executionId,
+      execution: "unknown",
+      messages: [],
+      startup:obs.executionId && !obs.sessionId ? {state:"waiting-for-session"} : undefined,
+      jsonOutput:hasCliProtocol(obs.cli,"json")?jsonParser.state():undefined,
+      result:undefined,
+      interaction: null,
+      response: null,
+      stop: null,
+      executionEvidence: null,
+      historySync: { current: true, warning: null },
+      composer: null,
+      messageInput: undefined,
+      messageDelivery: null,
+      inputControl: undefined,
+      resume: null,
+    });
+    emit("state.changed", obs, {
+      sessionId: obs.sessionId,
+      executionId: obs.executionId,
+    });
+    updateResult(obs);
+    updateMessageInput(obs);
+    options.observe?.(obs, observationEvents, snapshot());
+    return snapshot();
+  };
+  const responseObservation = (
+    obs:
+      | ResponseInputObservation
+      | ResponseReceiptObservation
+      | ResponseFaultObservation,
+  ) => {
+    observationEvents = [];
+    let next: ResponseResult["state"] | undefined;
+    if (obs.kind === "response-input") {
+      if (responseBinding?.requestId !== obs.binding.requestId) {
+        responseBinding = obs.binding;
+        next = "submitting";
+      }
+    }
+    if (
+      obs.kind === "response-fault" &&
+      responseBinding?.requestId === obs.requestId
+    )
+      next = obs.beforeWrite ? "not-submitted" : "delivery-unknown";
+    if (obs.kind === "response-receipt") {
+      const composerReceipts=obs.receipts.filter(r=>r.message===true && r.binding?.kind==="composer" && r.binding.executionId===state.executionId && r.binding.sessionId===state.sessionId);
+      const composerReceipt=state.messageDelivery ? composerReceipts.find(r=>r.requestId===state.messageDelivery!.requestId) ?? (obs.final?composerReceipts.at(-1):undefined) : composerReceipts.filter(r=>!r.resolution).at(-1) ?? composerReceipts.at(-1);
+      if(composerReceipt && (state.messageDelivery?.state!=="submitting" || obs.final)) {
+        const r=composerReceipt,w=r.witness,count=r.baselineMessageCount;
+        const matched=state.historySync.current && Number.isSafeInteger(count) && count>=0 && historyIds.length>=count && (!count || historyIds[count-1]===r.baselineLastMessageId) &&
+          w?.state==="delivered" && w.executionId===state.executionId && w.sessionId===state.sessionId && w.promptDigest===r.binding.answerDigest && historyIds.indexOf(w.messageId)>=count &&
+          state.messages.some(m=>m.id===w.messageId && m.role==="user" && createHash("sha256").update(m.text).digest("hex")===w.promptDigest);
+        const nextMessage:MessageDelivery={requestId:r.requestId,executionId:r.binding.executionId,sessionId:r.binding.sessionId,state:matched?"delivered":messageNotSubmitted(r)?"not-submitted":"delivery-unknown",messageId:matched?w.messageId:null};
+        // A temporary read failure does not erase a previously confirmed witness.
+        const prior=state.messageDelivery;
+        if(!state.historySync.current && prior && prior.requestId===r.requestId && prior.state==="delivered"){nextMessage.state="delivered";nextMessage.messageId=prior.messageId;}
+        if(JSON.stringify(nextMessage)!==JSON.stringify(state.messageDelivery)){state.messageDelivery=nextMessage;emit("state.changed",obs,{messageDelivery:nextMessage});}
+      }
+      const receipts = obs.receipts.filter(r=>r.binding?.kind !== "composer");
+      const receipt =
+        (obs.final ? receipts.at(-1) : undefined) ??
+        receipts.find((r) => r.requestId === responseBinding?.requestId) ??
+        (responseBinding
+          ? {
+              requestId: responseBinding.requestId,
+              binding: responseBinding,
+              state: "unobserved",
+            }
+          : obs.final
+            ? receipts.at(-1)
+            : undefined);
+      if (receipt?.binding && (!responseBinding || obs.final))
+        responseBinding = { ...receipt.binding, requestId: receipt.requestId };
+      if (receipt && responseBinding) {
+        const b = responseBinding;
+        const result = results.get(b.toolId);
+        const resolved = deliveryState(
+          { ...receipt, binding: b } as DurableResponse,
+          state,
+          result,
+          latestProcess,
+        );
+        if (
+          obs.final ||
+          receipt.resolution ||
+          (resolved !== "delivery-unknown" && receipt.state !== "reserved")
+        )
+          next = resolved;
+      }
+    }
+    if (
+      next &&
+      responseBinding &&
+      (state.response?.requestId !== responseBinding.requestId ||
+        state.response.state !== next)
+    ) {
+      const b = responseBinding;
+      state.response = {
+        sessionId: b.sessionId,
+        executionId: b.executionId,
+        interactionId: b.interactionId,
+        requestId: b.requestId,
+        state: next,
+        revision: state.revision + 1,
+      };
+      if (state.interaction?.id === b.interactionId)
+        state.interaction.state =
+          next === "not-submitted" ? "awaiting-response" : next;
+      emit("response.changed", obs, state.response);
+    }
+    updateMessageInput(obs);
+    options.observe?.(obs, observationEvents, snapshot());
+    return snapshot();
+  };
+  const executionAction = (obs: ExecutionActionObservation) => {
+    observationEvents = [];
+    if (obs.action === "stop") {
+      state.execution = "unknown";
+      state.stop =
+        obs.operation === "receipt" && obs.receipt && "childrenVerified" in obs.receipt
+          ? structuredClone(obs.receipt)
+          : {
+              executionId: obs.executionId,
+              requestId: obs.requestId,
+              state: obs.operation === "requested" ? "stopping" : "unknown",
+              childrenVerified: false,
+              trackedCount: 0,
+              remaining: [],
+              reason: obs.reason ?? null,
+              observedAt: obs.observedAt,
+            };
+      emit("state.changed", obs, {
+        execution: state.execution,
+        stop: state.stop,
+      });
+    }
+    if (obs.action === "message") {
+      const previous=JSON.stringify(state.messageDelivery);
+      if(obs.operation==="requested") {
+        messageDigest=obs.promptDigest ?? null;
+        messageBaseline=new Set(state.messages.map(m=>m.id));
+        state.messageDelivery={requestId:obs.requestId,executionId:obs.executionId,sessionId:obs.sessionId ?? "unknown",state:"submitting",messageId:null};
+      } else if(state.messageDelivery?.requestId===obs.requestId) {
+        const witness=obs.receipt;
+        const matched=obs.operation==="receipt" && witness && "messageId" in witness && witness.state==="delivered" &&
+          witness.executionId===state.executionId && witness.sessionId===state.sessionId && witness.promptDigest===messageDigest &&
+          state.historySync.current && state.messages.some(m=>m.id===witness.messageId && !messageBaseline.has(m.id) && m.role==="user" && createHash("sha256").update(m.text).digest("hex")===messageDigest);
+        if(obs.operation==="receipt" || obs.operation==="fault") {
+          const unsubmitted=obs.operation==="receipt" && witness && witness.state==="not-submitted" && "promptDigest" in witness && witness.promptDigest===messageDigest && witness.executionId===state.executionId && witness.sessionId===state.sessionId;
+          state.messageDelivery.state=matched?"delivered":unsubmitted?"not-submitted":"delivery-unknown";
+          state.messageDelivery.messageId=matched && witness && "messageId" in witness ? witness.messageId ?? null : null;
+        }
+      }
+      if(previous!==JSON.stringify(state.messageDelivery)) emit("state.changed",obs,{messageDelivery:state.messageDelivery});
+    }
+    if (obs.action === "resume") {
+      const previous = JSON.stringify(state.resume);
+      if (obs.operation === "requested") {
+        resumeDigest = obs.promptDigest ?? null;
+        state.resume = {
+          requestId: obs.requestId,
+          fromExecutionId: obs.fromExecutionId ?? obs.executionId,
+          executionId: obs.nextExecutionId ?? obs.executionId,
+          sessionId: obs.sessionId ?? state.sessionId ?? "unknown",
+          state: "submitting",
+        };
+      } else if (state.resume?.requestId === obs.requestId && obs.operation === "fault") {
+        state.resume.state = "delivery-unknown";
+      } else if(state.resume?.requestId===obs.requestId && obs.operation==='receipt' && obs.receipt?.state==='not-submitted' && 'promptDigest' in obs.receipt && obs.receipt.promptDigest===resumeDigest && obs.receipt.executionId===state.resume.executionId && obs.receipt.sessionId===state.resume.sessionId) {
+        state.resume.state='not-submitted';
+      } else if (state.resume?.requestId === obs.requestId && obs.operation === "receipt" && obs.receipt && "messageId" in obs.receipt) {
+        const witness = obs.receipt;
+        const delivered = witness.state === "delivered" &&
+          witness.executionId === state.executionId && witness.sessionId === state.sessionId &&
+          typeof witness.promptDigest === "string" && witness.promptDigest === resumeDigest &&
+          state.historySync.current && state.messages.some(m =>
+            m.id === witness.messageId && m.role === "user" &&
+            createHash("sha256").update(m.text).digest("hex") === witness.promptDigest);
+        state.resume.state = delivered ? "delivered" : "delivery-unknown";
+      }
+      if (previous !== JSON.stringify(state.resume)) emit("state.changed",obs,{resume:state.resume});
+    }
+    updateMessageInput(obs);
+    updateStreaming(obs);
+    options.observe?.(obs, observationEvents, snapshot());
+    return snapshot();
+  };
+  return {
+    executionAction,
+    responseObservation,
+    initialize,
+    binding: rawContext,
+    phase: rawContext,
+    gap: rawContext,
+    connection(obs) {
+      observationEvents = [];
+      if (state.connection !== obs.action) {
+        state.connection = obs.action;
+        emit("state.changed", obs, {
+          connection: obs.action,
+          ...(obs.reason ? { reason: obs.reason } : {}),
+        });
+      }
+      updateMessageInput(obs);
+      options.observe?.(obs, observationEvents, snapshot());
+      return snapshot();
+    },
+    async openReplay(input) {
+      validateRecording(input);
+      const preparedResult=prepareResult(input.resultRequest,input.resultRequest?.baselineMessageIds);
+      recording = structuredClone(input);
+      strictBindings = input.interpretation === "live";
+      rawPhase = null;
+      phaseSupported = false;
+      composerEvidence = undefined;
+      pendingPhase = null;
+      responseBinding = null;
+      resumeDigest = null;
+    messageDigest = null;messageBaseline.clear();historyIds=[];streamTurn=null;streamSettled=false;
+      latestProcess = null;
+      jsonParser=jsonOutputParser();
+      resultRequest=preparedResult;
+      resultHistorySeq=0;
+      terminal?.dispose();
+      terminal = new xterm.Terminal({
+        ...input.terminal,
+        allowProposedApi: true,
+        scrollback: 1000,
+      });
+      terminal.loadAddon(new unicode11.Unicode11Addon());
+      terminal.unicode.activeVersion = "11";
+      interactionSerial = 0;
+      pendingTools = [];
+      results = new Map();
+      state = {
+        ...state,
+        sessionId: input.sessionId,
+        executionId: input.executionId,
+        supersededBy: undefined,
+        revision: 0,
+        connection: input.schemaVersion === 2 ? "closed" : "replay",
+        execution: "unknown",
+        messages: [],
+        streaming: undefined,
+        startup:input.executionId && !input.sessionId ? {state:"waiting-for-session"} : undefined,
+        jsonOutput:hasCliProtocol(input.cli,"json")?jsonParser.state():undefined,
+        result:undefined,
+        interaction: null,
+        response: null,
+        stop: null,
+        executionEvidence: null,
+        historySync: { current: true, warning: null },
+            composer: null,
+        messageInput: undefined,
+        messageDelivery: null,
+        resume: null,
+        replay: {
+          position: 0,
+          total: input.observations.length,
+          complete: input.provenance.complete,
+          truncated: input.provenance.truncated,
+        },
+      };
+      if(resultRequest) state.result=structuredResult(resultRequest,state,resultHistorySeq);
+      return snapshot();
+    },
+    async nextObservation() {
+      if (!recording)
+        throw new SdkError("replay-not-open", "Open a recording first.");
+      const obs = recording.observations[state.replay.position];
+      if (!obs) return snapshot();
+      state.replay.position++;
+      if (obs.kind === "initialize") return initialize(obs);
+      if (obs.kind === "binding" || obs.kind === "phase" || obs.kind === "gap")
+        return rawContext(obs);
+      if (
+        obs.kind === "response-input" ||
+        obs.kind === "response-receipt" ||
+        obs.kind === "response-fault"
+      )
+        return responseObservation(obs);
+      if (obs.kind === "execution-action") return executionAction(obs);
+      observationEvents = [];
+      if (obs.kind === "json-output") {
+        if(!hasCliProtocol(recording!.cli,"json")) throw new SdkError("unsupported-json-profile","JSON observations require a verified profile.");
+        jsonParser.feed(Buffer.from(obs.dataBase64,"base64"),obs.channel);
+        const output=jsonParser.state();
+        if(JSON.stringify(output)!==JSON.stringify(state.jsonOutput)) {
+          state.jsonOutput=output;
+          emit("state.changed",obs,{jsonOutput:output});
+          if(output.state === "unsupported") {
+            state.interaction={id:`${state.executionId}:json-unsupported`,revision:state.revision,kind:"unsupported",state:"unsupported",prompt:output.warning!,choices:[]};
+            emit("interaction.changed",obs,state.interaction);
+          }
+        }
+      }
+      if (obs.kind === "connection" && state.connection !== obs.action) {
+        state.connection = obs.action;
+        emit("state.changed", obs, {
+          connection: obs.action,
+          ...(obs.reason ? { reason: obs.reason } : {}),
+        });
+      }
+      if (obs.kind === "history-failure") historyFailure(obs);
+      if (obs.kind === "pty" && obs.apply !== false) {
+        await new Promise<void>((resolve) =>
+          terminal!.write(Buffer.from(obs.dataBase64, "base64"), resolve),
+        );
+        interpretScreen(obs);
+      }
+      if (obs.kind === "history") {
+        let messages: Message[];
+        let nextHistoryIds:string[];
+        let nextTools: typeof pendingTools = [];
+        const nextResults = new Map<
+          string,
+          { digest: string; rejected: boolean }
+        >();
+        try {
+          const doc = JSON.parse(
+            Buffer.from(obs.dataBase64, "base64").toString("utf8"),
+          );
+          if (
+            doc.version !== 1 ||
+            doc.sessionId !== state.sessionId ||
+            !Array.isArray(doc.messages)
+          )
+            throw new Error("Invalid envelope");
+          nextHistoryIds=doc.messages.map((m:{id:string})=>m.id);
+          for (const raw of doc.messages) {
+            if (!Array.isArray(raw.content)) throw new Error("Invalid content");
+            for (const part of raw.content) {
+              if (
+                part.type === "tool_use" &&
+                typeof part.id === "string" &&
+                typeof part.name === "string"
+              )
+                nextTools.push({
+                  id: part.id,
+                  name: part.name,
+                  input: part.input,
+                });
+              if (
+                part.type === "tool_result" &&
+                typeof part.tool_use_id === "string"
+              )
+                nextResults.set(part.tool_use_id, {
+                  digest: createHash("sha256")
+                    .update(
+                      typeof part.content === "string"
+                        ? part.content
+                        : JSON.stringify(part.content),
+                    )
+                    .digest("hex"),
+                  rejected:
+                    part.is_error === true ||
+                    JSON.stringify(part.content).includes(
+                      "rejected by the user and not executed",
+                    ),
+                });
+            }
+          }
+          messages = doc.messages
+            .filter(
+              (raw: { role: string }) =>
+                raw.role === "assistant" || raw.role === "user",
+            )
+            .map(
+              (raw: {
+                id: string;
+                role: Message["role"];
+                content: { type: string; text: string; thinking?: string }[];
+              }) => {
+                if (
+                  typeof raw.id !== "string" ||
+                  !Array.isArray(raw.content) ||
+                  raw.content.some(
+                    (part) =>
+                      (part.type === "text" && typeof part.text !== "string") ||
+                      (part.type === "thinking" && typeof part.thinking !== "string"),
+                  )
+                )
+                  throw new Error("Invalid message");
+                return {
+                  id: raw.id,
+                  role: raw.role,
+                  ...(raw.content.some(part=>part.type === "tool_use")?{hasToolCalls:true}:{}),
+                  ...(raw.content.some(part=>part.type === "tool_result")?{isToolResult:true}:{}),
+                  content: raw.content.filter(part=>["text","thinking","redacted_thinking"].includes(part.type)).map((part):MessageContent=>
+                    part.type === "thinking" ? {type:"thinking",thinking:part.thinking!} : part.type === "redacted_thinking" ? {type:"redacted_thinking"} : {type:"text",text:part.text}),
+                  text: raw.content
+                    .filter((part) => part.type === "text")
+                    .map((part) => raw.role === "user" && (hasCliProtocol(recording!.cli,"readline") || hasCliProtocol(recording!.cli,"tui")) && part.text.startsWith('<user_input mode="act">') && part.text.endsWith('</user_input>')
+                      ? part.text.slice(23,-13) : part.text)
+                    .join("\n"),
+                };
+              },
+            );
+        } catch {
+          historyFailure(obs);
+          updateResult(obs);
+          updateMessageInput(obs);
+          options.observe?.(obs, observationEvents, snapshot());
+          throw new SdkError(
+            "invalid-history",
+            "History observation was incomplete or incompatible; the last valid conversation is preserved.",
+          );
+        }
+        historyIds=nextHistoryIds;
+        results = nextResults;
+        resultHistorySeq=obs.seq;
+        if (!state.historySync.current) {
+          state.historySync = { current: true, warning: null };
+          emit("state.changed", obs, { historySync: state.historySync });
+        }
+        pendingTools = nextTools.filter((tool) => !results.has(tool.id));
+        for (const message of messages) {
+          if (!message.text && !message.content?.length) continue;
+          const old = state.messages.find((m) => m.id === message.id);
+          if (!old || JSON.stringify(old) !== JSON.stringify(message)) {
+            if (old) state.messages[state.messages.indexOf(old)]={...message};
+            else state.messages.push({ ...message });
+            emit("message.upsert", obs, message);
+          }
+        }
+        interpretScreen(obs);
+      }
+      if (obs.kind === "process") {
+        if(state.jsonOutput && !obs.alive && obs.exitCode !== null && obs.supervisorAlive === false) {
+          const previousOutput=JSON.stringify(state.jsonOutput);
+          jsonParser.end(); state.jsonOutput=jsonParser.state();
+          if(previousOutput!==JSON.stringify(state.jsonOutput)) emit("state.changed",obs,{jsonOutput:state.jsonOutput});
+        }
+        latestProcess = obs;
+        const previous = state.execution;
+        const previousStop = JSON.stringify(state.stop);
+        const previousStartup = state.startup;
+        state.executionEvidence = structuredClone(obs);
+        if (obs.stop) state.stop = structuredClone(obs.stop);
+        if (state.stop)
+          state.execution =
+            state.stop.state === "confirmed" &&
+            state.stop.childrenVerified &&
+            state.stop.remaining.length === 0 &&
+            obs.identityConfirmed &&
+            !obs.alive
+              ? "stopped"
+              : "unknown";
+        else if (!state.historySync.current) state.execution = "unknown";
+        else if (!obs.identityConfirmed) {
+          state.execution = "unknown";
+          state.interaction = null;
+        } else if (obs.alive)
+          state.execution =
+            state.interaction && state.interaction.state !== "unsupported"
+              ? "awaiting-input"
+              : state.interaction?.state === "unsupported"
+                ? "unknown"
+                : "running";
+        else if (obs.exitCode === null) {
+          state.execution = "unknown";
+          state.interaction = null;
+        } else if (obs.manifestStatus === "cancelled" || obs.requestedStop)
+          state.execution =
+            obs.childrenVerified === true && !obs.children?.length
+              ? "stopped"
+              : "unknown";
+        else if (
+          obs.childrenVerified !== true ||
+          !Array.isArray(obs.children) ||
+          obs.children.length > 0 ||
+          obs.supervisorAlive !== false ||
+          !!obs.trackingError
+        ) state.execution = "unknown";
+        else if (obs.exitCode !== 0 || obs.manifestStatus === "failed")
+          state.execution = "failed";
+        else if (
+          obs.manifestStatus === "completed" &&
+          (!state.jsonOutput || state.jsonOutput.state === "completed") &&
+          state.messages.some((m) => m.role === "assistant" && m.text)
+        )
+          state.execution = "completed";
+        else state.execution = "unknown";
+        if (state.historySync.current && !obs.alive && obs.exitCode !== null)
+          state.interaction = null;
+        if (['stopped','completed','failed'].includes(state.execution))state.startup=undefined;
+        if (
+          previous !== state.execution ||
+          previousStartup !== state.startup ||
+          previousStop !== JSON.stringify(state.stop)
+        )
+          emit("state.changed", obs, {
+            execution: state.execution,
+            startup:state.startup,
+            process: obs,
+          });
+      }
+      updateResult(obs);
+      updateMessageInput(obs);
+      updateStreaming(obs);
+      options.observe?.(obs, observationEvents, snapshot());
+      return snapshot();
+    },
+    async ingest(obs) {
+      if (!recording)
+        throw new SdkError(
+          "reducer-not-open",
+          "Initialize the observation profile first.",
+        );
+      recording.observations = [obs];
+      state.replay.position = 0;
+      try {
+        return await this.nextObservation();
+      } finally {
+        recording.observations = [];
+      }
+    },
+    setContext(context) {
+      if (
+        Object.entries(context).some(
+          ([key, value]) =>
+            JSON.stringify(state[key as keyof Snapshot]) !==
+            JSON.stringify(value),
+        )
+      ) {
+        Object.assign(state, context);
+        emit(
+          "state.changed",
+          {
+            kind: "pty",
+            seq: 0,
+            observedAt: new Date().toISOString(),
+            dataBase64: "",
+          },
+          context,
+        );
+      }
+      return snapshot();
+    },
+    async replayAll() {
+      while (
+        recording &&
+        state.replay.position < recording.observations.length
+      ) {
+        try {
+          await this.nextObservation();
+        } catch (error) {
+          if (
+            recording.schemaVersion !== 2 ||
+            !(error instanceof SdkError) ||
+            error.code !== "invalid-history"
+          )
+            throw error;
+        }
+      }
+      return snapshot();
+    },
+    snapshot,
+    toolResult(id) {
+      return results.get(id);
+    },
+    setResponse(response) {
+      state.response = { ...response, revision: state.revision + 1 };
+      if (state.interaction?.id === response.interactionId)
+        state.interaction.state =
+          response.state === "not-submitted"
+            ? "awaiting-response"
+            : response.state;
+      emit(
+        "response.changed",
+        {
+          kind: "pty",
+          seq: 0,
+          observedAt: new Date().toISOString(),
+          dataBase64: "",
+        },
+        state.response,
+      );
+      return snapshot();
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    async respond() {
+      throw new SdkError(
+        "replay-read-only",
+        "Replay never sends remote input.",
+      );
+    },
+    async sendMessage() {
+      throw new SdkError("replay-read-only", "Replay never controls remote execution.");
+    },
+    async stop() {
+      throw new SdkError(
+        "replay-read-only",
+        "Replay never controls remote execution.",
+      );
+    },
+    capabilities() {
+      return {
+        structuredResults:{json:true,schemaValidation:true,nativeSchema:false},
+        replay: true,
+        live: false,
+        responses: false,
+        sendMessage: false,
+        companyCompatibility: "unverified",
+      };
+    },
+    close() {
+      state.connection = "closed";
+      if(state.messageInput) state.messageInput={ready:false,reason:"not-connected",maxBytes:112};
+      terminal?.dispose();
+      terminal = null;
+      recording = null;
+      listeners.clear();
+    },
+  };
+}

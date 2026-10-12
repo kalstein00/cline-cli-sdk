@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  />
+  <title>Cline SDK · 원격 실행과 기록 재생</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f4f6fa;
+      color: #192338;
+      font:
+        16px system-ui,
+        sans-serif;
+    }
+    main {
+      max-width: 980px;
+      margin: 48px auto;
+      padding: 0 24px;
+    }
+    h1 {
+      font-size: 30px;
+      margin: 12px 0;
+    }
+    .badge {
+      background: #e0ebff;
+      color: #17479d;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    p {
+      line-height: 1.6;
+      color: #526078;
+    }
+    nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 24px 0;
+    }
+    button {
+      font: inherit;
+      background: white;
+      border: 1px solid #c3cede;
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      border-color: #3e69bc;
+    }
+    button:disabled {
+      cursor: default;
+      color: #7d8797;
+      background: #f0f2f6;
+    }
+    section {
+      background: white;
+      border: 1px solid #dde3ec;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 16px 0;
+    }
+    h2 {
+      font-size: 19px;
+      margin: 0 0 16px;
+    }
+    dl {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px;
+      margin: 0;
+    }
+    dt {
+      color: #637088;
+    }
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    .text {
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+    .warning {
+      color: #936113;
+      background: #fff7e2;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .choices {
+      display: flex;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .empty {
+      color: #7c8798;
+    }
+    small {
+      color: #67758a;
+    }
+    pre {
+      white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 220px;
+      overflow: auto;
+    }
+    #error {
+      color: #aa283c;
+    }
+    label {
+      display: block;
+      margin: 12px 0;
+      color: #526078;
+    }
+    input,
+    textarea {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 10px;
+      font: inherit;
+      border: 1px solid #c3cede;
+      border-radius: 6px;
+      margin-top: 5px;
+    }
+    textarea {
+      min-height: 90px;
+    }
+  </style>
+  <main>
+    <span class="badge">공개 CLI 기준선 · 회사 호환성 미검증</span>
+    <h1>Cline CLI SDK 예제</h1>
+    <p>
+      SSH로 원격 작업을 시작하고 SDK 상태를 확인하거나 검토한 관측 자료를
+      재생합니다.
+    </p>
+    <nav aria-label="재생 기록">
+      <button data-fixture="message">정상 메시지 재생</button
+      ><button data-fixture="question">선택 질문 재생</button
+      ><button data-fixture="unsupported">미지원 화면 재생</button>
+      <button data-fixture="content">think·JSON 합성 재생</button>
+      <button data-fixture="content-mismatch">Schema 불일치 합성 재생</button>
+      <button data-fixture="content-invalid">JSON 오류 합성 재생</button>
+    </nav>
+    <p id="error" role="alert"></p>
+    <section>
+      <details id="setup" open>
+        <summary>연결·작업 설정</summary>
+        <h2>연결과 환경 점검</h2>
+        <label>SSH 호스트 또는 별칭<input id="host" value="wsl" /></label>
+        <label
+          >고정 CLI 절대 경로<input id="cliPath" placeholder="/path/to/cline"
+        /></label>
+        <label
+          >관리 디렉터리 (선택)<input
+            id="remoteRoot"
+            placeholder="~/.local/state/cline-cli-sdk"
+        /></label>
+        <label
+          >SSH 키 파일 경로 (선택, 기본 SSH agent)<input id="identityFile"
+        /></label>
+        <button id="connect">연결·환경 점검</button>
+        <pre id="preflight">아직 점검하지 않았습니다.</pre>
+        <label><input id="companyFlags" type="checkbox" />회사 옵션 정보: --zen 미지원 / --json 지원 (미검증 선언)</label>
+        <label
+          >원격 작업 디렉터리<input id="cwd" placeholder="/remote/workspace"
+        /></label>
+        <label
+          >격리 CLI 데이터 디렉터리 (선택)<input
+            id="dataDir"
+            placeholder="인증을 별도로 준비한 데이터 경로"
+        /></label>
+        <label
+          >요청<textarea id="prompt">
+Reply exactly SDK_LIVE_READY. Do not call any tools.</textarea>
+        </label>
+        <button id="start" disabled>작업 시작</button>
+        <label>출력 모드<select id="outputMode"><option value="terminal">터미널 관측</option><option value="json" disabled>JSON 관측 · 어댑터 지원 확인 필요</option></select></label>
+        <pre id="features">기능 지원 근거를 확인하려면 연결하세요.</pre>
+        <label><input id="jsonResult" type="checkbox" />최종 답변을 SDK JSON 결과로 받기</label>
+        <label>JSON Schema (선택, draft 2020-12)<textarea id="outputSchema" placeholder='{"type":"object"}'></textarea></label>
+        <label>검증 방식<select id="schemaValidation"><option value="sdk">SDK 결과 검증</option><option value="native">네이티브 생성 강제 · 현재 CLI 미지원</option></select></label>
+        <label
+          >입력 모드<select id="terminalMode">
+            <option value="tui">TUI · 자유 응답</option>
+            <option value="readline">readline · 숫자 선행 응답 제한</option>
+          </select></label
+        >
+        <button id="refresh" disabled>현재 상태 확인</button>
+        <label
+          >재시도 한도 (선택, 1–10)<input
+            id="retryLimit"
+            type="number"
+            min="1"
+            max="10"
+        /></label>
+      </details>
+    </section>
+    <section>
+      <h2>진단 기록</h2>
+      <label
+        ><input id="diagnosticEnabled" type="checkbox" />다음 연결부터 원시 진단
+        수집</label
+      >
+      <label>저장 디렉터리<input id="diagnosticDirectory" /></label>
+      <label
+        >용량 한도 (MiB, 1–256)<input
+          id="diagnosticLimit"
+          type="number"
+          min="1"
+          max="256"
+          value="16"
+      /></label>
+      <p>
+        기본 보관: 5개 묶음 · 7일. 대화·도구 인자·응답이 포함될 수 있습니다.
+        반출 전 내용을 검토하세요.
+      </p>
+      <button id="diagnosticStart" disabled>진단 시작</button>
+      <button id="diagnosticStop" disabled>진단 종료·저장</button>
+      <pre id="diagnosticStatus">
+평상시: 로컬 원시 기록을 저장하지 않습니다.</pre>
+      <label>열 기록 경로<input id="diagnosticPath" /></label>
+      <button id="diagnosticReplay">기록 열기·오프라인 비교</button>
+      <pre id="diagnosticComparison">아직 비교하지 않았습니다.</pre>
+      <h2>반출 사본 검토</h2>
+      <p>
+        인증 설정·키 파일은 수집 대상에서 제외됩니다. 대화·도구 인자·원시 출력의
+        비밀은 내용을 검토해 직접 선택하세요. 자동 업로드는 없습니다.
+      </p>
+      <button id="diagnosticReview">포함 항목 검토</button>
+      <pre id="reviewSummary">기록 경로를 입력한 뒤 검토하세요.</pre>
+      <details>
+        <summary>기록 메타데이터 · 변환 이력</summary>
+        <pre id="reviewMetadata"></pre>
+      </details>
+      <label
+        >검토할 관측 번호 (0부터)<input
+          id="reviewIndex"
+          type="number"
+          min="0"
+          value="0"
+      /></label>
+      <button id="reviewItem">관측 내용 열기</button>
+      <button id="reviewPrevious">이전 관측</button
+      ><button id="reviewNext">다음 관측</button>
+      <p id="reviewPageLabel"></p>
+      <pre id="reviewContent" style="max-height: 360px; overflow: auto"></pre>
+      <button id="reviewPageNext">다음 내용 페이지</button>
+      <label
+        >가릴 원문 (한 줄에 하나)<textarea
+          id="exportMasks"
+          rows="3"
+          placeholder="직접 검토한 민감 문자열"
+        ></textarea>
+      </label>
+      <button id="exportPreview">가림 계획 확인</button>
+      <pre id="exportPlan">가림은 원본에 적용하지 않습니다.</pre>
+      <label
+        >새 로컬 사본 디렉터리<input
+          id="exportDestination"
+          placeholder="존재하지 않는 새 디렉터리의 절대 경로"
+      /></label>
+      <button id="diagnosticExport">검토한 사본 내보내기</button>
+      <pre id="exportResult"></pre>
+      <p id="reviewError" role="alert" class="warning" hidden></p>
+    </section>
+    <section>
+      <h2>관리 세션 복구</h2>
+      <p>
+        SDK로 시작한 실행을 선택하면 원격 기록과 현재 질문을 다시 확인합니다.
+        연결 해제 후에도 원격 작업은 계속됩니다.
+      </p>
+      <button id="disconnect" disabled>연결 해제</button>
+      <button id="managedRefresh" disabled>관리 세션 조회</button>
+      <label
+        >관리 실행<select id="managedRuns">
+          <option value="">관리 세션을 조회하세요.</option>
+        </select></label
+      >
+      <button id="attach" disabled>선택한 실행에 재연결</button>
+      <label>후속 요청 (단일 행, UTF-8 112바이트 이내)<input id="resumePrompt" value="Ask ask_question: RESUME_FOLLOWUP, options RED,BLUE. Print RESUME_RESULT:&lt;answer&gt;. No other tools." /></label>
+      <button id="resume" disabled>종료된 대화 재개</button>
+      <p id="resumeState">재개 요청 없음 · 선택한 종료 실행을 먼저 확인하세요.</p>
+      <button id="reconfirm" disabled>응답 전달 상태 재확인</button>
+      <p>
+        전달 여부 불명에서는 응답을 다시 보내지 않습니다. 원격 기록과 수신
+        근거를 재확인하세요.
+      </p>
+    </section>
+    <section>
+      <h2>상호작용</h2>
+      <button id="stop" disabled>작업 중단</button>
+      <p id="stopState">중단 요청 없음</p>
+      <p id="historyWarning" class="warning" role="status" hidden></p>
+      <div id="interaction" class="empty">대기 중인 질문이 없습니다.</div>
+    </section>
+    <section>
+      <h2>현재 상태</h2>
+      <dl>
+        <dt>연결</dt>
+        <dd id="connection">closed</dd>
+        <dt>실행</dt>
+        <dd id="execution">unknown</dd>
+        <dt>세션</dt>
+        <dd id="session">—</dd>
+        <dt>실행 ID</dt>
+        <dd id="run">—</dd>
+        <dt>Revision</dt>
+        <dd id="revision">0</dd>
+        <dt>응답 전달</dt>
+        <dd id="responseState">—</dd>
+        <dt>기록</dt>
+        <dd id="position">—</dd>
+        <dt>회사 호환성</dt>
+        <dd>미검증</dd>
+      </dl>
+    </section>
+    <section>
+      <h2>메시지</h2>
+      <div id="messages" class="empty">재생 기록을 선택하세요.</div>
+    </section>
+    <section id="contentOutput" hidden>
+      <h2>구조화 결과와 JSON 관측</h2>
+      <pre id="structuredResult" hidden></pre>
+      <pre id="jsonOutput" hidden></pre>
+    </section>
+    <section>
+      <h2>SDK 이벤트</h2>
+      <small
+        >원문 터미널을 파싱하지 않고 SDK 공개 이벤트와 snapshot을
+        표시합니다.</small
+      >
+      <pre id="events">아직 이벤트가 없습니다.</pre>
+    </section>
+  </main>
+  <script type="module">
+    const element = (id) => document.getElementById(id);
+    let events = [];
+    let current = null;
+    let busy = false;
+    let polling = false;
+    const mutations = new Set();
+    let capability = {};
+    let interactionViewKey;
+    let viewGeneration = 0;
+    let readingState = false;
+    let stateDirty = false;
+    const stopDisabled = (s) =>
+      mutations.has("stop") ||
+      (busy && !mutations.has("respond")) ||
+      s.mode !== "live" ||
+      !capability.live ||
+      s.connection !== "connected" ||
+      !s.executionId ||
+      !!s.stop ||
+      ["completed", "stopped", "failed"].includes(s.execution);
+    const savedSettings = ["host", "cliPath", "remoteRoot", "cwd", "dataDir"];
+    try {
+      const stored = JSON.parse(
+        localStorage.getItem("cline-sdk-connection") ?? "{}",
+      );
+      for (const id of savedSettings)
+        if (typeof stored[id] === "string") element(id).value = stored[id];
+    } catch {
+      /* An unavailable browser store does not prevent connection. */
+    }
+    const responseDisabled = (s) =>
+      busy ||
+      s.mode !== "live" ||
+      !capability.live ||
+      !capability.responses ||
+      s.connection !== "connected" ||
+      s.historySync?.current === false ||
+      s.interaction?.state !== "awaiting-response" ||
+      !s.interaction?.responseKinds?.length ||
+      !s.interaction?.toolId ||
+      !!s.stop ||
+      s.response?.state === "delivery-unknown";
+    function render({
+      snapshot: s,
+      preflight,
+      capabilities,
+      managedExecutions,
+      diagnostics,
+      diagnosticComparison,
+      diagnosticDirectory,
+    }) {
+      if (
+        current &&
+        s.mode === current.mode &&
+        s.executionId === current.executionId &&
+        s.revision < current.revision
+      )
+        s = current;
+      if (capabilities) capability = capabilities;
+      element("contentOutput").hidden = !s.result && !s.jsonOutput;
+      element("jsonOutput").hidden = !s.jsonOutput;
+      element("structuredResult").hidden = !s.result;
+      element("structuredResult").textContent = JSON.stringify(s.result ?? {},null,2);
+      element("jsonOutput").textContent = JSON.stringify(s.jsonOutput ?? {},null,2);
+      element("features").textContent = JSON.stringify(capability.features ?? {}, null, 2);
+      element("outputMode").querySelector('[value="json"]').disabled = !capability.outputModes?.json;
+      reviewControls();
+      if (diagnosticDirectory && !element("diagnosticDirectory").value)
+        element("diagnosticDirectory").value = diagnosticDirectory;
+      element("diagnosticStart").disabled =
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        diagnostics?.state === "collecting";
+      element("diagnosticStop").disabled =
+        busy || s.mode !== "live" || !capability.live || !diagnostics?.path;
+      element("diagnosticReplay").disabled = busy;
+      if (diagnostics) {
+        element("diagnosticStatus").textContent = JSON.stringify(
+          diagnostics,
+          null,
+          2,
+        );
+        if (diagnostics.path)
+          element("diagnosticPath").value = diagnostics.path;
+      }
+      if (diagnosticComparison)
+        element("diagnosticComparison").textContent = JSON.stringify(
+          diagnosticComparison,
+          null,
+          2,
+        );
+      if (capabilities) capability = capabilities;
+      current = s;
+      element("resume").disabled = busy || !capability.resume;
+      element("resumeState").textContent = s.resume
+        ? `${s.resume.state} · 이전 ${s.resume.fromExecutionId} → ${s.resume.executionId} · 같은 대화 ${s.resume.sessionId}`
+        : "재개 요청 없음 · CLI·supervisor·자식 종료를 확인한 대화만 재개합니다.";
+      element("historyWarning").hidden = !s.historySync?.warning;
+      element("historyWarning").textContent = s.historySync?.warning
+        ? "기록 동기화에 일시적인 문제가 있습니다. 마지막 정상 대화와 질문을 표시하며 응답을 차단합니다. 원격 기록 갱신으로 현재성을 다시 확인하세요."
+        : "";
+      element("start").disabled =
+        busy ||
+        !preflight?.ready ||
+        s.mode !== "live" ||
+        !capability.live ||
+        s.connection !== "connected" ||
+        !!s.executionId;
+      element("stop").disabled = stopDisabled(s);
+      element("stopState").textContent = s.stop
+        ? `${s.stop.state} · ${s.stop.trackedCount}개 프로세스 관측 · 자식 종료 ${s.stop.childrenVerified ? "확인" : "미확인"}${s.stop.reason ? " · " + s.stop.reason : ""}`
+        : "중단 요청 없음 · 대화 기록을 보존합니다";
+      element("refresh").disabled =
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        !s.executionId ||
+        s.connection !== "connected";
+      element("disconnect").disabled =
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        s.connection !== "connected";
+      element("managedRefresh").disabled =
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        s.connection !== "connected";
+      if (managedExecutions) {
+        const select = element("managedRuns");
+        const previous =
+          select.value || localStorage.getItem("cline-sdk-selected-run");
+        select.replaceChildren();
+        for (const run of managedExecutions) {
+          const option = document.createElement("option");
+          option.value = run.executionId;
+          option.textContent = `${run.sessionId ?? "세션 생성 중"} · ${run.executionId} · ${run.alive && run.identityConfirmed ? "조회 시 생존 확인" : "조회 시 종료 또는 생존 미확인"}`;
+          select.append(option);
+        }
+        if ([...select.options].some((option) => option.value === previous))
+          select.value = previous;
+      }
+      if (
+        s.executionId &&
+        ["completed", "stopped", "failed"].includes(s.execution)
+      ) {
+        const selected = [...element("managedRuns").options].find(
+          (option) => option.value === s.executionId,
+        );
+        if (selected)
+          selected.textContent = `${s.sessionId ?? "—"} · ${s.executionId} · 종료 확인 (${s.execution})`;
+      }
+      element("attach").disabled =
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        s.connection !== "connected" ||
+        !element("managedRuns").value;
+      element("reconfirm").disabled =
+        busy ||
+        s.mode !== "live" ||
+        !capability.live ||
+        s.connection !== "connected" ||
+        !s.executionId;
+      if (s.executionId)
+        localStorage.setItem("cline-sdk-selected-run", s.executionId);
+      if (preflight)
+        element("preflight").textContent = JSON.stringify(preflight, null, 2);
+      for (const [id, value] of Object.entries({
+        connection:
+          s.mode === "replay"
+            ? `재생 · 기록 당시 ${s.connection}`
+            : s.connection,
+        execution: s.execution,
+        session: s.sessionId ?? "—",
+        run: s.executionId ?? "—",
+        revision: s.revision,
+        responseState: s.response?.state ?? "—",
+        position:
+          s.mode === "live"
+            ? "원격 CLI 기록 · 로컬 영구 복제 없음"
+            : `${s.replay.position}/${s.replay.total} · ${s.replay.truncated ? "선택·잘림 기록" : "완전 기록"}`,
+      }))
+        element(id).textContent = value;
+      const messages = element("messages");
+      const expandedThink = new Set([...messages.querySelectorAll('details[open]')].map(node=>node.dataset.thinkKey));
+      messages.replaceChildren();
+      messages.className = "";
+      if (!s.messages.length) {
+        messages.className = "empty";
+        messages.textContent = "이 관측 구간에 메시지가 없습니다.";
+      }
+      for (const message of s.messages) {
+        for (const [index, part] of (message.content ?? []).entries()) {
+          if (part.type !== "thinking" && part.type !== "redacted_thinking") continue;
+          const detail = document.createElement("details");
+          detail.dataset.thinkKey = `${s.sessionId}:${s.executionId}:${message.id}:${index}`;
+          detail.open = expandedThink.has(detail.dataset.thinkKey);
+          const summary = document.createElement("summary");
+          summary.textContent = part.type === "thinking" ? "think · CLI에 노출된 내용" : "think · CLI에서 가려진 내용";
+          detail.append(summary);
+          const thought = document.createElement("p"); thought.className = "text";
+          thought.textContent = part.type === "thinking" ? part.thinking : "원문 내용은 노출되지 않았습니다.";
+          detail.append(thought); messages.append(detail);
+        }
+        const p = document.createElement("p");
+        p.className = "text";
+        p.textContent = `${message.role}: ${message.text}`;
+        messages.append(p);
+      }
+      const interaction = element("interaction");
+      const viewKey = JSON.stringify([
+        s.executionId,
+        s.interaction,
+        s.response?.state,
+        s.mode,
+        s.connection,
+        s.historySync,
+        capability.responses,
+      ]);
+      if (interactionViewKey === viewKey) {
+        interaction
+          .querySelectorAll("button")
+          .forEach((button) => (button.disabled = responseDisabled(s)));
+        return;
+      }
+      interactionViewKey = viewKey;
+      interaction.replaceChildren();
+      interaction.className = "";
+      if (!s.interaction) {
+        interaction.className = "empty";
+        interaction.textContent =
+          s.response?.state === "delivery-unknown"
+            ? "응답 전달 여부 불명입니다. 자동으로 다시 제출하지 않습니다."
+            : "대기 중인 질문이 없습니다.";
+        return;
+      }
+      const p = document.createElement("p");
+      p.className = s.interaction.kind === "unsupported" ? "warning" : "text";
+      p.textContent = s.interaction.prompt;
+      interaction.append(p);
+      const identity = document.createElement("small");
+      identity.textContent = `${s.interaction.state} · ${s.interaction.id} · revision ${s.interaction.revision}`;
+      interaction.append(identity);
+      if (s.interaction.toolInput !== undefined) {
+        const requested = document.createElement("pre");
+        requested.textContent = JSON.stringify(
+          s.interaction.toolInput,
+          null,
+          2,
+        );
+        interaction.append(requested);
+      }
+      const choices = document.createElement("div");
+      choices.className = "choices";
+      for (const choice of s.interaction.choices) {
+        const button = document.createElement("button");
+        button.textContent = choice;
+        button.disabled = responseDisabled(s);
+        button.onclick = () =>
+          invoke("respond", {
+            sessionId: current.sessionId,
+            executionId: current.executionId,
+            interactionId: current.interaction.id,
+            revision: current.revision,
+            requestId: crypto.randomUUID(),
+            answer: choice,
+          });
+        choices.append(button);
+      }
+      interaction.append(choices);
+      if (s.interaction.responseKinds?.includes("text") && s.mode === "live") {
+        const label = document.createElement("label");
+        label.textContent =
+          "자유 응답 (앞뒤 공백·줄바꿈 없이, UTF-8 1024바이트 이내)";
+        const input = document.createElement("input");
+        input.id = "freeAnswer";
+        input.disabled = responseDisabled(s);
+        label.append(input);
+        const submit = document.createElement("button");
+        submit.id = "sendText";
+        submit.textContent = "자유 응답 제출";
+        submit.disabled = responseDisabled(s);
+        submit.onclick = () =>
+          invoke("respond", {
+            sessionId: current.sessionId,
+            executionId: current.executionId,
+            interactionId: current.interaction.id,
+            revision: current.revision,
+            requestId: crypto.randomUUID(),
+            answer: input.value,
+          });
+        interaction.append(label, submit);
+      }
+      const note = document.createElement("p");
+      note.textContent =
+        s.mode === "replay"
+          ? "재생 모드는 응답을 전송하지 않습니다."
+          : s.response?.state === "delivery-unknown"
+            ? "응답 전달 여부 불명입니다. 재제출을 차단했습니다."
+            : s.interaction.state === "submitting"
+              ? "응답을 제출하고 CLI 수신 근거를 확인합니다."
+              : s.interaction.responseKinds?.includes("text")
+                ? "응답 원문을 전달하고 원격 수신 결과를 확인합니다. readline은 선택지 번호로 시작하는 응답을 지원하지 않습니다."
+                : "표시된 선택지와 승인/거절을 전송할 수 있습니다.";
+      interaction.append(note);
+    }
+    new EventSource("/api/events").onmessage = (event) => {
+      const next = JSON.parse(event.data);
+      const previous = events.at(-1);
+      if(previous && (previous.executionId !== next.executionId || previous.sessionId !== next.sessionId)) events = [];
+      events.push(next);
+      if (events.length > 100) events.shift();
+      element("events").textContent = events
+        .map((e) => JSON.stringify(e))
+        .join("\n");
+      stateDirty = true;
+      if (!readingState) readPublishedState();
+    };
+    async function readPublishedState() {
+      readingState = true;
+      const generation = viewGeneration;
+      try {
+        while (stateDirty && generation === viewGeneration) {
+          stateDirty = false;
+          const result = await (await fetch("/api/state")).json();
+          if (generation === viewGeneration && result.snapshot) render(result);
+        }
+      } catch {
+        /* The next SDK event or explicit refresh retries the local view read. */
+      } finally {
+        readingState = false;
+      }
+    }
+    async function invoke(action, body = {}) {
+      const background = action === "refresh";
+      if (
+        background &&
+        (polling ||
+          !capability.live ||
+          current?.mode !== "live" ||
+          [...mutations].some(
+            (action) => !["respond", "stop", "reconfirm"].includes(action),
+          ))
+      )
+        return;
+      if (
+        ["connect", "start", "attach", "resume", "replay", "diagnostics/replay"].includes(
+          action,
+        )
+      )
+        viewGeneration++;
+      const generation = viewGeneration;
+      if (background) polling = true;
+      else {
+        mutations.add(action);
+        busy = true;
+        element("error").textContent = "";
+        document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        element("stop").disabled = stopDisabled(current);
+      }
+      if (action === "respond")
+        element("responseState").textContent = "submitting";
+      if (action === "stop")
+        element("stopState").textContent =
+          "중단 요청 중 · CLI와 자식 명령의 종료를 확인합니다";
+      try {
+        const response = await fetch("/api/" + action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const result = await response.json();
+        if (!background) {
+          mutations.delete(action);
+          busy = mutations.size > 0;
+        }
+        if (!response.ok) {
+          if (result.snapshot && generation === viewGeneration) render(result);
+          throw new Error(result.message ?? result.error);
+        }
+        if (generation === viewGeneration) render(result);
+        if (action === "start" || action === "attach" || action === "resume")
+          element("setup").open = false;
+        return result;
+      } catch (error) {
+        element("error").textContent = error.message;
+      } finally {
+        if (background) polling = false;
+        else {
+          mutations.delete(action);
+          busy = mutations.size > 0;
+          element("connect").disabled = busy;
+          reviewControls();
+          element("stop").disabled = stopDisabled(current);
+          document
+            .querySelectorAll("[data-fixture]")
+            .forEach((button) => (button.disabled = busy));
+        }
+      }
+    }
+    let reviewed = null,
+      reviewPage = null,
+      reviewBusy = false,
+      plannedMasks = null;
+    const reviewButtons = [
+      "diagnosticReview",
+      "reviewItem",
+      "reviewPrevious",
+      "reviewNext",
+      "reviewPageNext",
+      "exportPreview",
+      "diagnosticExport",
+    ];
+    function reviewControls() {
+      for (const id of reviewButtons)
+        element(id).disabled =
+          reviewBusy || busy || (id !== "diagnosticReview" && !reviewed);
+      element("reviewPrevious").disabled ||=
+        Number(element("reviewIndex").value) <= 0;
+      element("reviewNext").disabled ||=
+        Number(element("reviewIndex").value) >= (reviewed?.items ?? 0) - 1;
+      element("reviewPageNext").disabled ||=
+        reviewPage?.nextOffset === null || !reviewPage;
+      element("diagnosticExport").disabled ||=
+        plannedMasks === null || reviewed?.replay.state === "blocked";
+    }
+    async function reviewCall(action, body) {
+      reviewBusy = true;
+      reviewControls();
+      element("reviewError").hidden = true;
+      try {
+        const r = await fetch("/api/diagnostics/" + action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const result = await r.json();
+        if (!r.ok) throw Error(result.message ?? result.error);
+        return result;
+      } catch (error) {
+        element("reviewError").textContent = error.message;
+        element("reviewError").hidden = false;
+        throw error;
+      } finally {
+        reviewBusy = false;
+        reviewControls();
+      }
+    }
+    function showReview(review) {
+      reviewed = review;
+      reviewPage = null;
+      plannedMasks = null;
+      element("reviewSummary").textContent = JSON.stringify(
+        {
+          path: review.path,
+          bundleId: review.bundleId,
+          bytes: review.bytes,
+          items: review.items,
+          included: review.included,
+          integrity: review.integrity,
+          replay: review.replay,
+          credentials: review.credentials,
+        },
+        null,
+        2,
+      );
+      element("reviewMetadata").textContent = JSON.stringify(
+        review.metadata,
+        null,
+        2,
+      );
+      element("reviewIndex").max = Math.max(0, review.items - 1);
+      element("reviewIndex").value = "0";
+      element("reviewContent").textContent = "";
+      element("exportPlan").textContent =
+        "가림 계획을 확인하세요. 빈 목록은 원문 사본입니다.";
+      reviewControls();
+    }
+    async function openReviewItem(index, offset = 0) {
+      if (!reviewed) return;
+      const { page } = await reviewCall("content", {
+        path: reviewed.path,
+        reviewToken: reviewed.reviewToken,
+        index,
+        offset,
+        maxCharacters: 4096,
+      });
+      reviewPage = page;
+      element("reviewIndex").value = String(index);
+      element("reviewContent").textContent = page.content;
+      element("reviewPageLabel").textContent =
+        `관측 ${index + 1}/${reviewed.items} · ${page.kind} · 문자 ${offset}–${Math.min(offset + 4096, page.totalCharacters)}/${page.totalCharacters}`;
+      reviewControls();
+    }
+    const selectedMasks = () =>
+      element("exportMasks")
+        .value.split("\n")
+        .filter((s) => s.length > 0);
+    element("diagnosticReview").onclick = async () => {
+      reviewed = null;
+      plannedMasks = null;
+      reviewControls();
+      try {
+        const { review } = await reviewCall("review", {
+          path: element("diagnosticPath").value,
+        });
+        showReview(review);
+        if (review.items) await openReviewItem(0);
+      } catch {
+        element("reviewSummary").textContent =
+          "열기 실패 · 이 자료의 재생 및 반출 제한을 확인하세요.";
+      }
+    };
+    element("reviewItem").onclick = () =>
+      openReviewItem(Number(element("reviewIndex").value)).catch(() => {});
+    element("reviewPrevious").onclick = () =>
+      openReviewItem(Number(element("reviewIndex").value) - 1).catch(() => {});
+    element("reviewNext").onclick = () =>
+      openReviewItem(Number(element("reviewIndex").value) + 1).catch(() => {});
+    element("reviewPageNext").onclick = () =>
+      openReviewItem(reviewPage.index, reviewPage.nextOffset).catch(() => {});
+    element("exportMasks").oninput = () => {
+      plannedMasks = null;
+      reviewControls();
+    };
+    element("exportPreview").onclick = async () => {
+      try {
+        const masks = selectedMasks();
+        const { preview } = await reviewCall("preview-export", {
+          path: reviewed.path,
+          reviewToken: reviewed.reviewToken,
+          masks,
+        });
+        plannedMasks = masks;
+        element("exportPlan").textContent = JSON.stringify(preview, null, 2);
+        reviewControls();
+      } catch {
+        plannedMasks = null;
+        reviewControls();
+      }
+    };
+    element("diagnosticExport").onclick = async () => {
+      try {
+        const { exported } = await reviewCall("export", {
+          path: reviewed.path,
+          reviewToken: reviewed.reviewToken,
+          masks: plannedMasks,
+          destination: element("exportDestination").value,
+        });
+        element("exportResult").textContent = JSON.stringify(
+          {
+            path: exported.path,
+            bundleId: exported.bundleId,
+            source: exported.metadata.export.source,
+            integrity: exported.integrity,
+            replayImpact: exported.metadata.export.replayImpact,
+          },
+          null,
+          2,
+        );
+        element("diagnosticPath").value = exported.path;
+        showReview(exported);
+      } catch {}
+    };
+    reviewControls();
+    const diagnosticOptions = () => ({
+      directory: element("diagnosticDirectory").value,
+      maxBytes: Number(element("diagnosticLimit").value) * 1024 * 1024,
+    });
+    element("diagnosticStart").onclick = () =>
+      invoke("diagnostics/start", diagnosticOptions());
+    element("diagnosticStop").onclick = () => invoke("diagnostics/stop");
+    element("diagnosticReplay").onclick = () =>
+      invoke("diagnostics/replay", { path: element("diagnosticPath").value });
+    element("connect").onclick = () => {
+      localStorage.setItem(
+        "cline-sdk-connection",
+        JSON.stringify(
+          Object.fromEntries(
+            savedSettings.map((id) => [id, element(id).value]),
+          ),
+        ),
+      );
+      return invoke("connect", {
+        ...Object.fromEntries(
+          ["host", "cliPath", "remoteRoot", "identityFile"].map((id) => [
+            id,
+            element(id).value,
+          ]),
+        ),
+        diagnostics: element("diagnosticEnabled").checked
+          ? diagnosticOptions()
+          : undefined,
+        declaredFeatures: element("companyFlags").checked ? {zen:false,jsonOutput:true} : undefined,
+      });
+    };
+    element("start").onclick = () => {
+      const body = Object.fromEntries(
+        ["cwd", "dataDir", "prompt", "terminalMode", "outputMode"].map((id) => [
+          id,
+          element(id).value,
+        ]),
+      );
+      if (element("retryLimit").value)
+        body.retryLimit = Number(element("retryLimit").value);
+      if(body.outputMode === "json") delete body.terminalMode;
+      if(element("jsonResult").checked) {
+        body.resultFormat={type:"json",requestId:crypto.randomUUID(),validation:element("schemaValidation").value};
+        if(element("outputSchema").value.trim()) {
+          try {body.resultFormat.schema=JSON.parse(element("outputSchema").value);}
+          catch {element("error").textContent="JSON Schema 입력이 올바른 JSON이 아닙니다.";return;}
+        }
+      }
+      invoke("start", body);
+    };
+    element("outputMode").onchange = () => {
+      element("terminalMode").disabled = element("outputMode").value === "json";
+    };
+    element("refresh").onclick = () => invoke("refresh");
+    element("stop").onclick = () =>
+      invoke("stop", {
+        executionId: current.executionId,
+        requestId: crypto.randomUUID(),
+      });
+    element("disconnect").onclick = () => invoke("disconnect");
+    element("managedRefresh").onclick = () => invoke("managed");
+    element("attach").onclick = () =>
+      invoke("attach", { executionId: element("managedRuns").value });
+    element("resume").onclick = () => invoke("resume", {
+      executionId: current.executionId,
+      requestId: crypto.randomUUID(),
+      prompt: element("resumePrompt").value,
+    });
+    element("reconfirm").onclick = () => invoke("reconfirm");
+    setInterval(() => {
+      if (
+        capability.live &&
+        current?.mode === "live" &&
+        current?.connection === "connected" &&
+        current?.response?.state !== "delivery-unknown" &&
+        current?.executionId &&
+        !["completed", "stopped", "failed"].includes(current.execution)
+      )
+        invoke("refresh");
+    }, 1500);
+    document.querySelectorAll("[data-fixture]").forEach((button) =>
+      button.addEventListener("click", async () => {
+        events = [];
+        element("events").textContent = "재생 중…";
+        await invoke("replay", { fixture: button.dataset.fixture });
+      }),
+    );
+    render(await (await fetch("/api/state")).json());
+  </script>
+</html>

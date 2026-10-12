@@ -1,0 +1,59 @@
+{
+  "source": "readonly WSL proc + owned metadata + CLI history",
+  "results": [
+    {
+      "label": "NORMAL_RESUMED27",
+      "sessionId": "1791713491678_f1i9q",
+      "fromExecutionId": "run-ce0e41fa-e98a-4fc4-a0a9-54338d88c6ff",
+      "executionId": "run-9f504927-5b6b-4745-9949-2673f880d6b8",
+      "oldExitCode": 0,
+      "oldChildrenGone": true,
+      "oldIdentityGone": true,
+      "newIdentityAlive": false,
+      "priorMessageIdsPreserved": true,
+      "witness": {
+        "state": "delivered",
+        "messageId": "242745cc-8279-4bbd-b4db-354d2a18c6f2",
+        "promptDigest": "0a3f0ee99d7f6a790abe3017c9e38ed37425ef88725d4c04b45f50b7980a9006"
+      },
+      "user": {
+        "id": "242745cc-8279-4bbd-b4db-354d2a18c6f2",
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "<user_input mode=\"act\">2 한글 😀: Reply exactly NORMAL_RESUMED27. No tools.</user_input>"
+          }
+        ],
+        "ts": 1791713538534
+      }
+    },
+    {
+      "label": "STOPPED_RESUMED27",
+      "sessionId": "1791713552674_qicb9",
+      "fromExecutionId": "run-dd49efd8-063e-4b3e-acbe-49a851555f9c",
+      "executionId": "run-4c073ed1-7cc9-4f0b-98ef-9367a686ac8a",
+      "oldExitCode": 0,
+      "oldChildrenGone": true,
+      "oldIdentityGone": true,
+      "newIdentityAlive": false,
+      "priorMessageIdsPreserved": true,
+      "witness": {
+        "state": "delivered",
+        "messageId": "561d6aa9-56da-4268-8743-6629e1a39c8d",
+        "promptDigest": "d4756b7da607096e073a696475426710bf7f77de56d473261f0c682b137e70c1"
+      },
+      "user": {
+        "id": "561d6aa9-56da-4268-8743-6629e1a39c8d",
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "<user_input mode=\"act\">2 한글 😀: Reply exactly STOPPED_RESUMED27. No tools.</user_input>"
+          }
+        ],
+        "ts": 1791713566092
+      }
+    }
+  ]
+}

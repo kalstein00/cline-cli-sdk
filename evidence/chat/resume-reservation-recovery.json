@@ -1,0 +1,51 @@
+{
+  "before": {
+    "executionId": "run-170f47b8-a6af-4d77-98ba-8895b3cd71e5",
+    "sessionId": "1791720380872_9re4x",
+    "supersededBy": "run-88ffcf55-30ad-49b7-89ea-b9db7057f2bf",
+    "resume": false,
+    "historyMessageIds": [
+      "614bc5d3-6bb6-4ace-b019-dc389c6d2009",
+      "msg_sENydg5P",
+      "msg_ZGM1XkxP",
+      "5c9eb759-6697-48dc-a6ea-2a7588c8002f",
+      "msg_CxYV9xua",
+      "msg_JavQwkpA",
+      "129ff818-0921-484f-aa06-ae124dcdfce7",
+      "msg_mUdvBtHI",
+      "667ee299-c074-4e3d-82e9-cdfebe512b30",
+      "msg_4eFeow8B",
+      "efdbf6ab-e4ec-46fb-9245-3078b80ec261",
+      "msg_5ATxDT-R",
+      "b46c5127-bc9d-493b-989e-1191c164bd21",
+      "msg_DL8ZhnfM"
+    ]
+  },
+  "after": {
+    "executionId": "run-e09ca4fd-d7ae-4e6e-a308-c5a3a81bc45b",
+    "sessionId": "1791720380872_9re4x",
+    "messageInput": {
+      "ready": true,
+      "reason": "ready",
+      "maxBytes": 112
+    },
+    "historyMessageIds": [
+      "614bc5d3-6bb6-4ace-b019-dc389c6d2009",
+      "msg_sENydg5P",
+      "msg_ZGM1XkxP",
+      "5c9eb759-6697-48dc-a6ea-2a7588c8002f",
+      "msg_CxYV9xua",
+      "msg_JavQwkpA",
+      "129ff818-0921-484f-aa06-ae124dcdfce7",
+      "msg_mUdvBtHI",
+      "667ee299-c074-4e3d-82e9-cdfebe512b30",
+      "msg_4eFeow8B",
+      "efdbf6ab-e4ec-46fb-9245-3078b80ec261",
+      "msg_5ATxDT-R",
+      "b46c5127-bc9d-493b-989e-1191c164bd21",
+      "msg_DL8ZhnfM"
+    ],
+    "managedExecutionCount": 4
+  },
+  "observedAt": "2026-10-11T13:04:13.088Z"
+}

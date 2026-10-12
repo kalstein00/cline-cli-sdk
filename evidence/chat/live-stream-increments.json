@@ -1,0 +1,1099 @@
+{
+  "source": "Public SDK diagnostic comparison captured during real Chrome use on 4231",
+  "sessionId": "1791727524550_k7zwb",
+  "executionId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12",
+  "connectionPath": "Existing WSL server via direct localhost SSH; existing key and known host verification",
+  "increments": [
+    {
+      "seq": 552,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 234,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 556,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 469,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 557,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 352,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 559,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 587,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 560,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 470,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 561,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 707,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 562,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 705,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 569,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 588,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 571,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 825,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 572,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 823,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 573,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 706,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 575,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 824,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 577,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 941,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 579,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 942,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 581,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1059,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 583,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1060,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 589,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1178,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 592,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1296,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 593,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1412,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 594,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1404,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 595,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1287,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 596,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1522,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 597,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1405,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 599,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1640,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 600,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1523,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 609,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1757,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 610,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1758,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 611,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1641,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 612,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1759,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 614,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1877,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 615,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1993,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 618,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 1995,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 621,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2113,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 629,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2231,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 632,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2467,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 633,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2348,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 634,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2349,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 637,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2584,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 640,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2703,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 648,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2702,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 649,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2823,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 650,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2821,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 652,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 2939,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 655,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3057,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 659,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3293,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 660,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3174,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 661,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3175,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 670,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3410,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 671,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3292,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 672,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3527,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 673,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3528,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 674,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3411,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 676,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3647,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 678,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:552",
+      "length": 3529,
+      "truncated": false,
+      "finalAssistantCount": 1
+    },
+    {
+      "seq": 1187,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 234,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1188,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 470,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1189,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 941,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1195,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1178,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1196,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1523,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1197,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1641,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1198,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1757,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1200,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1878,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1201,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1876,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1202,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1759,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1203,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1994,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1204,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1877,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1205,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 1995,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1206,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2112,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1214,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2231,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1216,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2113,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1223,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2467,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1224,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2348,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1225,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2349,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1226,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2585,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1227,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2466,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1228,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2702,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1236,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2703,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1239,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2821,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1242,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2939,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1243,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3056,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1244,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 2938,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1246,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3057,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1247,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3174,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1254,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3293,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1255,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3175,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1258,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3410,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1259,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3292,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1261,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3411,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1262,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3528,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1267,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1187",
+      "length": 3647,
+      "truncated": false,
+      "finalAssistantCount": 2
+    },
+    {
+      "seq": 1643,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 234,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1644,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 944,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1645,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 942,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1646,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1060,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1648,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1177,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1649,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1295,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1652,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1178,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1654,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1296,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1661,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1407,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1662,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1404,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1663,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1287,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1666,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1521,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1667,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1522,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1668,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1405,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1672,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1639,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1673,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1640,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1679,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1523,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1686,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1641,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1692,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1875,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1698,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1876,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1699,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1759,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1705,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1993,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1706,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1994,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1707,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1877,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1712,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2111,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1718,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2112,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1719,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 1995,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1726,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2229,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1728,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2113,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1732,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2230,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1739,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2347,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1741,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2231,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1744,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2465,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1745,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2466,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1746,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2349,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1747,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2348,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1752,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2467,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1758,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2583,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1759,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2584,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1764,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2585,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1765,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2701,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1766,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2702,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1770,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2821,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1776,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2820,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1777,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2703,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1779,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2937,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1780,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2939,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1781,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 2938,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1784,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3055,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1785,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3057,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1799,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3056,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1801,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3173,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1802,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3174,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1817,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3175,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1818,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3291,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1819,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3292,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1825,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3529,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1826,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3528,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1828,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3646,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1829,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3647,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1830,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3764,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1831,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3765,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1833,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3882,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1839,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 3883,
+      "truncated": false,
+      "finalAssistantCount": 3
+    },
+    {
+      "seq": 1841,
+      "turnId": "run-4d463217-92e2-4fbf-b4c1-45c0e13b5b12:stream:1643",
+      "length": 4001,
+      "truncated": false,
+      "finalAssistantCount": 3
+    }
+  ],
+  "finalPreview": null,
+  "finalAssistantCount": 3,
+  "cliVersionChecked": false,
+  "diagnosticStoppedEarly": true,
+  "finalPreviewEvidence": "Live browser and server snapshot: preview removed after final 100 sentence history, before denial request",
+  "capturedTurnCount": 3
+}

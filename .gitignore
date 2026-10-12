@@ -1,0 +1,5 @@
+.observations/
+__pycache__/
+*.pyc
+.test-runs/
+.scratch/

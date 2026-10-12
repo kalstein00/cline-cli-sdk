@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 1,
+  "cli": {
+    "name": "cline",
+    "version": "3.0.69",
+    "profile": "cline-3.0.69-readline"
+  },
+  "terminal": {
+    "rows": 40,
+    "cols": 120
+  },
+  "sessionId": "session-7f73bef4a3f1",
+  "executionId": "execution-c58bc17ae84e",
+  "observations": [
+    {
+      "kind": "history",
+      "seq": 8,
+      "elapsedNs": "1825337430",
+      "observedAt": "2026-10-09T00:00:01.825Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTdmNzNiZWY0YTNmMSIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjE5OjI1LjAxNFoiLCJtZXNzYWdlcyI6W119",
+      "sha256": "27fa456dd4d8e1ecc293ba640973f5c4b298fddedd7b66cd07a2290df4000336",
+      "sourcePayloadSha256": "01c0991fa8efd99f5b64bf57fc6ffb9498ed027ddd6aea3bfef180612105e447"
+    },
+    {
+      "kind": "pty",
+      "seq": 9,
+      "elapsedNs": "4213486303",
+      "observedAt": "2026-10-09T00:00:04.213Z",
+      "dataBase64": "G1sxRxtbMEo=",
+      "sha256": "fa2085b3a20ba244110ec1521d8ebd69b8e8fd0d790ffb43ba932aaa66a57259",
+      "sourcePayloadSha256": "fa2085b3a20ba244110ec1521d8ebd69b8e8fd0d790ffb43ba932aaa66a57259"
+    },
+    {
+      "kind": "history",
+      "seq": 11,
+      "elapsedNs": "4215373867",
+      "observedAt": "2026-10-09T00:00:04.215Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTdmNzNiZWY0YTNmMSIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjE5OjI3LjQ3OVoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWFjN2NiYWNkMDZjMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzU2NzQ3NCwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLWZkOTIyYTJlOTEzYSIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkNob29zZSB0ZXN0IGNvbG9yLiIsIm9wdGlvbnMiOlsiUkVEIiwiQkxVRSJdfX1dfV19",
+      "sha256": "648596cf4f3ca14adb366ff81c24c62d520f89d3b61498223811c8de234feb5a",
+      "sourcePayloadSha256": "8c01e319d943ee8ad6a7d50c35ec1aa576bc6e7555a1d69caf231938d76506a4"
+    },
+    {
+      "kind": "pty",
+      "seq": 12,
+      "elapsedNs": "4215673266",
+      "observedAt": "2026-10-09T00:00:04.215Z",
+      "dataBase64": "DQobWzMzbUFwcHJvdmUgG1szMm0iYXNrX3F1ZXN0aW9uIiAbWzJteyJxdWVzdGlvbiI6IkNob29zZSB0ZXN0IGNvbG9yLiIsIm9wdGlvbnMiOlsiUkVEIiwiQkxVRSJdfSAbWzBtW3kvTl0gG1s4OUc=",
+      "sha256": "e94a339990319132069066a076e1145ebc6e5ee819872522d82436163030f7d9",
+      "sourcePayloadSha256": "e94a339990319132069066a076e1145ebc6e5ee819872522d82436163030f7d9"
+    },
+    {
+      "kind": "pty",
+      "seq": 14,
+      "elapsedNs": "18404934556",
+      "observedAt": "2026-10-09T00:00:18.404Z",
+      "dataBase64": "eQ==",
+      "sha256": "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa",
+      "sourcePayloadSha256": "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa"
+    },
+    {
+      "kind": "pty",
+      "seq": 15,
+      "elapsedNs": "18406548720",
+      "observedAt": "2026-10-09T00:00:18.406Z",
+      "dataBase64": "DQ0K",
+      "sha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54",
+      "sourcePayloadSha256": "f08153d16a9490d994a25d5a341ff8acfc405deddabd0d2134ef9af9d46acd54"
+    },
+    {
+      "kind": "pty",
+      "seq": 16,
+      "elapsedNs": "18427648975",
+      "observedAt": "2026-10-09T00:00:18.427Z",
+      "dataBase64": "DQobWzJtW2ZvbGxvdy11cF0bWzBtIENob29zZSB0ZXN0IGNvbG9yLg0K",
+      "sha256": "9ce5c8b9d1cc6c9c218ed6095a714c4bc76313d98e17f80dc9c1e76830f0ec6b",
+      "sourcePayloadSha256": "9ce5c8b9d1cc6c9c218ed6095a714c4bc76313d98e17f80dc9c1e76830f0ec6b"
+    },
+    {
+      "kind": "pty",
+      "seq": 18,
+      "elapsedNs": "18429371570",
+      "observedAt": "2026-10-09T00:00:18.429Z",
+      "dataBase64": "G1sybSAgMS4bWzBtIFJFRA0KG1sybSAgMi4bWzBtIEJMVUUNChtbPzI1aBtbMm1DaG9vc2UgMS0yIG9yIHR5cGUgYSBjdXN0b20gYW5zd2VyOhtbMG0NChtbMzJtPhtbMG0gG1sxRxtbMEogG1sxRw==",
+      "sha256": "d37b89089323653fff6cad3d85f5af2cde40aef8f50a19944bb5ab51c11f1ef4",
+      "sourcePayloadSha256": "d37b89089323653fff6cad3d85f5af2cde40aef8f50a19944bb5ab51c11f1ef4"
+    },
+    {
+      "kind": "pty",
+      "seq": 20,
+      "elapsedNs": "75454540450",
+      "observedAt": "2026-10-09T00:01:15.454Z",
+      "dataBase64": "Mg0NCg==",
+      "sha256": "d36ce0f10fa6d2a51fff111f3979102fe70ebf6ad3f06904cb9940c44e2cd7d0",
+      "sourcePayloadSha256": "d36ce0f10fa6d2a51fff111f3979102fe70ebf6ad3f06904cb9940c44e2cd7d0"
+    },
+    {
+      "kind": "history",
+      "seq": 21,
+      "elapsedNs": "75607765711",
+      "observedAt": "2026-10-09T00:01:15.607Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTdmNzNiZWY0YTNmMSIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjIwOjM4Ljc0N1oiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWFjN2NiYWNkMDZjMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzU2NzQ3NCwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLWZkOTIyYTJlOTEzYSIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkNob29zZSB0ZXN0IGNvbG9yLiIsIm9wdGlvbnMiOlsiUkVEIiwiQkxVRSJdfX1dfSx7ImlkIjoibWVzc2FnZS0yZjg5MjU2ZmExMDkiLCJyb2xlIjoidXNlciIsInRzIjoxNzkxNTM3NjM4NzQwLCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6InRvb2wtZmQ5MjJhMmU5MTNhIiwibmFtZSI6ImFza19xdWVzdGlvbiIsImNvbnRlbnQiOiJCTFVFIn1dfV19",
+      "sha256": "b4bae1f1cfae45a9be8326499b61c088575b2becf38d5ad245508f2577a82ea0",
+      "sourcePayloadSha256": "3c43f53e243816968e42419cf478c489ef235fed3dbebb24cd76f257bec7986c"
+    },
+    {
+      "kind": "pty",
+      "seq": 22,
+      "elapsedNs": "78708351234",
+      "observedAt": "2026-10-09T00:01:18.708Z",
+      "dataBase64": "Q0g=",
+      "sha256": "6890c837e9a8e887d651f86fac63673ad336a440aa1ea81847dc493ca6894f65",
+      "sourcePayloadSha256": "6890c837e9a8e887d651f86fac63673ad336a440aa1ea81847dc493ca6894f65"
+    },
+    {
+      "kind": "pty",
+      "seq": 23,
+      "elapsedNs": "78716898421",
+      "observedAt": "2026-10-09T00:01:18.716Z",
+      "dataBase64": "T1M=",
+      "sha256": "343d012d58b2e98fef52dd34e82a4672a044d852e5c5261e9e1c21608127644a",
+      "sourcePayloadSha256": "343d012d58b2e98fef52dd34e82a4672a044d852e5c5261e9e1c21608127644a"
+    },
+    {
+      "kind": "pty",
+      "seq": 24,
+      "elapsedNs": "78717947475",
+      "observedAt": "2026-10-09T00:01:18.717Z",
+      "dataBase64": "RU4=",
+      "sha256": "69374b09b1681162ba2d6bba92d6a167ea5ca5921eb172eb173e999e3be5d8ba",
+      "sourcePayloadSha256": "69374b09b1681162ba2d6bba92d6a167ea5ca5921eb172eb173e999e3be5d8ba"
+    },
+    {
+      "kind": "pty",
+      "seq": 25,
+      "elapsedNs": "78719316773",
+      "observedAt": "2026-10-09T00:01:18.719Z",
+      "dataBase64": "Og==",
+      "sha256": "e7ac0786668e0ff0f02b62bd04f45ff636fd82db63b1104601c975dc005f3a67",
+      "sourcePayloadSha256": "e7ac0786668e0ff0f02b62bd04f45ff636fd82db63b1104601c975dc005f3a67"
+    },
+    {
+      "kind": "pty",
+      "seq": 26,
+      "elapsedNs": "78720946040",
+      "observedAt": "2026-10-09T00:01:18.720Z",
+      "dataBase64": "QkxVRQ==",
+      "sha256": "24a866f4940f1b00083a71ba4df7323bac1486f28dc81d500bbc4bb02c6e0e16",
+      "sourcePayloadSha256": "24a866f4940f1b00083a71ba4df7323bac1486f28dc81d500bbc4bb02c6e0e16"
+    },
+    {
+      "kind": "pty",
+      "seq": 27,
+      "elapsedNs": "78872884689",
+      "observedAt": "2026-10-09T00:01:18.872Z",
+      "dataBase64": "DQo=",
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "sourcePayloadSha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6"
+    },
+    {
+      "kind": "history",
+      "seq": 28,
+      "elapsedNs": "78874326725",
+      "observedAt": "2026-10-09T00:01:18.874Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTdmNzNiZWY0YTNmMSIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjIwOjQyLjE1N1oiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWFjN2NiYWNkMDZjMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzU2NzQ3NCwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLWZkOTIyYTJlOTEzYSIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkNob29zZSB0ZXN0IGNvbG9yLiIsIm9wdGlvbnMiOlsiUkVEIiwiQkxVRSJdfX1dfSx7ImlkIjoibWVzc2FnZS0yZjg5MjU2ZmExMDkiLCJyb2xlIjoidXNlciIsInRzIjoxNzkxNTM3NjM4NzQwLCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6InRvb2wtZmQ5MjJhMmU5MTNhIiwibmFtZSI6ImFza19xdWVzdGlvbiIsImNvbnRlbnQiOiJCTFVFIn1dfSx7ImlkIjoibWVzc2FnZS03ZGJkMzQ4OWVmMGQiLCJyb2xlIjoiYXNzaXN0YW50IiwidHMiOjE3OTE1Mzc2NDIxNDksImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6IkNIT1NFTjpCTFVFIn1dfV19",
+      "sha256": "ab286b14e839c18afae5dccc4bd5682c8faf073724d3ab609500616eb26af388",
+      "sourcePayloadSha256": "9e90b12d4345f5f8b09f2441464700a74785182aa156a2da040aad53d1ad39cb"
+    },
+    {
+      "kind": "history",
+      "seq": 30,
+      "elapsedNs": "79026480481",
+      "observedAt": "2026-10-09T00:01:19.026Z",
+      "dataBase64": "eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uSWQiOiJzZXNzaW9uLTdmNzNiZWY0YTNmMSIsInVwZGF0ZWRfYXQiOiIyMDI2LTEwLTA5VDA5OjIwOjQyLjE3MVoiLCJtZXNzYWdlcyI6W3siaWQiOiJtZXNzYWdlLWFjN2NiYWNkMDZjMCIsInJvbGUiOiJhc3Npc3RhbnQiLCJ0cyI6MTc5MTUzNzU2NzQ3NCwiY29udGVudCI6W3sidHlwZSI6InRvb2xfdXNlIiwiaWQiOiJ0b29sLWZkOTIyYTJlOTEzYSIsIm5hbWUiOiJhc2tfcXVlc3Rpb24iLCJpbnB1dCI6eyJxdWVzdGlvbiI6IkNob29zZSB0ZXN0IGNvbG9yLiIsIm9wdGlvbnMiOlsiUkVEIiwiQkxVRSJdfX1dfSx7ImlkIjoibWVzc2FnZS0yZjg5MjU2ZmExMDkiLCJyb2xlIjoidXNlciIsInRzIjoxNzkxNTM3NjM4NzQwLCJjb250ZW50IjpbeyJ0eXBlIjoidG9vbF9yZXN1bHQiLCJ0b29sX3VzZV9pZCI6InRvb2wtZmQ5MjJhMmU5MTNhIiwibmFtZSI6ImFza19xdWVzdGlvbiIsImNvbnRlbnQiOiJCTFVFIn1dfSx7ImlkIjoibWVzc2FnZS03ZGJkMzQ4OWVmMGQiLCJyb2xlIjoiYXNzaXN0YW50IiwidHMiOjE3OTE1Mzc2NDIxNDksImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6IkNIT1NFTjpCTFVFIn1dfV19",
+      "sha256": "1613652e7f408dbd4628ae918d4c44ca9da5d5121ab2cce2793c5dc342e6e1d5",
+      "sourcePayloadSha256": "e82d9dbc73d059914b85dd338eaac431a4f14c16806d28d13178c37fbde4c9bd"
+    }
+  ],
+  "provenance": {
+    "source": "20261009/logs/choice-live/frames.ndjson",
+    "sourceSha256": "b1f079bf9630646b1dc16e7be18bf4f6a48eb8ead35877889c2f694822657848",
+    "review": "Selected controlled test observations; decoded histories allowlisted; no credentials, provider data, system prompt, user text context, thinking, metrics, or personal paths retained.",
+    "transformations": [
+      "selected observations, original sequence and nanosecond relative timing retained",
+      "PTY output bytes and original packet boundaries unchanged",
+      "history envelopes decoded then allowlisted and reencoded; payload hash recomputed",
+      "session/message/tool IDs replaced by consistent SHA-derived pseudonyms; tool_result linkage retained",
+      "manifest PIDs replaced with pseudonymous numeric values; cannot be used as live process ownership",
+      "wall clock normalized to 2026-10-09T00:00:00Z plus source elapsed time",
+      "history user text blocks removed; user tool_result blocks retained"
+    ],
+    "complete": false,
+    "truncated": true
+  },
+  "evidence": {
+    "classification": "sanitized-observation",
+    "inputWitnesses": [
+      {
+        "seq": 13,
+        "elapsedNs": "18402347882",
+        "observedAt": "2026-10-09T00:00:18.402Z",
+        "dataBase64": "eQ0=",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      },
+      {
+        "seq": 19,
+        "elapsedNs": "75453061614",
+        "observedAt": "2026-10-09T00:01:15.453Z",
+        "dataBase64": "Mg0=",
+        "kind": "observed-input-witness",
+        "sideEffects": "never-replay"
+      }
+    ],
+    "manifestObservations": [
+      {
+        "seq": 7,
+        "elapsedNs": "1825197411",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-7f73bef4a3f1",
+          "pid": 6951076,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:19:25.014Z"
+        }
+      },
+      {
+        "seq": 10,
+        "elapsedNs": "4214955661",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-7f73bef4a3f1",
+          "pid": 6951076,
+          "status": "pending",
+          "interactive": false,
+          "started_at": "2026-10-09T09:19:25.014Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 17,
+        "elapsedNs": "18429182208",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-7f73bef4a3f1",
+          "pid": 6951076,
+          "status": "running",
+          "interactive": false,
+          "started_at": "2026-10-09T09:19:25.014Z",
+          "exit_code": null
+        }
+      },
+      {
+        "seq": 29,
+        "elapsedNs": "79025929193",
+        "manifest": {
+          "version": 1,
+          "session_id": "session-7f73bef4a3f1",
+          "pid": 6951076,
+          "status": "completed",
+          "interactive": false,
+          "started_at": "2026-10-09T09:19:25.014Z",
+          "ended_at": "2026-10-09T09:20:42.180Z",
+          "exit_code": 0
+        }
+      }
+    ],
+    "exitWitnesses": [
+      {
+        "seq": 31,
+        "kind": "exit",
+        "elapsedNs": "79164649207",
+        "exitCode": 0,
+        "timedOut": false
+      }
+    ],
+    "notes": [
+      "Approval y at seq13 and selection 2 at seq19 are distinct stages of one ask_question tool. Tool result BLUE links to original tool through consistent pseudonym."
+    ]
+  }
+}

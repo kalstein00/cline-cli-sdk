@@ -1,0 +1,10 @@
+{
+  "name": "@cline-cli-sdk/chat-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node server.mjs" },
+  "dependencies": { "@cline-cli-sdk/sdk": "0.1.0" },
+  "files": ["server.mjs", "index.html", "app.mjs", "style.css", "README.md"]
+}

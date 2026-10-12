@@ -1,0 +1,54 @@
+{
+  "checkedAt": "2026-10-11T10:50:47.524Z",
+  "fakeCli": {
+    "ready": true,
+    "cliVersion": null,
+    "calls": [
+      [
+        "--help"
+      ]
+    ]
+  },
+  "actualCli": {
+    "ready": true,
+    "cliVersion": null,
+    "profile": {
+      "name": "cline-readline",
+      "supported": true,
+      "companyCompatibility": "unverified"
+    },
+    "problems": [
+      "noninteractive-path-mismatch"
+    ],
+    "cliFlags": [
+      "--acp",
+      "--auto-approve",
+      "--compaction",
+      "--config",
+      "--cwd",
+      "--data-dir",
+      "--help",
+      "--hooks-dir",
+      "--id",
+      "--json",
+      "--kanban",
+      "--key",
+      "--model",
+      "--plan",
+      "--provider",
+      "--retries",
+      "--system",
+      "--thinking",
+      "--timeout",
+      "--tui",
+      "--update",
+      "--verbose",
+      "--version",
+      "--worktree",
+      "--yolo",
+      "--zen"
+    ],
+    "cliHash": "37848dcde533871a1a95af479221c8768292652ae73c73a8825288a67470f355"
+  },
+  "scope": "Connection and no-version invocation only; no task launched, company fork unverified."
+}
