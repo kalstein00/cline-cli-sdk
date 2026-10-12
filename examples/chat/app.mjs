@@ -3,6 +3,7 @@ let current = {generation:0,snapshot:null,preflight:null,busy:false};
 let sending=false, pending=null, requestError=false;
 let transportConnected=true;
 let restoringServer=false;
+let restoringDraftKey=null;
 const drafts=new Map();
 const draftKey=packet=>packet.snapshot?.sessionId ?? packet.executions?.find(e=>e.executionId===packet.selectedId)?.sessionId ?? packet.selectedId ?? 'new';
 function selectionBlocked(packet) {return !transportConnected||sending||!!pending||packet.busy||packet.snapshot?.inputControl?.current===false||(packet.launchReserved&&!packet.snapshot?.executionId)||[packet.snapshot?.response,packet.snapshot?.messageDelivery,packet.snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state));}
@@ -74,7 +75,13 @@ function render(packet) {
   if(packet.generation===current.generation && current.selectedId && !current.snapshot?.sessionId && packet.snapshot?.sessionId){const saved=drafts.get(current.selectedId);if(saved!==undefined)drafts.set(packet.snapshot.sessionId,saved);}
   current=packet;
   const snapshot=packet.snapshot;
-  if(snapshot?.executionId && snapshot.historySync.current)restoringServer=false;
+  if(snapshot?.executionId && snapshot.historySync.current){
+    restoringServer=false;
+    if(restoringDraftKey){
+      if(draftKey(packet)===restoringDraftKey)element('message').value=drafts.get(restoringDraftKey) ?? '';
+      restoringDraftKey=null;
+    }
+  }
   renderConversations(packet);
   if(snapshot?.executionId)try{localStorage.setItem('cline-chat-selected',snapshot.executionId);}catch{}
   const atBottom=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop < 80;
@@ -189,7 +196,7 @@ element('newMessages').onclick=()=>{timeline.scrollTop=timeline.scrollHeight;ele
 element('new').onclick=()=>changeSelection('new');element('list').onclick=()=>changeSelection('list');
 for(const action of ['disconnect','reconnect','reconfirm'])element(action).onclick=async()=>{if(sending||current.busy)return;sending=true;element('error').hidden=true;render(current);try{await invoke(action,{});}catch(error){showError(error);}finally{sending=false;render(current);}};
 element('stop').onclick=async()=>{if(element('stop').disabled)return;const snapshot=current.snapshot;pending={action:'stop',fromComposer:false,text:'현재 작업 중단 요청',requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);try{await invoke('stop',{requestId:pending.requestId,generation:pending.generation,sessionId:snapshot.sessionId,executionId:snapshot.executionId});}catch(error){requestError=true;showError(error);if(error.notSubmitted)pending=null;}finally{sending=false;render(current);}};
-const events=new EventSource('/api/events');events.onmessage=event=>{const packet=JSON.parse(event.data);if(current.serverId&&packet.serverId!==current.serverId){restoringServer=true;current={...current,generation:-1,serverId:packet.serverId};}transportConnected=true;render(packet);};
+const events=new EventSource('/api/events');events.onmessage=event=>{const packet=JSON.parse(event.data);if(current.serverId&&packet.serverId!==current.serverId){restoringDraftKey=draftKey(current);drafts.set(restoringDraftKey,element('message').value);restoringServer=true;current={...current,generation:-1,serverId:packet.serverId};}transportConnected=true;render(packet);};
 events.onerror=()=>{transportConnected=false;render(current);element('connection').textContent='서버 연결 확인 중';for(const button of document.querySelectorAll('button'))button.disabled=true;};
 render(current);
 element('storageMode').onchange=()=>{element('dataDir').disabled=element('storageMode').value==='native';};

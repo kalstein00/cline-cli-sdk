@@ -17,6 +17,11 @@ async function connectedPage(t,port,fault='') {
   const browser=await chromium.launch({channel:'chrome',headless:process.env.CLINE_CHAT_HEADLESS === '1'});
   t.after(() => browser.close());
   const page=await browser.newPage();
+  page.restartConsumer=async()=>{
+    const exited=new Promise(resolve=>server.once('exit',resolve));server.kill();await exited;
+    const restored=spawn(process.execPath,['tests/support/chat-browser.mjs'],{env:{...process.env,CLINE_CHAT_PORT:String(port),CLINE_CHAT_FAULT:fault},stdio:['ignore','pipe','pipe']});t.after(()=>restored.kill());
+    await new Promise((resolve,reject)=>{let output='';restored.stdout.on('data',chunk=>{output+=chunk;if(output.includes(`http://127.0.0.1:${port}`))resolve();});restored.once('exit',code=>reject(Error(`Restored server exited ${code}`)));});
+  };
   await page.addInitScript(()=>{const Native=window.EventSource;window.EventSource=class extends Native{constructor(...args){super(...args);window.testEvents=this;}};});
   await page.goto(`http://127.0.0.1:${port}`);
   await page.getByLabel('SSH 별칭').fill('fixture');
@@ -288,6 +293,17 @@ test('IME Enter does not submit and a multiline followup is rejected before HTTP
  const page=await connectedPage(t,4221,'ready');await page.locator('#message').fill('IME baseline');await page.locator('#send').click();await page.getByText('CHAT_BROWSER_READY',{exact:true}).waitFor();await page.waitForFunction(()=>!document.querySelector('#send').disabled);
  let sends=0;await page.route('**/api/message',route=>{sends++;return route.abort();});await page.locator('#message').fill('한글 조합');await page.locator('#message').dispatchEvent('keydown',{key:'Enter',isComposing:true});await page.waitForTimeout(100);assert.equal(sends,0);assert.equal(await page.locator('#pending').isVisible(),false);
  await page.locator('#message').fill('first\nsecond');await page.locator('#send').click();await page.locator('#error').filter({hasText:'한 줄'}).waitFor();assert.equal(sends,0);assert.equal(await page.locator('#message').inputValue(),'first\nsecond');
+});
+
+test('server restart restores the same conversation draft after its temporary empty connection state',{timeout:30000},async t=>{
+ const page=await connectedPage(t,4240,'resumed-lineage');
+ await page.locator('#conversations button').filter({hasText:'original conversation'}).click();
+ await page.locator('#messages [data-role=assistant] .text').filter({hasText:'CHAT_BROWSER_READY'}).waitFor();
+ const before=await page.request.get('http://127.0.0.1:4240/api/state').then(r=>r.json());
+ await page.locator('#message').fill('preserve server restart draft');await page.restartConsumer();await page.locator('#connect').click();
+ await page.locator('#messages [data-role=assistant] .text').filter({hasText:'CHAT_BROWSER_READY'}).waitFor();
+ assert.equal(await page.locator('#message').inputValue(),'preserve server restart draft');
+ const restored=await page.request.get('http://127.0.0.1:4240/api/state').then(r=>r.json());assert.equal(restored.snapshot.sessionId,before.snapshot.sessionId);assert.equal(restored.snapshot.executionId,before.snapshot.executionId);
 });
 
 test('browser reports precise preflight evidence without enabling a blocked first message',{timeout:30000},async t=>{
