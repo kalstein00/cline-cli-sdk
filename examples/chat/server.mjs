@@ -104,7 +104,7 @@ async function perform(action, input) {
     try {await client.start({cwd:input.cwd,dataDir:connectionOptions.storageMode==='native'?undefined:input.dataDir || undefined,prompt:input.prompt,terminalMode:'tui'});}
     catch(error) {
       // Only documented pre-launch validation errors prove no remote write occurred.
-      if(['invalid-task','unsupported-profile','prerequisites-unavailable','not-connected','cli-option-unavailable','working-directory-not-found','working-directory-not-directory','working-directory-access-denied','working-directory-invalid'].includes(error.code)) {
+      if(error.notSubmitted===true || ['invalid-task','unsupported-profile','prerequisites-unavailable','not-connected','cli-option-unavailable'].includes(error.code)) {
         launchReserved=false;error.notSubmitted=true;
       }
       throw error;

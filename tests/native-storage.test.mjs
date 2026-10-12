@@ -29,6 +29,8 @@ pathlib.Path(os.environ['CLINE_HUB_DISCOVERY_PATH']).write_text(json.dumps(dict(
 sid='owned-native';folder=base/'sessions'/sid;folder.mkdir(exist_ok=True)
 (base/'sessions'/'concurrent').mkdir(exist_ok=True)
 (base/'sessions'/'concurrent'/'concurrent.json').write_text(json.dumps(dict(session_id='concurrent',pid=os.getppid(),status='idle')))
+(base/'sessions'/'oversized').mkdir(exist_ok=True)
+(base/'sessions'/'oversized'/'oversized.json').write_text(json.dumps(dict(session_id='oversized',pid=os.getpid(),status='idle',padding='x'*70000)))
 (folder/(sid+'.json')).write_text(json.dumps(dict(session_id=sid,pid=os.getpid(),status='idle')))
 messages=json.loads((folder/(sid+'.messages.json')).read_text())['messages'] if '--id' in sys.argv else [dict(id='u0',role='user',content=[dict(type='text',text='native prompt')]),dict(id='a0',role='assistant',content=[dict(type='text',text='NATIVE_READY')])]
 def history():
@@ -58,6 +60,13 @@ while True:
   python(`import pathlib\np=pathlib.Path(${JSON.stringify(hubFile)});p.rename(p.with_suffix('.held'))`);
   try{const blocked=await client.refresh();assert.equal(blocked.messageInput.ready,false);assert.equal(blocked.messageInput.reason,'agent-busy');}
   finally{python(`import pathlib\np=pathlib.Path(${JSON.stringify(hubFile)});p.with_suffix('.held').rename(p)`);}
+  s=await until(client,s=>s.messageInput?.ready);
+  // Test-owned malformed records must preserve the last valid conversation and block input.
+  const historyFile=sessions+'/owned-native/owned-native.messages.json';
+  const validHistory=python(`import pathlib;print(pathlib.Path(${JSON.stringify(historyFile)}).read_text())`);
+  python(`import pathlib,json\np=pathlib.Path(${JSON.stringify(historyFile)});d=json.loads(p.read_bytes());d['version']=999;p.write_text(json.dumps(d))`);
+  try{const unsupported=await client.refresh();assert.equal(unsupported.historySync.current,false);assert.ok(unsupported.historySync.warning);assert.equal(unsupported.messageInput.ready,false);assert.deepEqual(unsupported.messages,s.messages);}
+  finally{python(`import pathlib,base64\npathlib.Path(${JSON.stringify(historyFile)}).write_bytes(base64.b64decode('${Buffer.from(validHistory).toString('base64')}'))`);}
   s=await until(client,s=>s.messageInput?.ready);
   assert.equal((await client.sendMessage({executionId:id,sessionId:s.sessionId,revision:s.revision,requestId:randomUUID(),text:'next'})).state,'delivered');
   client.disconnect();client.close();client=createClient({mode:'live',connection:config});await client.connect();await client.attach(id);

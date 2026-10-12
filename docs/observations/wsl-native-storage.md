@@ -49,7 +49,7 @@ await client.start({cwd: '/existing/workspace', prompt: 'Hello', terminalMode: '
 
 관측 manifest는 `<sessions>/<sid>/<sid>.json`의 `session_id`, `pid`, `cwd`, `status`를 제공한다. 대화는 `<sid>.messages.json`의 `{version: 1, sessionId, messages}`다. 내용에는 user/assistant, text/thinking, tool_use/tool_result가 있고 완료 응답에 token metrics가 기록된다. 질문 도구는 `ask_question`, 승인 대상은 `run_commands`였다. 120×40 TUI의 현재 modal·커서·composer 근거를 실제 질문·입력으로 확인했다.
 
-시작 전에 저장영역의 대화 디렉터리 이름만 기억한다. 새 후보의 manifest에서 SDK 소유 launcher 또는 자식의 PID·start time·boot ID가 모두 확인된 경우에만 SID를 결합한다. 이전 대화의 manifest/history는 열지 않는다. 동시 생성된 외부 대화의 PID는 SDK 소유 트리에 없으므로 선택하지 않는다. 후보가 모호하거나 256개를 넘으면 결합하지 않는다. SID가 확정된 뒤에는 그 대화의 파일만 읽는다. 파일은 읽기 전용이며 부분/교체/읽기 실패는 마지막 정상 상태를 보존한다.
+시작 전에 저장영역의 대화 디렉터리 이름만 기억한다. 새 후보의 manifest는 일반 파일만 최대 64 KiB로 읽고 SDK 소유 launcher 또는 자식의 PID·start time·boot ID가 모두 확인된 경우에만 SID를 결합한다. 이전 대화의 manifest/history는 열지 않는다. 동시 생성된 외부 대화의 PID는 SDK 소유 트리에 없으므로 선택하지 않는다. 후보가 모호하거나 256개를 넘으면 결합하지 않는다. SID가 확정된 뒤에는 그 대화의 파일만 읽는다. history는 최대 16 MiB로 읽으며 미지원 version은 경고와 입력 차단으로 표시한다. 파일은 읽기 전용이며 부분/교체/읽기 실패는 마지막 정상 상태를 보존한다. preflight ready는 저장 형식의 실제 호환성을 보증하지 않는다.
 
 현재 TUI의 `auto` backend는 사용자 공유 hub에 작업을 넘길 수 있다. 실제 첫 실행에서 manifest PID가 SDK 트리 밖에 있어 입력을 차단했다. 환경의 `CLINE_SESSION_BACKEND_MODE=local`도 TUI가 명시하는 `auto`에 의해 무시됐다. 이를 회사 CLI의 지원 옵션이라고 일반화하지 않는다.
 

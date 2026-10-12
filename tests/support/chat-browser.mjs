@@ -32,8 +32,13 @@ cp.spawn = (...args) => {
     let result;
     if (!request.action) result = fault==='company' ? {...pinned,cliVersion:'company-build',cliHash:'a'.repeat(64)} : fault==='missing-options' ? {...pinned,cliFlags:['--cwd']} : fault==='no-tui' ? {...pinned,cliFlags:pinned.cliFlags.filter(flag=>flag!=='--tui')} : pinned;
     else if (request.action === 'start') {
-      if(fault==='cwd-error' && request.cwd==='/missing'){
-        process.stdout.end(JSON.stringify({error:'working-directory-not-found',message:'원격 작업 디렉터리가 없습니다.'}));queueMicrotask(()=>process.emit('close',0));return;
+      if(fault==='cwd-error' && ['/missing','/file','/denied'].includes(request.cwd)){
+        const [error,message]={
+          '/missing':['working-directory-not-found','원격 작업 디렉터리가 없습니다.'],
+          '/file':['working-directory-not-directory','원격 작업 경로가 디렉터리가 아닙니다.'],
+          '/denied':['working-directory-access-denied','원격 작업 디렉터리에 접근할 수 없습니다.'],
+        }[request.cwd];
+        process.stdout.end(JSON.stringify({error,message}));queueMicrotask(()=>process.emit('close',0));return;
       }
       executionId = request.executionId; prompt = request.prompt;runs.set(executionId,{prompt,sessionId:'chat-fixture-session-'+runs.size});
       result = {executionId:fault==='launch-identity'?'unexpected-execution':executionId, remoteRoot: '/fixture/control'};

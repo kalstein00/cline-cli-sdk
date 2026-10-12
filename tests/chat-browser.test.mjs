@@ -299,10 +299,10 @@ test('browser reports precise preflight evidence without enabling a blocked firs
  assert.equal(await page.locator('#send').isDisabled(),true);
 });
 
-test('browser preserves a rejected path draft and permits a corrected first message',{timeout:30000},async t=>{
- const page=await connectedPage(t,4232,'cwd-error');
- await page.getByLabel('작업 디렉터리').fill('/missing');await page.locator('#message').fill('Corrected directory request');await page.locator('#send').click();
- await page.locator('#error').filter({hasText:'원격 작업 디렉터리가 없습니다.'}).waitFor();
+for(const [index,path,message] of [[0,'/missing','원격 작업 디렉터리가 없습니다.'],[1,'/file','원격 작업 경로가 디렉터리가 아닙니다.'],[2,'/denied','원격 작업 디렉터리에 접근할 수 없습니다.']])test(`browser preserves a rejected ${path} draft and permits a corrected first message`,{timeout:30000},async t=>{
+ const page=await connectedPage(t,4232+index,'cwd-error');
+ await page.getByLabel('작업 디렉터리').fill(path);await page.locator('#message').fill('Corrected directory request');await page.locator('#send').click();
+ await page.locator('#error').filter({hasText:message}).waitFor();
  assert.equal(await page.locator('#pending').isVisible(),false);
  assert.equal(await page.locator('#message').inputValue(),'Corrected directory request');
  assert.equal(await page.locator('#send').isDisabled(),false);

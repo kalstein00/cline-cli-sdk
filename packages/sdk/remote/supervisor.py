@@ -159,15 +159,19 @@ def input_binding(run, meta, request, cursor):
         return 'history-unavailable'
     return None
 
-def read_history(path):
+def read_history(path, limit=16 * 1024 * 1024):
     # Read only. A whole payload must belong to one unchanged inode and version.
     def version(info):
         return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
-    with path.open('rb') as stream:
+    # Nonblocking open plus regular-file validation prevents a corrupt candidate
+    # FIFO/device from blocking discovery before its size can be inspected.
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NONBLOCK), 'rb') as stream:
         before = os.fstat(stream.fileno())
-        if before.st_size > 16 * 1024 * 1024:
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError('history-not-regular-file')
+        if before.st_size > limit:
             raise ValueError('history-too-large')
-        payload = stream.read(16 * 1024 * 1024 + 1)
+        payload = stream.read(limit + 1)
         after = os.fstat(stream.fileno())
     if version(before) != version(after) or version(after) != version(path.stat()) or len(payload) != after.st_size:
         raise ValueError('file-changed')
@@ -259,7 +263,7 @@ def session_files(meta):
         if not expected and path.parent.name in meta.get('priorSessions', []):
             continue
         try:
-            manifest = json.loads(path.read_bytes())
+            manifest = json.loads(read_history(path, 65536))
             sid = manifest['session_id']
             if not isinstance(sid, str) or path != sessions / sid / (sid + '.json'):
                 continue

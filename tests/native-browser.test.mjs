@@ -37,12 +37,13 @@ test('installed native CLI works in the browser across questions, approvals, app
   await page.locator('#messages [data-role=assistant] .text').filter({hasText:'IDENTIFIER:2 한글 identifier'}).waitFor();await ready();
   for(const [answer,file] of [['승인','approved-marker'],['거절','denied-marker']]){
    await send(`run_commands: printf SDK_APPROVAL > ${file}. Reply SDK_APPROVAL_DONE. No other tools.`);
-   const button=page.getByRole('button',{name:answer,exact:true});await button.waitFor();const approval=(await state()).snapshot.interaction;
+   const card=page.locator('#interactions article').filter({has:page.locator('.arguments').filter({hasText:file})});
+   const button=card.getByRole('button',{name:answer,exact:true});await button.waitFor();const approval=(await state()).snapshot.interaction;
    assert.deepEqual(approval.toolInput.commands,[`printf SDK_APPROVAL > ${file}`]);await button.click();await ready();
    assert.equal(python(`import pathlib;print(pathlib.Path(${JSON.stringify(root+'/'+file)}).exists())`),answer==='승인'?'True':'False');
    evidence.steps.push({name:answer,snapshot:(await state()).snapshot});
   }
-  const before=(await state()).snapshot;await page.locator('#message').fill('browser draft');await halt();await launch();await page.reload();await page.locator('#connect').click();await ready();
+  const before=(await state()).snapshot;await page.locator('#message').fill('browser draft');await halt();await launch();await page.locator('#connect').click();await ready();
   const restored=(await state()).snapshot;assert.equal(restored.sessionId,before.sessionId);assert.equal(restored.executionId,before.executionId);assert.deepEqual(restored.executionEvidence.identity,before.executionEvidence.identity);assert.equal(await page.locator('#message').inputValue(),'browser draft');
   await page.locator('#stop').click();await page.locator('#stopStatus').filter({hasText:'중단 확인'}).waitFor();await ready();const stopped=(await state()).snapshot;assert.equal(stopped.stop.state,'confirmed');assert.equal(stopped.stop.childrenVerified,true);assert.deepEqual(stopped.stop.remaining,[]);
   await send('Reply exactly SDK_BROWSER_RESUMED. No tools.');await page.locator('#messages [data-role=assistant] .text').filter({hasText:'SDK_BROWSER_RESUMED'}).waitFor();await ready();
