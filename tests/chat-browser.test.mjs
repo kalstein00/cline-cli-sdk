@@ -297,7 +297,7 @@ test('IME Enter does not submit and a multiline followup is rejected before HTTP
 
 test('server restart restores the same conversation draft after its temporary empty connection state',{timeout:30000},async t=>{
  const page=await connectedPage(t,4240,'resumed-lineage');
- await page.locator('#conversations button').filter({hasText:'original conversation'}).click();
+ await page.locator('#conversations section > button').click();
  await page.locator('#messages [data-role=assistant] .text').filter({hasText:'CHAT_BROWSER_READY'}).waitFor();
  const before=await page.request.get('http://127.0.0.1:4240/api/state').then(r=>r.json());
  await page.locator('#message').fill('preserve server restart draft');await page.restartConsumer();await page.locator('#connect').click();
