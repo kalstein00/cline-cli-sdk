@@ -3,7 +3,7 @@ import {composerMaxBytes} from './terminal-geometry.js';
 
 export interface MessageInputState {
   ready: boolean;
-  reason: 'ready' | 'unsupported-profile' | 'not-connected' | 'history-unavailable' | 'delivery-pending' | 'interaction-pending' | 'agent-busy' | 'process-unconfirmed' | 'composer-unconfirmed';
+  reason: 'ready' | 'remote-input-disabled' | 'unsupported-profile' | 'not-connected' | 'history-unavailable' | 'delivery-pending' | 'interaction-pending' | 'agent-busy' | 'process-unconfirmed' | 'composer-unconfirmed';
   maxBytes: number;
 }
 

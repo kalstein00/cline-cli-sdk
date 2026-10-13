@@ -2,7 +2,7 @@ export interface TerminalSize { rows: number; cols: number }
 
 export const DEFAULT_TERMINAL: TerminalSize = {rows:40,cols:120};
 
-/** Bounds shared with recording validation and the remote supervisor. */
+/** Bounds shared with recording validation and direct tmux observations. */
 export function validTerminalSize(value: unknown): value is TerminalSize {
   const size=value as TerminalSize | undefined;
   return !!size && Number.isInteger(size.cols) && size.cols>=20 && size.cols<=500 &&

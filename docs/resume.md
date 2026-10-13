@@ -1,3 +1,5 @@
+> 이 문서의 supervisor 기반 live 제어 설명·시험 결과는 이전 구현 기록이다. 현재 기능과 제한은 [SSH 직접 실행 안내](direct-ssh.md)를 따른다. 기록 재생 계약은 유지한다.
+
 # 종료된 대화 재개 (#9)
 
 `resume`는 종료 확인된 관리 실행의 대화를 같은 session ID로 이어가며 새 execution ID를 만든다. 살아 있는 실행에 다시 연결하는 [attach](reconnect.md)와 구분한다. 고정 공개 Cline 3.0.69 Linux x64 fingerprint에서만 지원하며 회사 fork는 미검증이다.

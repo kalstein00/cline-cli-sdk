@@ -1,3 +1,5 @@
+> 이 문서의 supervisor 기반 live 제어 설명·시험 결과는 이전 구현 기록이다. 현재 기능과 제한은 [SSH 직접 실행 안내](direct-ssh.md)를 따른다. 기록 재생 계약은 유지한다.
+
 # 생성 중 답변 미리보기
 
 `Snapshot.streaming`은 지원하는 TUI 화면에서 관측한 생성 중 답변이다. 값은 `{turnId, text, truncated}` 또는 `null`이며 지원하지 않는 기록에는 생략할 수 있다. `turnId`는 같은 생성 구간의 표시 식별자이며 저장된 message ID가 아니다. 사용자 메시지와 답변이 완료 때까지 history에 쓰이지 않는 CLI도 지원한다.

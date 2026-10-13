@@ -261,6 +261,9 @@ export interface ResponseResult {
   revision: number;
 }
 export interface Snapshot {
+  /** Read-only direct SSH observations; never an input or completion witness. */
+  remoteObservation?: {kind: 'tmux' | 'history'; terminal?: {rows: number; cols: number}; terminalText?: string;
+    paneAlive?: boolean; paneExitCode?: number | null; launchState?: 'tmux-created' | 'unknown'; limitation: string};
   /** Provisional TUI text; never an input or delivery witness. Final history replaces it. */
   streaming?: import('./stream-preview.js').StreamPreview | null;
   /** This execution has already been resumed; attach this managed successor to continue. */

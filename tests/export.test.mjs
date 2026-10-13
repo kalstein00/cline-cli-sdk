@@ -16,77 +16,18 @@ import childProcess from "node:child_process";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
 
+import {createDiagnosticCollector} from '../packages/sdk/dist/diagnostics.js';
+import {createReducer} from '../packages/sdk/dist/reducer.js';
+
 async function capture(t, directory, extras = []) {
-  const fixture = JSON.parse(
-    await readFile(
-      new URL("../fixtures/interactions/choice.json", import.meta.url),
-      "utf8",
-    ),
-  );
-  // Only the external SSH boundary is replaced with reviewed raw CLI observations.
-  t.mock.method(childProcess, "spawn", () => {
-    const p = new EventEmitter();
-    p.stdout = new PassThrough();
-    p.stderr = new PassThrough();
-    p.stdin = new PassThrough();
-    p.kill = () => {};
-    let input = "";
-    p.stdin.on("data", (d) => (input += d));
-    p.stdin.on("finish", () => {
-      const r = JSON.parse(input);
-      let result;
-      if (!r.action)
-        result = {
-          platform: "Linux",
-          python: true,
-          pty: true,
-          tmux: "tmux 3.4",
-          cliPath: "/fixture/cline",
-          cliVersion: "3.0.69", cliFlags:['--cwd','--data-dir','--auto-approve','--tui','--id','--json','--retries','--zen'],
-          cliHash:
-            "8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032",
-          bootId: "boot",
-        };
-      if (r.action === "start")
-        result = { executionId: r.executionId, remoteRoot: "/fixture/control" };
-      if (r.action === "status")
-        result = {
-          executionId: r.executionId,
-          sessionId: fixture.sessionId,
-          cursor: 18 + extras.length,
-          observations: [
-            ...fixture.observations.filter((o) => o.seq <= 18),
-            ...extras,
-          ].filter((o) => o.seq > r.cursor),
-          process: {
-            kind: "process",
-            identity: { pid: 42, startTime: "100", bootId: "boot" },
-            alive: true,
-            identityConfirmed: true,
-            exitCode: null,
-            manifestStatus: "pending",
-          },
-          requests: [],
-        };
-      p.stdout.end(JSON.stringify(result));
-      queueMicrotask(() => p.emit("close", 0, null));
-    });
-    return p;
-  });
-  const c = createClient({
-    mode: "live",
-    connection: {
-      host: "fixture",
-      identityFile: "EXCLUDED_PRIVATE_KEY_SOURCE",
-    },
-  });
-  await c.startDiagnostics({ directory });
-  await c.connect();
-  await c.start({ cwd: "/fixture/work", prompt: "controlled" });
-  await c.refresh();
-  const saved = await c.stopDiagnostics();
-  c.close();
-  return saved.path;
+  const fixture=JSON.parse(await readFile(new URL('../fixtures/interactions/choice.json',import.meta.url),'utf8'));
+  fixture.observations=[...fixture.observations.filter(o=>o.seq<=18),...extras];
+  const collector=createDiagnosticCollector();
+  const replay=createReducer({mode:'replay',observe:(obs,events,snapshot)=>collector.capture(obs,events,snapshot)});
+  await collector.start({directory});
+  await replay.initialize({kind:'initialize',seq:1,observedAt:'2026-10-09T10:00:00Z',cli:fixture.cli,terminal:fixture.terminal,sessionId:fixture.sessionId,executionId:fixture.executionId});
+  for(const observation of fixture.observations)await replay.ingest({...observation,seq:observation.seq+1});
+  const saved=await collector.stop();replay.close();return saved.path;
 }
 
 test('all diagnostic APIs reject missing complete rows and changed original sidecars', async (t) => {

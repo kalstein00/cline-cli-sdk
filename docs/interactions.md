@@ -1,3 +1,5 @@
+> 이 문서의 supervisor 기반 live 제어 설명·시험 결과는 이전 구현 기록이다. 현재 기능과 제한은 [SSH 직접 실행 안내](direct-ssh.md)를 따른다. 기록 재생 계약은 유지한다.
+
 # 선택·승인·거절 상호작용 (#4)
 
 고정 공개 Cline 3.0.69의 readline 경로에서 `ask_question`과 `run_commands`의 승인/거절, 선택 질문, 거절 뒤 `mistake_limit_reached` 선택을 지원한다. 회사 fork는 미검증이다. 자유 응답과 TUI 입력은 #5의 범위이며 이번 단계에서는 전송하지 않는다.

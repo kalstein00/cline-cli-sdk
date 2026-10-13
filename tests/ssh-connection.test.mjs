@@ -90,5 +90,5 @@ test('consumers receive a bounded busy failure rather than steal address discove
  await writeFile(cachePath+'.lock',JSON.stringify({at:Date.now()-60000,pid:process.pid}));
  const waiting=await connectWithTemporaryCache(directory,3);
  assert.equal(waiting.code,1,'An active discovery owner must not be replaced');
- assert.match(waiting.error,/WSL address discovery is busy; connection was not established/);
+ assert.match(waiting.error,/SSH did not confirm the remote result/);
 });

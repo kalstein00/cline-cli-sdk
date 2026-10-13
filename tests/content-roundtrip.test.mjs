@@ -4,8 +4,9 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createClient,readDiagnostic,compareDiagnostic,reviewDiagnostic,exportDiagnostic} from '@cline-cli-sdk/sdk';
-import {history} from './support/content-recording.mjs';
-import {remote,pinned} from './support/remote.mjs';
+import {history,recording,ended} from './support/content-recording.mjs';
+import {createReducer} from '../packages/sdk/dist/reducer.js';
+import {createDiagnosticCollector} from '../packages/sdk/dist/diagnostics.js';
 
 for(const secret of ['MASK_THIS','MASK"THIS','한글\\\n']) test('think/schema/JSON roundtrip and semantic split-packet mask: '+JSON.stringify(secret),async t=>{
   const directory=await mkdtemp(join(tmpdir(),'cline-sdk-content-roundtrip-'));
@@ -16,14 +17,16 @@ for(const secret of ['MASK_THIS','MASK"THIS','한글\\\n']) test('think/schema/J
   const encoded=JSON.stringify(JSON.stringify(secret).slice(1,-1)).slice(1,-1);
   const cut=output.indexOf(encoded)+Math.ceil(encoded.length/2);assert.ok(output.indexOf(encoded)>=0);
   const packet=(seq,bytes)=>({kind:'json-output',seq,observedAt:'2026-10-09T10:00:00Z',channel:'stdout',dataBase64:bytes.toString('base64')});
-  remote(t,[pinned,r=>{prompt=r.prompt;return {executionId:r.executionId,remoteRoot:'/control',outputMode:'json'};},r=>({executionId:r.executionId,sessionId:'content-session',cursor:2,
-    observations:[packet(1,output.subarray(0,cut)),packet(2,output.subarray(cut))],history:{dataBase64:history(1,[{id:'user',role:'user',content:[{type:'text',text:prompt}]},answer]).dataBase64,sha256:'history'},
-    process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot'},alive:false,identityConfirmed:true,exitCode:0,manifestStatus:'completed',children:[],childrenVerified:true,supervisorAlive:false}})]);
-  const live=createClient({mode:'live',connection:{host:'fixture'}});t.after(()=>live.close());
-  await live.startDiagnostics({directory});await live.connect();
-  await live.start({cwd:'/work',prompt:'hello',outputMode:'json',resultFormat:{type:'json',requestId:'roundtrip',schema:{type:'object',properties:{secret:{enum:[secret]}},required:['secret'],additionalProperties:false}}});
-  await live.refresh();assert.equal(live.snapshot().result.state,'ready');
-  const status=await live.stopDiagnostics();
+  const input=recording([packet(1,output.subarray(0,cut)),packet(2,output.subarray(cut)),history(3,[{id:'user',role:'user',content:[{type:'text',text:'hello'}]},answer]),ended(4)]);
+  input.cli.profile='cline-3.0.69-json';
+  input.resultRequest={type:'json',requestId:'roundtrip',schema:{type:'object',properties:{secret:{enum:[secret]}},required:['secret'],additionalProperties:false},validation:'sdk',baselineMessageIds:[]};
+  const collector=createDiagnosticCollector();
+  const live=createReducer({mode:'replay',observe:(o,e,s)=>collector.capture(o,e,s)});t.after(()=>live.close());
+  await collector.start({directory});
+  await live.initialize({kind:'initialize',seq:1,observedAt:'2026-10-09T10:00:00Z',cli:input.cli,terminal:input.terminal,sessionId:input.sessionId,executionId:input.executionId,resultRequest:input.resultRequest});
+  for(const observation of input.observations)await live.ingest({...observation,seq:observation.seq+1});
+  assert.equal(live.snapshot().result.state,'ready');
+  const status=await collector.stop();
   const review=await reviewDiagnostic(status.path);
   const copy=await exportDiagnostic(status.path,{destination:join(directory,'plain'),reviewToken:review.reviewToken});
   const bundle=await readDiagnostic(copy.path);const replay=createClient({mode:'replay'});const events=[];replay.subscribe(e=>events.push(e));

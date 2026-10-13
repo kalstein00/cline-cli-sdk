@@ -3,5 +3,6 @@
 .interaction{border:1px solid #b8cec0;border-radius:10px;background:#f0f5ef;padding:16px}.interaction h3{font-size:15px;margin:0 0 10px}.interaction .prompt,.arguments{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}.choices{display:flex;gap:8px;flex-wrap:wrap}.interaction-status{font-size:12px;color:#617368}
 
 #conversations section{margin-bottom:18px}#conversations button{display:block;width:100%;text-align:left;margin:6px 0;overflow-wrap:anywhere;font-size:13px}#conversations button[aria-current=true]{background:#d6e6d8;border-color:#8bb7a0}
+#terminalView{max-height:40vh;overflow:auto;margin:12px 0}#terminalText{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
 
 body{overflow:hidden}aside,aside nav{min-height:0}.session-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0}#stopStatus{font-size:12px;color:#617368}

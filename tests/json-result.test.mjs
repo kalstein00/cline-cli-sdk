@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createClient} from '@cline-cli-sdk/sdk';
 import {history,recording,ended} from './support/content-recording.mjs';
-import {remote,pinned} from './support/remote.mjs';
 import {createHash} from 'node:crypto';
 
 test('consumer receives a parsed final JSON value only after a confirmed answer boundary',async()=>{
@@ -42,13 +41,6 @@ test('JSON primitives and syntax failures retain final raw text without coercion
     const client=createClient({mode:'replay'});await client.openReplay(input);await client.replayAll();
     assert.equal(client.snapshot().result.state,state);assert.equal(client.snapshot().result.rawText,text);assert.deepEqual(client.snapshot().result.value,value);client.close();
   }
-});
-
-test('start exposes JSON result state to the same live public API used by consumers',async t=>{
-  remote(t,[pinned,r=>({executionId:r.executionId,remoteRoot:'/control'})]);
-  const client=createClient({mode:'live',connection:{host:'fixture'}});await client.connect();
-  await client.start({cwd:'/work',prompt:'Return null',resultFormat:{type:'json',requestId:'live-result'}});
-  assert.equal(client.snapshot().result.requestId,'live-result');assert.equal(client.snapshot().result.state,'pending');client.close();
 });
 
 test('a result bound to its user prompt cannot consume a later run in the same session',async()=>{

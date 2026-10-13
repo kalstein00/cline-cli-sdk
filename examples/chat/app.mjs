@@ -27,6 +27,8 @@ async function changeSelection(action,input={}) {
 }
 const settings=['host','cliPath','remoteRoot','cwd','dataDir','storageMode','sessionDirectory'];
 try {const saved=JSON.parse(localStorage.getItem('cline-chat-settings') ?? '{}');for(const id of settings)if(typeof saved[id]==='string')element(id).value=saved[id];} catch {}
+// Retired isolated-storage settings must not survive a UI upgrade.
+element('storageMode').value='native';element('dataDir').value='';
 const timeline=element('timeline');
 function canRespond(snapshot) {
   return transportConnected && current.capabilities?.responses && snapshot?.connection==='connected' && snapshot.historySync.current &&
@@ -98,9 +100,15 @@ function render(packet) {
   element('disconnect').disabled=!transportConnected||sending||packet.busy||snapshot?.connection!=='connected';
   element('reconnect').disabled=!transportConnected||sending||packet.busy||!snapshot||snapshot.connection==='connected';
   element('reconfirm').disabled=!transportConnected||sending||packet.busy||snapshot?.connection!=='connected'||!snapshot?.executionId;
-  element('stop').disabled=!transportConnected||sending||packet.busy||(!!pending && pending.action!=='start')||snapshot?.connection!=='connected'||!snapshot?.executionId||!!snapshot.stop||['completed','stopped','failed'].includes(snapshot.execution);
+  element('stop').disabled=!packet.capabilities?.stop||!transportConnected||sending||packet.busy||(!!pending && pending.action!=='start')||snapshot?.connection!=='connected'||!snapshot?.executionId||!!snapshot.stop||['completed','stopped','failed'].includes(snapshot.execution);
   element('stopStatus').textContent=snapshot?.stop?.state==='confirmed' && snapshot.stop.childrenVerified && snapshot.stop.remaining.length===0 && snapshot.execution==='stopped'?'중단 확인 · CLI와 추적 자식 종료':snapshot?.stop?.state==='stopping'?'중단 요청 처리 중':snapshot?.stop?'중단 여부 불명 · 종료 근거 확인 필요':'';
   const messages=element('messages');
+  const observation=snapshot?.remoteObservation;
+  element('terminalView').hidden=observation?.kind!=='tmux';
+  element('terminalText').textContent=observation?.terminalText ?? '';
+  if(observation?.kind==='tmux')element('status').textContent=observation.launchState==='unknown'?'실행 생성 여부 불명 · 자동 재시작 금지':observation.paneAlive===false?'CLI pane 종료 관측 · 자식 프로세스 종료는 미확인':'CLI 화면 읽기 전용 · 대화 목록에서 저장된 JSON 기록을 선택하세요.';
+  if(observation?.kind==='history')element('status').textContent='저장된 대화 읽기 전용 · 실행 종료 여부는 미확인';
+  if(pending?.action==='start' && observation?.launchState==='tmux-created'){pending=null;requestError=false;}
   let changed=false;
   const visible=new Set();
   for (const [index,message] of (snapshot?.messages ?? []).entries()) {
@@ -154,6 +162,7 @@ function render(packet) {
   if(canResume)element('hint').textContent=`같은 대화를 새 실행으로 재개합니다 · UTF-8 ${snapshot?.messageInput?.maxBytes ?? 112}바이트 이내의 한 줄`;
   if(snapshot?.supersededBy)element('hint').textContent='이전 실행 기록입니다. 대화 목록에서 현재 대화를 선택하면 계속할 수 있습니다.';
   if(snapshot?.startup?.state==='provider-setup-required' && !snapshot.stop)element('hint').textContent='CLI 초기 설정 필요 · 현재 실행을 중단한 뒤, 인증이 설정된 CLI 데이터 디렉터리로 새 대화를 시작하세요.';
+  if(snapshot?.executionId && packet.capabilities?.transport==='ssh-tmux')element('hint').textContent='읽기 전용 · 후속 메시지, 질문/승인 응답, 재개, 중단은 원격 CLI에서 직접 수행하세요.';
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
 }
 async function invoke(action,input) {
@@ -182,7 +191,7 @@ element('composer').onsubmit=async event=>{
   if(answerMode && (!text||text.trim()!==text||new TextEncoder().encode(text).length>1024||/[\p{Cc}\p{Cs}]/u.test(text)||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error('질문 응답은 UTF-8 1,024바이트 이내의 printable 한 줄입니다.'));return;}
   const maxBytes=current.snapshot?.messageInput?.maxBytes ?? 112;
   if(followup && (!text||text.trim()!==text||new TextEncoder().encode(text).length>maxBytes||/[\p{Cc}\p{Cs}]/u.test(text)||text.startsWith('/')||text.includes('@')||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error(`후속 메시지는 UTF-8 ${maxBytes}바이트 이내의 한 줄입니다. 앞뒤 공백, 제어 문자, slash command, @ mention을 제외하세요.`));return;}
-  if(!text.trim()||text.length>100000){showError(Error('비어 있지 않은 100,000자 이내의 첫 요청을 입력하세요.'));return;}
+  if(!text.trim()||new TextEncoder().encode(text).length>8192||text.includes('\0')){showError(Error('첫 요청은 NUL 없이 UTF-8 8,192바이트 이내로 입력하세요.'));return;}
   pending={text,action:answerMode?'respond':resumeMode?'resume':followup?'message':'start',baseline:(current.snapshot?.messages??[]).map(m=>m.id),requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
   const attempted=pending;
   try{await invoke(pending.action,{requestId:pending.requestId,generation:pending.generation,...(answerMode?{answer:text,interactionId:current.snapshot.interaction.id,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:followup?{text,sessionId:current.snapshot.sessionId,executionId:current.snapshot.executionId,revision:current.snapshot.revision}:{cwd:element('cwd').value,dataDir:element('dataDir').value,prompt:text})});}

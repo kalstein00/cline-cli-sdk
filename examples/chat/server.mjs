@@ -23,7 +23,7 @@ function state() {
     if(title)titles.set(snapshot.sessionId ?? selectedId,title.slice(0,80));
   }
   return {serverId,generation,preflight,busy:busy||refreshing,launchReserved,selectedId,
-    executions:executions.map(e=>({...e,title:titles.get(e.sessionId ?? e.executionId) ?? e.sessionId ?? e.executionId})),snapshot,capabilities:client?.capabilities() ?? null};
+    executions:executions.map(e=>({...e,title:(e.kind==='history'?'저장 기록 · ':'CLI 실행 · ')+(titles.get(e.sessionId ?? e.executionId) ?? e.sessionId ?? e.executionId)})),snapshot,capabilities:client?.capabilities() ?? null};
 }
 async function listExecutions(){executions=await client.listManagedExecutions();}
 function currentExecution(executionId) {
@@ -41,6 +41,7 @@ function currentExecution(executionId) {
 }
 function guardSelection() {
   const snapshot=client?.snapshot();
+  if(snapshot?.remoteObservation?.launchState==='unknown')throw problem('delivery-pending','실행 생성 여부를 먼저 확인하세요. 자동으로 새 실행을 만들지 않습니다.');
   if(snapshot?.inputControl?.current===false||(launchReserved&&!snapshot?.executionId)||[snapshot?.response,snapshot?.messageDelivery,snapshot?.resume].some(d=>['submitting','delivery-unknown'].includes(d?.state)))
     throw problem('delivery-pending','진행 중이거나 전달 여부가 불명인 요청을 먼저 확인하세요.');
 }

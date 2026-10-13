@@ -1,3 +1,5 @@
+> 이 문서의 supervisor 기반 live 제어 설명·시험 결과는 이전 구현 기록이다. 현재 기능과 제한은 [SSH 직접 실행 안내](direct-ssh.md)를 따른다. 기록 재생 계약은 유지한다.
+
 # 기록 동기화와 마지막 정상 대화
 
 티켓 #10은 기록 읽기의 일시 오류를 빈 대화나 정상 완료로 해석하지 않는다. `Snapshot.historySync.current`가 `false`면 마지막 정상 메시지와 질문 내용·ID를 유지하고 `historySync.warning`으로 동기화 문제를 알린다. 공개 `respond()`는 `history-unconfirmed`로 거부하며 입력을 보내지 않는다. 중단은 별도의 소유 프로세스 확인에 따르므로 동기화 문제만으로 중단 버튼을 막지 않는다.
