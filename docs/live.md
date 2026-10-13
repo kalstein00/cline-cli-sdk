@@ -85,6 +85,20 @@ WSL SSH 별칭의 ProxyCommand는 WSL 배포판을 실행하므로 client-loss �
 
 현재 선택·승인 응답은 [interactions.md](interactions.md), 자유 응답과 TUI 입력은 [text.md](text.md)를 따른다. 위 수용 기록은 #3 단계의 근거다.
 
+## 커스터마이징된 CLI의 composer 인식
+
+후속 메시지의 composer는 현재 커서 행의 `❯ `와 바로 위·아래의 `─` 구분선(20자 이상)으로 확인한다. 화면 하단으로부터의 행 번호, 탐색 범위, 상태줄 개수·문구에는 의존하지 않는다. witness는 입력창 구조·실제 화면 크기·커서 위치를 묶으며 상태줄 갱신은 witness를 바꾸지 않는다. 빈 입력 확인과 재개 후 대기 상태 확인도 관측된 커서 행을 사용한다. 모달·프로세스·history·입력 원장 검증은 유지한다.
+
+120×40은 생략 시 기본값이며 고정 지원 조건이 아니다. `client.start({cwd, prompt, terminalMode:'tui', terminal:{cols:80, rows:24}})`처럼 시작 크기를 지정할 수 있다. 기존 기록 검증과 같은 20~500열·5~200행 범위를 유지한다. 실행 중 tmux pane 크기가 바뀌면 supervisor가 내부 CLI PTY에 크기를 전달하고, SDK는 해당 크기의 전체 화면을 다시 확인한 뒤 입력을 허용한다. 화면 확인 실패나 캡처 도중 크기·커서 변경은 입력을 차단하며, 이전 크기의 witness로 쓰기를 진행하지 않는다. 재개 실행은 이전 실행에 저장된 크기를 상속한다.
+
+크기 변경 후 화면을 확인하기 전에 CLI가 종료되더라도, 이력과 CLI·supervisor·자식 프로세스의 종료가 모두 확인되면 완료·중단 상태를 유지한다. 종료된 실행의 입력을 활성화하지 않으며, 저장된 새 크기는 재개 프롬프트 길이 제한에만 사용한다. 종료 근거가 불충분한 경우에는 계속 차단한다.
+
+질문·승인 modal witness는 제목부터 화면 끝까지 모든 행을 포함한다. 마지막 몇 행을 상태줄로 가정해 제외하지 않으므로, 작은 화면 하단의 선택지·입력 내용 변경도 기존 응답 검증을 무효화한다. 상태줄만 변경되어도 보수적으로 새 관측을 요구한다. 입력 예약에는 아직 payload가 없으며, 너비 검사는 실제 payload가 있는 쓰기 단계에서 수행한다.
+
+후속 메시지와 재개 프롬프트는 한 줄 입력이므로 UTF-8 바이트 한도를 `min(112, cols-8)`로 제한한다. 예를 들어 80열은 72바이트다. UTF-8 바이트 수로 표시 너비를 보수적으로 제한하고 프롬프트와 우측 여백을 남긴다. 소비 앱은 `snapshot.messageInput.maxBytes`를 사용한다. SDK는 새 관측 후 길이를 다시 검사하고, 원격 supervisor도 각 쓰기 직전에 남은 너비를 검사한다. 이전 버전으로 이미 시작한 supervisor는 실행 중 교체되지 않으므로 새 버전으로 시작한 실행에서 검증한다.
+
+`fixtures/chat/company-composer-layout.json`은 회사 보고의 배치를 재현한 합성 자료이며 VDI 원본 캡처가 아니다. `node --test tests/message-input.test.mjs tests/send-message.test.mjs tests/resume.test.mjs`는 빌드 후 공개 API의 위치 변화·구조 손상·모달 차단·연속 후속 메시지·공개 CLI 기록을 검사한다. `python3 tests/composer-witness.py`는 실제 supervisor 함수 정의에 통제된 tmux/process IO를 제공하여 커서 행·witness·빈 입력 검사를 검증하며 Linux나 tmux 설치가 필요 없다. 실제 회사 CLI 호환성 및 VDI 후속 메시지 전송은 별도 실측이 필요하다.
+
 ## Nullable 응답 프레임 회귀
 
 일반 TUI 선택은 inputType을 생략한다. helper가 FIFO 프레임에 이를 JSON null로 기록하므로 소비 supervisor는 null도 일반 modal witness로 검사해야 한다. composer- 문자열에만 composer witness를 선택한다. null에서 startswith를 호출해 supervisor가 종료되던 문제는 문자열 여부 검사로 수정했다. 입력의 세션·프로세스·history·modal binding과 원장/중복 정책은 그대로 적용한다.

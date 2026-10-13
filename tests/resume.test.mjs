@@ -11,6 +11,28 @@ import {readFile,mkdtemp,rm} from 'node:fs/promises';
 const pinned={platform:'Linux',pty:true,tmux:'tmux 3.4',cliPath:'/fixture/cline',cliVersion:'3.0.69', cliFlags:['--cwd','--data-dir','--auto-approve','--tui','--id','--json','--retries','--zen'],cliHash:'8ddf33048e9e4418d89aabe2792ceac83d3905b83b18ae21fed2f4f890c37032',bootId:'boot'};
 function boundary(t,answer){t.mock.method(childProcess,'spawn',()=>{const p=new EventEmitter();p.stdout=new PassThrough();p.stderr=new PassThrough();p.stdin=new PassThrough();p.kill=()=>{};let body='';p.stdin.on('data',d=>body+=d);p.stdin.on('finish',()=>{p.stdout.end(JSON.stringify(answer(JSON.parse(body))));queueMicrotask(()=>p.emit('close',0));});return p;});}
 
+for(const priorGap of [false,true])test(`confirmed exit after resize preserves resume eligibility (prior gap=${priorGap})`,async t=>{
+ let id,alive=priorGap,confirmed=false,launches=0;
+ const history=Buffer.from(JSON.stringify({version:1,sessionId:'resize-ended',messages:[{id:'user',role:'user',content:[{type:'text',text:'original'}]},{id:'reply',role:'assistant',content:[{type:'text',text:'done'}]}]}));
+ boundary(t,r=>{
+  if(!r.action)return pinned;
+  if(r.action==='start'){id=r.executionId;return {executionId:id,remoteRoot:'/fixture/control',terminal:{cols:120,rows:40}};}
+  if(r.action==='status')return {executionId:id,sessionId:'resize-ended',cursor:0,observations:[],screen:null,
+   history:{dataBase64:history.toString('base64'),sha256:createHash('sha256').update(history).digest('hex')},
+   management:{terminal:{cols:80,rows:24},phaseSupported:true,inputLedgerCurrent:true},
+   process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot'},alive,identityConfirmed:true,exitCode:alive?null:0,manifestStatus:alive?'running':'completed',supervisorAlive:alive,childrenVerified:confirmed,children:[]}};
+  if(r.action==='resume'){launches++;return {error:'unexpected-launch'};}
+  throw Error(r.action);
+ });
+ const c=createClient({mode:'live',connection:{host:'fixture'}});t.after(()=>c.close());await c.connect();await c.start({cwd:'/fixture',prompt:'first',terminalMode:'tui'});
+ await c.refresh();assert.equal(c.capabilities().resume,false);assert.equal(c.capabilities().sendMessage,false);
+ alive=false;confirmed=true;await c.refresh();
+ assert.equal(c.snapshot().execution,'completed');assert.equal(c.capabilities().resume,true);assert.equal(c.capabilities().sendMessage,false);
+ assert.equal(c.snapshot().messageInput.maxBytes,72);
+ await assert.rejects(c.resume({executionId:id,requestId:'too-long',prompt:'x'.repeat(100)}),{code:'invalid-resume',notSubmitted:true});
+ assert.equal(launches,0);assert.equal(c.snapshot().resume,null);
+});
+
 test('a fresh client exposes the existing successor and never reserves another resume from its ancestor',async t=>{
  const old='run-11111111-1111-4111-8111-111111111111',next='run-22222222-2222-4222-8222-222222222222';let launches=0;
  const history=Buffer.from(JSON.stringify({version:1,sessionId:'existing-chat',messages:[{id:'user',role:'user',content:[{type:'text',text:'original'}]},{id:'reply',role:'assistant',content:[{type:'text',text:'original answer'}]}]}));

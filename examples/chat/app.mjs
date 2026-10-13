@@ -145,13 +145,13 @@ function render(packet) {
   element('composerLabel').textContent=questionText?'현재 질문에 자유 응답':canResume?'종료된 대화에 재개 요청':'메시지';
   element('send').textContent=questionText?'질문 응답 보내기':canResume?'대화 재개하여 보내기':snapshot?.executionId?'메시지 보내기':'첫 메시지 보내기';
   element('send').disabled=!transportConnected||!(canStart||canMessage||canAnswer||canResume) || sending || packet.busy || (packet.launchReserved&&!snapshot?.executionId) || !!pending;
-  const reasons={'ready':'다음 메시지 입력 준비 완료 · UTF-8 112바이트 이내의 한 줄','agent-busy':'Cline이 답변을 생성하거나 도구를 실행 중입니다.','interaction-pending':'대기 중인 질문이나 승인을 먼저 처리하세요.','delivery-pending':'이전 요청의 전달 상태를 확인 중입니다.','not-connected':'연결 복구 후 입력 상태를 다시 확인합니다.','history-unavailable':'대화 기록을 다시 확인 중입니다.','process-unconfirmed':'원격 프로세스를 확인 중입니다.','composer-unconfirmed':'빈 입력창을 확인 중입니다.','unsupported-profile':'이 CLI 프로필에서는 후속 입력을 지원하지 않습니다.'};
+  const reasons={'ready':`다음 메시지 입력 준비 완료 · UTF-8 ${snapshot?.messageInput?.maxBytes ?? 112}바이트 이내의 한 줄`,'agent-busy':'Cline이 답변을 생성하거나 도구를 실행 중입니다.','interaction-pending':'대기 중인 질문이나 승인을 먼저 처리하세요.','delivery-pending':'이전 요청의 전달 상태를 확인 중입니다.','not-connected':'연결 복구 후 입력 상태를 다시 확인합니다.','history-unavailable':'대화 기록을 다시 확인 중입니다.','process-unconfirmed':'원격 프로세스를 확인 중입니다.','composer-unconfirmed':'빈 입력창을 확인 중입니다.','unsupported-profile':'이 CLI 프로필에서는 후속 입력을 지원하지 않습니다.'};
   element('hint').textContent=snapshot?.executionId ? (reasons[snapshot.messageInput?.reason] ?? '후속 입력 상태를 확인 중입니다.') : startHint;
   if(snapshot?.interaction)element('hint').textContent=questionText?'현재 질문 응답 · UTF-8 1,024바이트 이내의 한 줄':snapshot.interaction.kind==='unsupported'?'지원하지 않는 상호작용입니다. 일반 전송과 응답을 차단합니다.':'현재 질문/승인의 선택 버튼을 사용하세요.';
   if(packet.launchReserved && !snapshot?.executionId)element('hint').textContent='시작 여부를 확인해야 합니다. 새 요청을 자동 전송하지 않습니다.';
   if(snapshot && !snapshot.historySync.current && snapshot.executionId)element('hint').textContent='기록 확인 중입니다. 마지막 정상 대화를 유지합니다.';
   if(snapshot?.inputControl?.current===false)element('hint').textContent='입력 전달 기록을 확인할 수 없습니다. 기존 요청을 재전송하지 않습니다.';
-  if(canResume)element('hint').textContent='같은 대화를 새 실행으로 재개합니다 · UTF-8 112바이트 이내의 한 줄';
+  if(canResume)element('hint').textContent=`같은 대화를 새 실행으로 재개합니다 · UTF-8 ${snapshot?.messageInput?.maxBytes ?? 112}바이트 이내의 한 줄`;
   if(snapshot?.supersededBy)element('hint').textContent='이전 실행 기록입니다. 대화 목록에서 현재 대화를 선택하면 계속할 수 있습니다.';
   if(snapshot?.startup?.state==='provider-setup-required' && !snapshot.stop)element('hint').textContent='CLI 초기 설정 필요 · 현재 실행을 중단한 뒤, 인증이 설정된 CLI 데이터 디렉터리로 새 대화를 시작하세요.';
   if(changed){if(atBottom){timeline.scrollTop=timeline.scrollHeight;element('newMessages').hidden=true;}else{timeline.scrollTop=oldTop;element('newMessages').hidden=false;}}
@@ -180,7 +180,8 @@ element('composer').onsubmit=async event=>{
   const resumeMode=!!current.capabilities?.resume&&!answerMode;
   const followup=!!current.snapshot?.executionId&&!answerMode;
   if(answerMode && (!text||text.trim()!==text||new TextEncoder().encode(text).length>1024||/[\p{Cc}\p{Cs}]/u.test(text)||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error('질문 응답은 UTF-8 1,024바이트 이내의 printable 한 줄입니다.'));return;}
-  if(followup && (!text||text.trim()!==text||new TextEncoder().encode(text).length>112||/[\p{Cc}\p{Cs}]/u.test(text)||text.startsWith('/')||text.includes('@')||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error('후속 메시지는 UTF-8 112바이트 이내의 한 줄입니다. 앞뒤 공백, 제어 문자, slash command, @ mention을 제외하세요.'));return;}
+  const maxBytes=current.snapshot?.messageInput?.maxBytes ?? 112;
+  if(followup && (!text||text.trim()!==text||new TextEncoder().encode(text).length>maxBytes||/[\p{Cc}\p{Cs}]/u.test(text)||text.startsWith('/')||text.includes('@')||[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].some(({segment})=>new TextEncoder().encode(segment).length>64))){showError(Error(`후속 메시지는 UTF-8 ${maxBytes}바이트 이내의 한 줄입니다. 앞뒤 공백, 제어 문자, slash command, @ mention을 제외하세요.`));return;}
   if(!text.trim()||text.length>100000){showError(Error('비어 있지 않은 100,000자 이내의 첫 요청을 입력하세요.'));return;}
   pending={text,action:answerMode?'respond':resumeMode?'resume':followup?'message':'start',baseline:(current.snapshot?.messages??[]).map(m=>m.id),requestId:crypto.randomUUID(),generation:current.generation};sending=true;requestError=false;element('error').hidden=true;render(current);
   const attempted=pending;

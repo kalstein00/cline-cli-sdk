@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID, createHash } from "node:crypto";
 import { deliveryState, type DurableResponse } from "./delivery.js";
 import { inputChunks, validComposerText } from "./input-chunks.js";
+import {DEFAULT_TERMINAL, validTerminalSize, sameTerminalSize, composerMaxBytes, type TerminalSize} from './terminal-geometry.js';
 import {cliFeatures, type CliFeatures, type DeclaredFeatures} from "./capabilities.js";
 import {profileFor} from "./cli-protocol.js";
 import {prepareResult,resultPrompt,type ResultFormat,type ResultRequest} from "./structured-result.js";
@@ -70,6 +71,8 @@ export interface PreflightReport {
   };
 }
 export interface StartRequest {
+  /** Initial PTY size; defaults to 120 columns by 40 rows. */
+  terminal?: TerminalSize;
   resultFormat?:ResultFormat;
   outputMode?: "terminal" | "json";
   /** readline keeps its numeric-prefix limitation; TUI supports verified custom input. */
@@ -442,6 +445,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         executionId: managed.executionId,
         cursor,
         fullScreen: fullSynchronization || observationGap,
+        terminal: managed.terminal ?? DEFAULT_TERMINAL,
       });
       if (result.executionId !== managed.executionId)
         throw new SdkError(
@@ -464,6 +468,11 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         });
       }
       phaseSupported = !!result.management?.phaseSupported;
+      const resized=result.management?.terminal && !sameTerminalSize(managed.terminal ?? DEFAULT_TERMINAL,result.management.terminal);
+      if(resized && !result.screen){
+        observationGap=true;
+        await reducer.ingest({kind:'gap',seq:++sequence,observedAt:new Date().toISOString(),cursor:result.cursor});
+      }
       reservationSupported = !!result.management?.responseReservation;
       phase = result.phase ?? phase;
       pendingPhase = null;
@@ -508,7 +517,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
             ...raw,
             sourceSeq: raw.seq,
             source: "packet",
-            ...(result.screen ? { apply: false } : {}),
+            ...(result.screen || resized ? { apply: false } : {}),
             seq: ++sequence,
           });
         } catch (error) {
@@ -568,7 +577,9 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           observedAt: new Date().toISOString(),
           dataBase64: result.screen.dataBase64,
           source: "screen",
+          ...(result.screen.rows!==undefined?{geometry:{rows:result.screen.rows,cols:result.screen.cols,cursorX:result.screen.cursorX,cursorY:result.screen.cursorY}}:{}),
         });
+        if(validTerminalSize(result.screen))managed.terminal={rows:result.screen.rows,cols:result.screen.cols};
         observationGap = false;
         fullSynchronization = false;
       }
@@ -585,6 +596,17 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         receipts: remoteRequests,
       });
       observationGap ||= !!result.gap && !result.screen;
+      // A dead PTY cannot supply the resized screen. Conclusive process/history
+      // evidence may retire that visual gap without authorizing input to this run.
+      if(resized && validTerminalSize(result.management?.terminal) &&
+          ['completed','stopped','failed'].includes(reducer.snapshot().execution) &&
+          result.process?.alive===false && result.process.identityConfirmed===true &&
+          result.process.supervisorAlive===false && result.process.childrenVerified===true &&
+          Array.isArray(result.process.children) && !result.process.children.length && !result.process.trackingError){
+        managed.terminal={rows:result.management.terminal.rows,cols:result.management.terminal.cols};
+        observationGap=false;
+        fullSynchronization=false;
+      }
       if (
         pendingPhase &&
         reducer.snapshot().historySync.current &&
@@ -968,6 +990,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "managed-execution-selected",
           "This client already controls a managed execution.",
         );
+      if(request.terminal!==undefined && !validTerminalSize(request.terminal))
+        throw new SdkError('invalid-terminal-geometry','Terminal size must be 20–500 columns and 5–200 rows.');
       if (request.outputMode !== undefined && !["terminal","json"].includes(request.outputMode))
         throw new SdkError("unsupported-output-mode", "Unknown output mode.");
       if(request.outputMode === "json" && request.terminalMode === "tui")
@@ -1040,7 +1064,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           "execution-mismatch",
           "Remote launch identity did not match.",
         );
-      managed = launched;
+      managed = {...launched,terminal:launched.terminal ?? request.terminal ?? DEFAULT_TERMINAL};
       if (closed)
         throw new SdkError(
           "client-closed",
@@ -1055,7 +1079,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           version: "unknown",
           profile: profileFor(outputMode,terminalMode),
         },
-        terminal: { rows: 40, cols: 120 },
+        terminal: managed!.terminal ?? request.terminal ?? DEFAULT_TERMINAL,
         sessionId: null,
         executionId: managed!.executionId,
         cliHash: report.cliHash,
@@ -1098,6 +1122,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           await refresh();
           if(state.executionId!==request.executionId || state.sessionId!==request.sessionId || !state.messageInput?.ready)
             throw Object.assign(new SdkError("message-not-ready","The refreshed input destination is no longer ready."),{notSubmitted:true});
+          if(Buffer.byteLength(request.text)>state.messageInput.maxBytes)
+            throw Object.assign(new SdkError('invalid-message',`The current terminal permits at most ${state.messageInput.maxBytes} UTF-8 bytes on one row.`),{notSubmitted:true});
           reserved=true;action("requested");
           const receipt=await helper({action:"reserve-message",root:managed!.remoteRoot,executionId:request.executionId,sessionId:request.sessionId,
             requestId:request.requestId,interactionId:`${request.executionId}:composer`,revision:request.revision,kind:"composer",answerDigest:digest,
@@ -1176,6 +1202,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           processEvidence.childrenVerified !== true || processEvidence.children?.length ||
           (state.stop && (state.stop.state !== "confirmed" || !state.stop.childrenVerified || state.stop.remaining.length)))
         throw new SdkError("resume-unconfirmed", "Confirm CLI, supervisor and all owned children ended before resuming.");
+      if(Buffer.byteLength(request.prompt)>composerMaxBytes((managed!.terminal ?? DEFAULT_TERMINAL).cols))
+        throw Object.assign(new SdkError('invalid-resume','The prompt exceeds the terminal one-row byte budget.'),{notSubmitted:true});
       resumeActive = true;
       const fromExecutionId = managed!.executionId;
       const sessionId = state.sessionId;
@@ -1206,7 +1234,7 @@ export function createLiveClient(options: LiveOptions): LiveClient {
         processEvidence = null; observationGap = false; fullSynchronization = true;
         stopPromise = null; stopRequestId = null;
         await reducer.initialize({kind:"initialize",seq:++sequence,observedAt:new Date().toISOString(),
-          cli:{name:"cline",version:"unknown",profile:profileFor("terminal","tui")},terminal:{rows:40,cols:120},
+          cli:{name:"cline",version:"unknown",profile:profileFor("terminal","tui")},terminal:managed!.terminal ?? DEFAULT_TERMINAL,
           sessionId,executionId:launched.executionId,cliHash:report!.cliHash});
         receipt.executionId=launched.executionId;
         action("requested");
@@ -1241,6 +1269,8 @@ export function createLiveClient(options: LiveOptions): LiveClient {
           return true; // unchanged across consecutive bounded refreshes, separated by the wait interval
         });
         const composerRevision=state.revision;
+        if(Buffer.byteLength(request.prompt)>composerMaxBytes((managed!.terminal ?? DEFAULT_TERMINAL).cols))
+          throw new SdkError('resume-input-uncertain','The prompt exceeds the restored terminal one-row byte budget; no composer input was sent.');
         let stepIndex = 0;
         const step = async (inputType:string, text:string, condition:()=>boolean) => {
           const index = stepIndex++;

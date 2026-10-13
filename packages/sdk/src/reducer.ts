@@ -1,4 +1,5 @@
 import {hasCliProtocol} from "./cli-protocol.js";
+import {validTerminalSize, sameTerminalSize} from './terminal-geometry.js';
 import {streamPreview} from './stream-preview.js';
 import {messageInput, type MessageInputState} from "./message-input.js";
 import {messageNotSubmitted} from "./message-evidence.js";
@@ -598,8 +599,11 @@ export function createReducer(options: {
   };
   const updateMessageInput = (obs: Observation) => {
     // Legacy recordings without a terminal witness retain their existing event contract.
-    if (!composerEvidence && !state.messageInput) return;
-    const next=messageInput(state,hasCliProtocol(recording?.cli,"tui") && recording?.terminal.rows === 40 && recording.terminal.cols === 120 && phaseSupported,composerEvidence,!!pendingTools.length,!!rawPhase?.active);
+    if (!recording || (!composerEvidence && !state.messageInput)) return;
+    const size=recording!.terminal;
+    const sizeConfirmed=!composerEvidence?.terminal || sameTerminalSize(size,composerEvidence.terminal);
+    const cols=validTerminalSize(composerEvidence?.terminal)?composerEvidence.terminal.cols:size.cols;
+    const next=messageInput(state,hasCliProtocol(recording?.cli,"tui") && validTerminalSize(size) && phaseSupported,sizeConfirmed?composerEvidence:undefined,!!pendingTools.length,!!rawPhase?.active,cols);
     if(JSON.stringify(next)!==JSON.stringify(state.messageInput)) {
       state.messageInput=next;emit("state.changed",obs,{messageInput:next});
     }
@@ -855,19 +859,18 @@ export function createReducer(options: {
         state.execution = "unknown";
         emit("interaction.changed", obs, null);
       }
-      const bottom = recording!.terminal.rows - 4;
+      // Focus identifies the input row independently of CLI-specific footer rows.
+      const row = buffer.cursorY;
       const rule = (line: string) => /^─{20,}$/.test(line.trim());
-      if (!state.interaction && rule(visible[bottom]) &&
-          visible.at(-1)?.trim() === "Auto-approve all disabled (Shift+Tab)" &&
-          visible[bottom + 1].includes("● Act (Tab)") &&
-          buffer.cursorY === bottom - 1 && buffer.cursorX >= 2 &&
-          rule(visible[bottom - 2]) && visible[bottom - 1].startsWith("❯ ")) {
-        const line=buffer.getLine(buffer.baseY+bottom-1)!;
+      if (!state.interaction && row > 0 && row < visible.length - 1 &&
+          buffer.cursorX >= 2 && buffer.cursorX < recording!.terminal.cols &&
+          rule(visible[row - 1]) && rule(visible[row + 1]) && visible[row].startsWith("❯ ")) {
+        const line=buffer.getLine(buffer.baseY+row)!;
         let end=recording!.terminal.cols;
         while(end>2 && !line.getCell(end-1)?.getChars().trim())end--;
         // Intermediate chunks can end in a space. trimEnd() loses that echo,
         // while the cursor still witnesses the occupied input cells.
-        const text = visible[bottom - 1].slice(2)==='Ask anything...' ? 'Ask anything...'
+        const text = visible[row].slice(2)==='Ask anything...' ? 'Ask anything...'
           : line.translateToString(false,2,Math.max(end,buffer.cursorX));
         state.composer = { mode: "tui", text: text === "Ask anything..." ? "" : text };
       }
@@ -1481,6 +1484,17 @@ export function createReducer(options: {
       }
       if (obs.kind === "history-failure") historyFailure(obs);
       if (obs.kind === "pty" && obs.apply !== false) {
+        if(obs.geometry){
+          const g=obs.geometry;
+          if(obs.source!=="screen" || !validTerminalSize(g) || !Number.isInteger(g.cursorX) || !Number.isInteger(g.cursorY) || g.cursorX<0 || g.cursorX>=g.cols || g.cursorY<0 || g.cursorY>=g.rows)
+            throw new SdkError("invalid-terminal-geometry","A bounded full-screen observation is required to change terminal size.");
+          if(!sameTerminalSize(recording!.terminal,g)){
+            terminal!.resize(g.cols,g.rows);
+            terminal!.reset();
+            recording!.terminal={rows:g.rows,cols:g.cols};
+            state.composer=null;
+          }
+        }
         await new Promise<void>((resolve) =>
           terminal!.write(Buffer.from(obs.dataBase64, "base64"), resolve),
         );
@@ -1787,7 +1801,7 @@ export function createReducer(options: {
     },
     close() {
       state.connection = "closed";
-      if(state.messageInput) state.messageInput={ready:false,reason:"not-connected",maxBytes:112};
+      if(state.messageInput) state.messageInput={...state.messageInput,ready:false,reason:"not-connected"};
       terminal?.dispose();
       terminal = null;
       recording = null;

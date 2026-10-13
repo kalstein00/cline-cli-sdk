@@ -55,8 +55,8 @@ npm start
 | 입력 용도 | 공개 API | 첫 버전 제한 |
 | --- | --- | --- |
 | 새 대화 첫 요청 | `start` | 비어 있지 않은 최대 100,000 JavaScript 문자. Enter 제출, Shift+Enter 여러 행 입력 |
-| 살아 있는 대화 후속 요청 | `sendMessage` | printable 단일 행 UTF-8 **112바이트** |
-| 종료 확인 대화 재개 | `resume` | printable 단일 행 UTF-8 **112바이트** |
+| 살아 있는 대화 후속 요청 | `sendMessage` | printable 단일 행 UTF-8 **최대 112바이트**, 터미널 너비에 따라 감소 (`messageInput.maxBytes`) |
+| 종료 확인 대화 재개 | `resume` | printable 단일 행 UTF-8 **최대 112바이트**, 상속한 터미널 너비에 따라 감소 |
 | 현재 질문 자유 응답 | `respond` | printable 단일 행 UTF-8 **1,024바이트**, interaction이 text를 허용할 때만 |
 
 후속/재개는 앞뒤 공백, 제어 문자, 불완전 surrogate, 선행 slash command, `@` mention과 64바이트를 넘는 grapheme을 지원하지 않습니다. 질문 응답도 원문 공백·제어 문자·grapheme 제한을 적용합니다. 한글과 emoji는 UTF-8 바이트로 계산하며 거부한 초안은 유지합니다. IME 조합 중 Enter는 제출하지 않습니다. 긴 일반 챗봇 메시지는 아직 지원하지 않습니다.

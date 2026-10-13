@@ -72,37 +72,74 @@ def request_ledger(run):
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
+def valid_terminal_size(size):
+    return (isinstance(size, dict) and type(size.get('cols')) is int and type(size.get('rows')) is int
+            and 20 <= size['cols'] <= 500 and 5 <= size['rows'] <= 200)
+
+
+def terminal_geometry(meta):
+    target = meta['tmuxSession'] + ':0.0'
+    raw = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'display-message','-p','-t',target,'#{pane_width},#{pane_height},#{cursor_x},#{cursor_y}'], timeout=5, text=True).strip()
+    cols, rows, x, y = map(int, raw.split(','))
+    if not valid_terminal_size(dict(cols=cols, rows=rows)) or not (0 <= x < cols and 0 <= y < rows):
+        raise ValueError('Invalid terminal geometry')
+    return cols, rows, x, y
+
+
+def sync_terminal_size(master, run, meta):
+    """Propagate the outer tmux PTY size to the CLI's nested PTY."""
+    try:
+        size = os.get_terminal_size(sys.stdout.fileno())
+        current = dict(rows=size.lines, cols=size.columns)
+        if valid_terminal_size(current) and current != meta['terminal']:
+            fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', current['rows'], current['cols'], 0, 0))
+            meta['terminal'] = current
+            save(run / 'meta.json', meta)
+    except OSError:
+        pass
+
+
 def modal_witness(meta):
     if meta.get('terminalMode') != 'tui':
+        return None
+    try:
+        cols, rows, x, y = terminal_geometry(meta)
+    except (OSError, ValueError, subprocess.SubprocessError):
         return None
     result = subprocess.run(['tmux', '-S', meta['tmuxSocket'], 'capture-pane', '-p', '-t', meta['tmuxSession']], capture_output=True, timeout=5)
     if result.returncode:
         return None
     lines = result.stdout.decode('utf8', errors='strict').splitlines()
+    try:
+        if len(result.stdout) > LIMIT or len(lines) != rows or terminal_geometry(meta)[:2] != (cols, rows):
+            return None
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
     if any('Press Enter to open, any other key to close' in line for line in lines):
         return None
     titles = [i for i, line in enumerate(lines) if line.strip() in ('Cline is asking a question', 'Cline needs permission')]
     if not titles:
         return None
-    # Fixed 40x120 profile: the last three rows are CLI context/footer, outside its modal.
-    payload = '\n'.join(line.rstrip() for line in lines[titles[-1]:-3]).encode('utf8')
-    return dict(sha256=hashlib.sha256(payload).hexdigest(), dataBase64=base64.b64encode(result.stdout).decode(), rows=meta['terminal']['rows'], cols=meta['terminal']['cols'])
+    # Custom layouts can put choices or drafts in any trailing row. Include the
+    # complete visible modal; footer-only changes conservatively require a refresh.
+    payload = json.dumps([cols, rows, [line.rstrip() for line in lines[titles[-1]:]]], ensure_ascii=False).encode('utf8')
+    return dict(sha256=hashlib.sha256(payload).hexdigest(), dataBase64=base64.b64encode(result.stdout).decode(), rows=rows, cols=cols)
 
 def composer_witness(meta):
     if meta.get('terminalMode') != 'tui':
         return None
     target = meta['tmuxSession'] + ':0.0'
     try:
-        geometry = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'display-message','-p','-t',target,'#{pane_width},#{pane_height},#{cursor_x},#{cursor_y}'], timeout=5, text=True).strip()
-        cols, rows, x, y = map(int, geometry.split(','))
+        cols, rows, x, y = terminal_geometry(meta)
         raw = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'capture-pane','-p','-t',target], timeout=5)
         lines = raw.decode('utf8').splitlines()
-        if (cols, rows) != (120, 40) or len(lines) != rows or y != rows-5 or x < 2:
+        if len(raw) > LIMIT or len(lines) != rows or not 0 < y < rows-1 or x < 2 or terminal_geometry(meta) != (cols, rows, x, y):
             return None
         rule = lambda line: len(line.strip()) >= 20 and set(line.strip()) == {'─'}
-        if not rule(lines[-6]) or not rule(lines[-4]) or not lines[-5].startswith('❯ ') or '● Act (Tab)' not in lines[-3] or lines[-1].strip() != 'Auto-approve all disabled (Shift+Tab)':
+        # Focus identifies the input row; footer height and labels are CLI-specific.
+        if not rule(lines[y-1]) or not rule(lines[y+1]) or not lines[y].startswith('❯ '):
             return None
-        payload = json.dumps([lines[-6:], x, y], ensure_ascii=False).encode('utf8')
+        payload = json.dumps([lines[y-1:y+2], cols, rows, x, y], ensure_ascii=False).encode('utf8')
         return dict(sha256=hashlib.sha256(payload).hexdigest(), dataBase64=base64.b64encode(raw).decode(), rows=rows, cols=cols, cursorX=x, cursorY=y)
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
@@ -128,7 +165,7 @@ def message_idle(run, meta, empty=False):
     witness=composer_witness(meta)
     if not witness: return 'composer-unconfirmed'
     if empty:
-        line=base64.b64decode(witness['dataBase64']).decode().splitlines()[-5][2:].rstrip()
+        line=base64.b64decode(witness['dataBase64']).decode().splitlines()[witness['cursorY']][2:].rstrip()
         if line not in ('','Ask anything...'): return 'composer-not-empty'
     return None
 
@@ -144,6 +181,10 @@ def input_binding(run, meta, request, cursor):
         witness = composer_witness(meta) if isinstance(input_type, str) and input_type.startswith('composer-') else modal_witness(meta)
         if not witness or not request.get('modalHash') or request['modalHash'] != witness['sha256']:
             return 'terminal-modal-changed'
+        # Reservation binds an empty destination before any payload exists. Actual
+        # respond/FIFO writes carry a validated payload and must also fit this row.
+        if input_type == 'composer-text' and 'dataBase64' in request and witness['cursorX'] + len(base64.b64decode(request['dataBase64'], validate=True)) > witness['cols'] - 6:
+            return 'composer-width-exceeded'
     elif request.get('expectedCursor') != cursor:
         return 'terminal-observation-changed'
     sid, _, history_path = session_files(meta)
@@ -403,6 +444,9 @@ def serve(run):
     input_buffer = b''
     try:
         while True:
+            # tmux resizes the supervisor's outer PTY; propagate that size to the CLI PTY.
+            if not json_mode:
+                sync_terminal_size(master, run, meta)
             try:
                 owner.scan()
             except (OSError, ValueError) as exc:
@@ -507,6 +551,9 @@ def handle(request):
         from resume import launch_resume
         return launch_resume(request, root, handle, identity, boot_id, save)
     if action == 'start':
+        terminal = request.get('terminal', dict(rows=40, cols=120))
+        if not valid_terminal_size(terminal):
+            raise ValueError('Invalid terminal geometry')
         cwd = working_directory(request['cwd'])
         run_id = request['executionId']
         if not run_id.startswith('run-') or not all(c.isalnum() or c == '-' for c in run_id):
@@ -561,16 +608,16 @@ def handle(request):
                 raise ValueError('Retry limit must be an integer from 1 to 10')
             argv[-1:-1] = ['--retries', str(request['retryLimit'])]
         meta = dict(schemaVersion=1, owner='cline-cli-sdk', executionId=run_id, sessionId=resume['sessionId'] if resume else None, resume=resume, cwd=str(cwd), dataDir=str(data) if data else None, storageMode=storage_mode, sessionDirectory=str(sessions), priorSessions=prior,
-                    cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, outputMode=output_mode, resultRequest=request.get('resultRequest'), terminal=dict(rows=40, cols=120),
+                    cliPath=executable, cliHash=request['cliHash'], argv=argv, terminalMode=mode, outputMode=output_mode, resultRequest=request.get('resultRequest'), terminal=terminal,
                     bootId=boot_id(), tmuxSocket=socket, tmuxSession=run_id, identity=None, exitCode=None)
         # Prompt is launch-only: don't retain it in minimal control metadata after startup.
         save(run / 'meta.json', meta)
         save(run / 'requests.json', {})
         command = ' '.join(shlex.quote(v) for v in [sys.executable, str(helper), '--serve', str(run)])
-        result = subprocess.run(['tmux', '-S', socket, 'new-session', '-d', '-s', run_id, '-x', '120', '-y', '40', command], capture_output=True, text=True)
+        result = subprocess.run(['tmux', '-S', socket, 'new-session', '-d', '-s', run_id, '-x', str(terminal['cols']), '-y', str(terminal['rows']), command], capture_output=True, text=True)
         if result.returncode:
             raise ValueError('Unable to start task-owned tmux session: ' + result.stderr.strip())
-        return dict(executionId=run_id, remoteRoot=str(root), sessionId=meta['sessionId'], terminalMode=mode, outputMode=output_mode, resultRequest=meta.get('resultRequest'))
+        return dict(executionId=run_id, remoteRoot=str(root), sessionId=meta['sessionId'], terminal=terminal, terminalMode=mode, outputMode=output_mode, resultRequest=meta.get('resultRequest'))
     run = root / request['executionId']
     if run.parent != root or not request['executionId'].startswith('run-'):
         raise ValueError('Invalid execution path')
@@ -771,18 +818,18 @@ def handle(request):
         alive = bool(same_boot and expected and actual == expected)
         confirmed = bool(same_boot and ((expected and (actual == expected or actual is None)) or (meta.get('startupFailed') and meta.get('supervisorIdentity'))))
         screen = None
-        if meta.get('outputMode') != 'json' and alive and (request.get('fullScreen') or cursor < buffer['first'] - 1):
+        observed_terminal = meta['terminal']
+        if meta.get('outputMode') != 'json' and alive:
             target = meta['tmuxSession'] + ':0.0'
             try:
-                geometry = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'display-message','-p','-t',target,'#{pane_width},#{pane_height},#{cursor_x},#{cursor_y}'], timeout=5, text=True).strip()
-                cols, rows, x, y = map(int, geometry.split(','))
-                if cols != meta['terminal']['cols'] or rows != meta['terminal']['rows'] or not (0 <= x < cols and 0 <= y < rows):
-                    raise ValueError('Terminal geometry changed')
-                payload = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'capture-pane','-p','-e','-t',target],timeout=5)
-                if len(payload) > LIMIT:
-                    raise ValueError('Screen snapshot exceeded bounded read')
-                restored = b'\x1b[0m\x1b[2J\x1b[H' + b'\r\n'.join(payload.splitlines()[:rows]) + f'\x1b[{y+1};{x+1}H'.encode()
-                screen = dict(dataBase64=base64.b64encode(restored).decode(), cols=cols, rows=rows, cursorX=x, cursorY=y)
+                cols, rows, x, y = terminal_geometry(meta)
+                observed_terminal = dict(cols=cols, rows=rows)
+                if request.get('fullScreen') or cursor < buffer['first'] - 1 or observed_terminal != request.get('terminal', meta['terminal']):
+                    payload = subprocess.check_output(['tmux','-S',meta['tmuxSocket'],'capture-pane','-p','-e','-t',target],timeout=5)
+                    if len(payload) > LIMIT or len(payload.splitlines()) != rows or terminal_geometry(meta) != (cols, rows, x, y):
+                        raise ValueError('Screen snapshot changed or exceeded bounds')
+                    restored = b'\x1b[0m\x1b[2J\x1b[H' + b'\r\n'.join(payload.splitlines()) + f'\x1b[{y+1};{x+1}H'.encode()
+                    screen = dict(dataBase64=base64.b64encode(restored).decode(), cols=cols, rows=rows, cursorX=x, cursorY=y)
             except (OSError, ValueError, subprocess.SubprocessError):
                 pass
         try:
@@ -817,7 +864,7 @@ def handle(request):
         resumed_owner = resume_owner(meta) if not manifest else None
         cli_owner = session_owner(meta, manifest.get('pid')) if manifest else resumed_owner
         composer_idle = bool(resumed_owner and completed_resume_turn(meta, history_path) and composer and not modal and not phase.get('active') and
-                             base64.b64decode(composer['dataBase64']).decode().splitlines()[-5][2:].rstrip() in ('','Ask anything...'))
+                             base64.b64decode(composer['dataBase64']).decode().splitlines()[composer['cursorY']][2:].rstrip() in ('','Ask anything...'))
         return dict(executionId=meta['executionId'], sessionId=sid, supersededBy=meta.get('resumedBy'), observations=observations, cursor=buffer['cursor'], modalHash=modal['sha256'] if modal else None, modalPane=modal, composerHash=composer['sha256'] if composer else None, composerPane=composer, resume=meta.get('resume'),
                     gap=cursor < buffer['first'] - 1, history=history, historyError=history_error, screen=screen, phase=phase,
                     process=dict(kind='process', identity=expected, alive=alive, identityConfirmed=confirmed,
@@ -829,7 +876,7 @@ def handle(request):
                                  childrenVerified=bool(same_boot and ownership.get('cliIdentity')==expected and ownership.get('supervisorIdentity')==meta.get('supervisorIdentity') and not ownership.get('owned') and not ownership.get('trackingError')),
                                  requestedStop=any(value['state']=='written' and value['binding']['kind']=='recovery' and value['binding']['answerDigest']==hashlib.sha256(b'Stop this run').hexdigest() for value in requests.values())),
                     requests=[dict(requestId=key, state=value['state'], reason=value.get('reason'), binding=value['binding'], createdAt=value.get('createdAt'), resolution=value.get('resolution'), message=value.get('message'), witness=value.get('witness'), baselineMessageCount=value.get('baselineMessageCount'), baselineLastMessageId=value.get('baselineLastMessageId'), steps=[dict(index=int(i), state=step['state'], reason=step.get('reason')) for i,step in value.get('steps', {}).items()]) for key,value in requests.items()],
-                    management=dict(remoteRoot=str(root), terminal=meta['terminal'], terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), bootId=meta['bootId'], phaseSupported=meta.get('outputMode')!='json', responseReservation=meta.get('outputMode')!='json', inputLedgerCurrent=ledger_current))
+                    management=dict(remoteRoot=str(root), terminal=observed_terminal, terminalMode=meta.get('terminalMode', 'readline'), outputMode=meta.get('outputMode','terminal'), bootId=meta['bootId'], phaseSupported=meta.get('outputMode')!='json', responseReservation=meta.get('outputMode')!='json', inputLedgerCurrent=ledger_current))
     raise ValueError('Unsupported supervisor action')
 
 if len(sys.argv) >= 3 and sys.argv[1] == '--serve':

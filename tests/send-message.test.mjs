@@ -18,26 +18,30 @@ import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
 import {readDiagnostic,compareDiagnostic} from '@cline-cli-sdk/sdk';
 
-async function controlledComposer(t,{lostEcho=false,lostSubmit=false,rejectStep,rejectReservation=false,immediateRejection=false,directory,text='2 한글 😀 café',cursorEcho=false}={}) {
+async function controlledComposer(t,{lostEcho=false,lostSubmit=false,rejectStep,rejectReservation=false,immediateRejection=false,directory,text='2 한글 😀 café',cursorEcho=false,layout,terminal={rows:40,cols:120}}={}) {
  let eid, seq=0, composer='',submitted=0, writes=[], pending, busy=false, witness, missingLedger=false, brokenHistory=false;
+ let size=terminal,missingScreen=false;const calls=[];
  const history=[{id:'old-identical',role:'user',content:[{type:'text',text}]}];
  t.mock.method(cp,'spawn',()=>{const p=new EventEmitter();p.stdout=new PassThrough();p.stderr=new PassThrough();p.stdin=new PassThrough();p.kill=()=>{};let data='';p.stdin.on('data',d=>data+=d);p.stdin.on('finish',()=>{try{const r=JSON.parse(data);let value;
+ calls.push(r);
  if(!r.action)value=pinned;
- else if(r.action==='start'){eid=r.executionId;value={executionId:eid,remoteRoot:'/fixture/control',terminalMode:'tui'};}
- else if(r.action==='list')value={executions:[{executionId:eid,remoteRoot:'/fixture/control',sessionId:'composer-session',terminalMode:'tui',terminal:{rows:40,cols:120},cliHash:pinned.cliHash}]};
+ else if(r.action==='start'){eid=r.executionId;value={executionId:eid,remoteRoot:'/fixture/control',terminalMode:'tui',terminal:r.terminal};}
+ else if(r.action==='list')value={executions:[{executionId:eid,remoteRoot:'/fixture/control',sessionId:'composer-session',terminalMode:'tui',terminal:size,cliHash:pinned.cliHash}]};
  else if(r.action==='reserve-message'){if(rejectReservation)value={state:'rejected',fresh:false,notSubmitted:true,reason:'agent-not-idle'};else{pending={...r,baselineMessageCount:history.length,baselineLastMessageId:history.at(-1)?.id};value={state:'reserved',fresh:true};}}
  else if(r.action==='respond'){writes.push(r);const inputText=Buffer.from(r.dataBase64,'base64').toString();if(r.stepIndex!==rejectStep){if(r.inputType==='composer-text'&&!lostEcho)composer+=inputText;if(r.inputType==='composer-submit'){submitted++;composer='';if(!lostSubmit)history.push({id:'new-'+submitted,role:'user',content:[{type:'text',text}]},{id:'reply-'+submitted,role:'assistant',content:[{type:'text',text:'Controlled reply'}]});}}value={state:immediateRejection&&r.stepIndex===rejectStep?'rejected':'queued'};}
  else if(r.action==='settle-message'){value={state:rejectStep===0?'not-submitted':history.some(m=>m.id==='new-'+submitted)?'delivered':'delivery-unknown',executionId:eid,sessionId:'composer-session',messageId:'new-'+submitted,promptDigest:pending.answerDigest};if(['delivered','not-submitted'].includes(value.state))witness=value;}
  else if(r.action==='status'){
   const raw=Buffer.from(brokenHistory?'{':JSON.stringify({version:1,sessionId:'composer-session',messages:history}));
-  const frame='\x1b[2J\x1b[H\x1b[35;1H'+'─'.repeat(120)+'\x1b[36;1H❯ '+(composer||'Ask anything...')+'\x1b[37;1H'+'─'.repeat(120)+'\x1b[38;1H● Act (Tab)\x1b[40;1HAuto-approve all disabled (Shift+Tab)'+`\x1b[36;${cursorEcho?3+composer.length:3}H`;
+  const row=layout?.cursorY??size.rows-5,footer=layout?.footer??['● Act (Tab)','','Auto-approve all disabled (Shift+Tab)'];
+  const frame=`\x1b[2J\x1b[H\x1b[${row};1H`+'─'.repeat(size.cols)+`\x1b[${row+1};1H❯ `+(composer||'Ask anything...')+`\x1b[${row+2};1H`+'─'.repeat(size.cols)+footer.map((line,i)=>`\x1b[${row+3+i};1H${line}`).join('')+`\x1b[${row+1};${cursorEcho?3+composer.length:3}H`;
   value={executionId:eid,sessionId:'composer-session',cursor:++seq,observations:[{kind:'pty',seq,observedAt:new Date().toISOString(),dataBase64:Buffer.from(frame).toString('base64')}],composerHash:'composer-hash',history:{dataBase64:raw.toString('base64'),sha256:createHash('sha256').update(raw).digest('hex')},
-   process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,supervisorAlive:true,exitCode:null,manifestStatus:busy?'running':'idle',children:[],trackingError:null},management:{phaseSupported:true,phase:{active:false},responseReservation:true,inputLedgerCurrent:!missingLedger},
+   ...(!missingScreen && (r.terminal?.rows!==size.rows || r.terminal?.cols!==size.cols)?{screen:{dataBase64:Buffer.from(frame).toString('base64'),...size,cursorX:cursorEcho?2+composer.length:2,cursorY:row}}:{}),
+   process:{kind:'process',identity:{pid:42,startTime:'100',bootId:'boot-1'},alive:true,identityConfirmed:true,supervisorAlive:true,exitCode:null,manifestStatus:busy?'running':'idle',children:[],trackingError:null},management:{terminal:size,phaseSupported:true,phase:{active:false},responseReservation:true,inputLedgerCurrent:!missingLedger},
    requests:pending&&!missingLedger?[{requestId:pending.requestId,state:rejectStep===0&&writes.length?'rejected':'written',binding:pending,message:true,baselineMessageCount:pending.baselineMessageCount,baselineLastMessageId:pending.baselineLastMessageId,witness,resolution:witness?.state,steps:writes.filter(w=>w.requestId===pending.requestId).map(w=>({index:w.stepIndex,state:w.stepIndex===rejectStep?'rejected':'written'}))}]:[]};
  }else throw Error('unexpected '+r.action);
  p.stdout.end(JSON.stringify(value));queueMicrotask(()=>p.emit('close',0));}catch(error){queueMicrotask(()=>p.emit('error',error));}});return p;});
- const c=createClient({mode:'live',connection:{host:'fixture',responseTimeoutMs:250}});if(directory)await c.startDiagnostics({directory});await c.connect();await c.start({cwd:'/fixture',terminalMode:'tui',prompt:'first'});await c.refresh();
- return {c,writes,setBusy:v=>busy=v,setHistoryFault:v=>brokenHistory=v,setLedgerMissing:v=>missingLedger=v,recover:()=>history.push({id:'new-'+submitted,role:'user',content:[{type:'text',text}]},{id:'reply-'+submitted,role:'assistant',content:[{type:'text',text:'Recovered reply'}]}),request:(requestId='message-1')=>({sessionId:c.snapshot().sessionId,executionId:c.snapshot().executionId,revision:c.snapshot().revision,requestId,text})};
+ const c=createClient({mode:'live',connection:{host:'fixture',responseTimeoutMs:250}});if(directory)await c.startDiagnostics({directory});await c.connect();await c.start({cwd:'/fixture',terminalMode:'tui',terminal,prompt:'first'});await c.refresh();
+ return {c,writes,calls,resize:(value,missing=false)=>{size=value;missingScreen=missing;},setBusy:v=>busy=v,setHistoryFault:v=>brokenHistory=v,setLedgerMissing:v=>missingLedger=v,recover:()=>history.push({id:'new-'+submitted,role:'user',content:[{type:'text',text}]},{id:'reply-'+submitted,role:'assistant',content:[{type:'text',text:'Recovered reply'}]}),request:(requestId='message-1')=>({sessionId:c.snapshot().sessionId,executionId:c.snapshot().executionId,revision:c.snapshot().revision,requestId,text})};
 }
 
 for(const immediateRejection of [false,true])test(`a conclusive first-step rejection (immediate=${immediateRejection}) is unsubmitted and a fresh client recovers without repeating input`,async t=>{
@@ -119,4 +123,56 @@ test('a followup chunk ending in a space confirms its exact cursor-bounded echo 
  const control=await controlledComposer(t,{text:'x'.repeat(63)+' '+'z',cursorEcho:true});t.after(()=>control.c.close());
  const result=await control.c.sendMessage(control.request());assert.equal(result.state,'delivered');
  assert.deepEqual(control.writes.map(w=>Buffer.from(w.dataBase64,'base64').toString()),['x'.repeat(63)+' ','z','\r']);
+});
+
+test('custom CLI layout permits consecutive followups with exact chunk echo before Enter',async t=>{
+ const layout=JSON.parse(await readFile(new URL('../fixtures/chat/company-composer-layout.json',import.meta.url)));
+ const control=await controlledComposer(t,{layout,text:'x'.repeat(63)+' '+'z',cursorEcho:true});t.after(()=>control.c.close());
+ for(const id of ['custom-1','custom-2']){
+  assert.equal(control.c.snapshot().messageInput.ready,true);
+  assert.equal((await control.c.sendMessage(control.request(id))).state,'delivered');
+ }
+ assert.deepEqual(control.writes.map(w=>Buffer.from(w.dataBase64,'base64').toString()),['x'.repeat(63)+' ','z','\r','x'.repeat(63)+' ','z','\r']);
+});
+
+for(const terminal of [{rows:24,cols:80},{rows:50,cols:160}])test(`start and sendMessage use ${terminal.cols}x${terminal.rows}`,async t=>{
+ const control=await controlledComposer(t,{terminal,text:'x'.repeat(Math.min(112,terminal.cols-8)),cursorEcho:true});t.after(()=>control.c.close());
+ assert.deepEqual(control.calls.find(r=>r.action==='start').terminal,terminal);
+ assert.equal(control.c.snapshot().messageInput.maxBytes,Math.min(112,terminal.cols-8));
+ assert.equal((await control.c.sendMessage(control.request())).state,'delivered');
+});
+
+test('narrow terminal rejects text that would wrap before reserving or writing',async t=>{
+ const control=await controlledComposer(t,{terminal:{rows:24,cols:80},text:'x'.repeat(73)});t.after(()=>control.c.close());
+ await assert.rejects(control.c.sendMessage(control.request()),{code:'invalid-message',notSubmitted:true});
+ assert.equal(control.calls.some(r=>r.action==='reserve-message'),false);assert.equal(control.writes.length,0);
+ assert.equal(control.c.snapshot().messageInput.ready,true);
+});
+
+test('prewrite refresh catches a terminal shrink before reserving the old-size prompt',async t=>{
+ const control=await controlledComposer(t,{text:'x'.repeat(100)});t.after(()=>control.c.close());
+ const request=control.request();control.resize({cols:80,rows:24});
+ await assert.rejects(control.c.sendMessage(request),{code:'invalid-message',notSubmitted:true});
+ assert.equal(control.calls.some(r=>r.action==='reserve-message'),false);assert.equal(control.writes.length,0);
+});
+
+test('resize requires a fresh full screen then permits input and replays the new size',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'cline-resize-diag-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ const control=await controlledComposer(t,{directory,text:'hello',cursorEcho:true});t.after(()=>control.c.close());
+ control.resize({rows:24,cols:80},true);await control.c.refresh();
+ assert.equal(control.c.snapshot().messageInput.ready,false);
+ await assert.rejects(control.c.sendMessage(control.request()),{code:'message-not-ready'});assert.equal(control.writes.length,0);
+ control.resize({rows:24,cols:80});await control.c.refresh();
+ assert.equal(control.c.snapshot().messageInput.ready,true);assert.equal(control.c.snapshot().messageInput.maxBytes,72);
+ assert.equal((await control.c.sendMessage(control.request('resized'))).state,'delivered');
+ control.resize({rows:50,cols:160});await control.c.refresh();
+ assert.equal(control.c.snapshot().messageInput.maxBytes,112);
+ const saved=await control.c.stopDiagnostics(),bundle=await readDiagnostic(saved.path),replay=createClient({mode:'replay'}),events=[];
+ try{replay.subscribe(e=>events.push(e));await replay.openReplay(bundle.recording);await replay.replayAll();assert.deepEqual(compareDiagnostic(bundle,events,replay.snapshot()),{matches:true,eventDifferences:0,snapshotMatches:true});}finally{replay.close();}
+});
+
+test('invalid initial terminal sizes are rejected before remote launch',async t=>{
+ remote(t,[pinned]);const c=createClient({mode:'live',connection:{host:'fixture'}});t.after(()=>c.close());await c.connect();
+ for(const terminal of [{cols:19,rows:24},{cols:501,rows:24},{cols:80,rows:4},{cols:80,rows:201},{cols:80.5,rows:24}])
+  await assert.rejects(c.start({cwd:'/fixture',prompt:'first',terminalMode:'tui',terminal}),{code:'invalid-terminal-geometry'});
 });

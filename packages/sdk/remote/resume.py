@@ -27,6 +27,8 @@ def launch_resume(request, root, handle, identity, boot_id, save):
         if status.get('management',{}).get('inputLedgerCurrent') is not True:
             raise ValueError('Resume requires a current durable input ledger')
         meta = json.loads((old / 'meta.json').read_text())
+        if len(prompt.encode()) > min(112, meta['terminal']['cols'] - 8):
+            raise ValueError('Resume prompt exceeds the terminal one-row byte budget')
         proc = status['process']
         stop = proc.get('stop')
         if meta.get('owner') != 'cline-cli-sdk' or meta.get('cliHash') != request['cliHash'] or not status.get('sessionId') or proc.get('alive') is not False or proc.get('identityConfirmed') is not True or proc.get('exitCode') is None or proc.get('supervisorAlive') is not False or proc.get('childrenVerified') is not True or proc.get('children') or (stop and (stop.get('state')!='confirmed' or not stop.get('childrenVerified') or stop.get('remaining'))) or (not stop and (proc['manifestStatus']!='completed' or proc['exitCode']!=0)):
@@ -45,7 +47,7 @@ def launch_resume(request, root, handle, identity, boot_id, save):
         save(receipt_path,receipt)  # uncertain launch reserves this identity permanently
         meta.update(sessionId=sid, resumedBy=new_id, ownedManifestStatus=proc['manifestStatus'])
         save(old / 'meta.json',meta)
-        launched = handle(dict(request,action='start',executionId=new_id,cwd=meta['cwd'],dataDir=meta['dataDir'],storageMode=meta.get('storageMode','isolated'),sessionDirectory=meta.get('sessionDirectory'),terminalMode='tui',_resume=receipt))
+        launched = handle(dict(request,action='start',executionId=new_id,cwd=meta['cwd'],dataDir=meta['dataDir'],storageMode=meta.get('storageMode','isolated'),sessionDirectory=meta.get('sessionDirectory'),terminal=meta['terminal'],terminalMode='tui',_resume=receipt))
         receipt['state']='started'
         save(receipt_path,receipt)
         return dict(launched,resume=receipt)
